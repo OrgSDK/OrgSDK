@@ -72,3 +72,8 @@ export function finishSignIn(): void {
   // A document navigation refreshes the product's session and workspace state.
   location.assign(safeNextPath(location.search));
 }
+
+export function redirectToSignIn(): void {
+  const next = `${location.pathname}${location.search}${location.hash}`;
+  location.replace(`/accounts/login/?next=${encodeURIComponent(next)}`);
+}

@@ -1,5 +1,7 @@
 # Development checks
 
+- Follow `CONTRIBUTING.md`: use an issue-linked feature branch and pull request targeting `main`. Keep unrelated changes separate. Do not push feature commits directly to `main`, merge PRs, publish releases or deploy without authorization for that action.
+
 - Python dependencies are managed with uv; JavaScript dependencies with npm in `frontend/`.
 - Run `make install` after cloning. Run `make check` before finishing changes.
 - Frontend gates: `npm --prefix frontend run lint`, `npm --prefix frontend run typecheck`, and `npm --prefix frontend run check` (format, lint, types and API contract drift).
