@@ -1,0 +1,58 @@
+name: ${COMPOSE_PROJECT_NAME:-orgsdk}
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: orgsdk
+      POSTGRES_USER: orgsdk
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/start.sh first}
+    volumes: [postgres:/var/lib/postgresql]
+    networks: [data]
+    healthcheck: {test: [CMD-SHELL, "pg_isready -U orgsdk -d orgsdk"], interval: 5s, timeout: 5s, retries: 20}
+    restart: unless-stopped
+  app:
+    image: ${APP_IMAGE:-orgsdk-platform:local}
+    build: .
+    env_file: ${ORGSDK_ENV_FILE:-.env.deployment}
+    command: [server]
+    restart: unless-stopped
+    networks: [data, execution]
+    ports: ['${BIND_ADDRESS:-0.0.0.0}:${HTTP_PORT:-8080}:8080']
+    volumes: [server-data:/var/lib/orgsdk, media:/app/media]
+    environment:
+      PUBLIC_SCHEME: ${PUBLIC_SCHEME:-http}
+    depends_on:
+      postgres: {condition: service_healthy}
+    stop_grace_period: 60s
+  job-image:
+    profiles: [runner]
+    image: ${EXECUTOR_IMAGE:-orgsdk-job:local}
+    build: runtime
+    entrypoint: ["/bin/true"]
+    restart: 'no'
+    networks: [execution]
+  executor:
+    profiles: [runner]
+    image: ${SUPERVISOR_IMAGE:-orgsdk-supervisor:local}
+    build: {context: runtime, dockerfile: Dockerfile.supervisor}
+    environment:
+      DJANGO_URL: http://app:8000
+      LOCAL_EXECUTOR_BOOTSTRAP_TOKEN: ${LOCAL_EXECUTOR_BOOTSTRAP_TOKEN:-}
+      EXECUTOR_IMAGE: ${EXECUTOR_IMAGE:-orgsdk-job:local}
+      EXECUTION_NETWORK: ${COMPOSE_PROJECT_NAME:-orgsdk}-execution
+      EXECUTOR_DATA_DIR: /var/lib/orgsdk
+      EXECUTOR_DATA_VOLUME: ${COMPOSE_PROJECT_NAME:-orgsdk}-agent-data
+    volumes: ['/var/run/docker.sock:/var/run/docker.sock', 'agent-data:/var/lib/orgsdk']
+    depends_on:
+      app: {condition: service_healthy}
+      job-image: {condition: service_completed_successfully}
+    networks: [execution]
+    restart: unless-stopped
+networks:
+  data: {internal: true}
+  execution: {name: '${COMPOSE_PROJECT_NAME:-orgsdk}-execution'}
+volumes:
+  postgres:
+  server-data:
+  media:
+  agent-data: {name: '${COMPOSE_PROJECT_NAME:-orgsdk}-agent-data'}

@@ -1,0 +1,25 @@
+[Unit]
+Description=OrgSDK executor (%i)
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=simple
+User=orgsdk-%i
+Group=orgsdk-%i
+EnvironmentFile=/etc/orgsdk-executor/%i.env
+WorkingDirectory=/var/lib/orgsdk-executor/%i
+ExecStart=/opt/orgsdk-executor/start-service %i
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/orgsdk-executor/%i
+
+[Install]
+WantedBy=multi-user.target
