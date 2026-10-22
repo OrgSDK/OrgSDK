@@ -43,6 +43,10 @@ scripts/check_postgres.sh # isolated PostgreSQL claims and locking tests
 
 Commit generated frontend and runtime API contracts together with API changes. Runtime-specific commands and packaging are covered in the [executor guide](runtime/README.md). Retained runtime source attribution is recorded in [runtime provenance](runtime/PROVENANCE.md).
 
+## Report issues and propose changes
+
+Open a [bug report or feature request](https://github.com/OrgSDK/OrgSDK/issues/new/choose) to propose a change. Maintainers implement accepted work through pull requests; PR creation is limited to repository collaborators. See the [change workflow](CONTRIBUTING.md) for development, review and release steps.
+
 ## License
 
 OrgSDK is source-available under the [OrgSDK Source-Available License](LICENSE). Personal, non-business use and internal use by businesses with fewer than 15 staff are permitted without a license fee. Staff are counted across the business group, including working owners and regular contractors. Businesses with 15 or more staff, hosting for others, and selling or embedding access to OrgSDK require a separate written commercial license. This includes access through APIs, MCP and agents.

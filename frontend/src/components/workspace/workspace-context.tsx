@@ -10,6 +10,7 @@ import {
 } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { api } from "../../api/client";
+import { redirectToSignIn } from "../../api/auth";
 import { result, errorMessage } from "../../api/result";
 import { loadAgents } from "../../api/workspace-queries";
 import type { components } from "../../api/schema";
@@ -49,7 +50,7 @@ export function useWorkspace(): WorkspaceContextValue {
   return context;
 }
 function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
-  const [signedIn, setSignedIn] = useState<boolean | undefined>();
+  const [signedIn, setSignedIn] = useState(false);
   const [agents, setAgents] = useState<components["schemas"]["Project"][]>([]);
   const [selectedProject, setSelected] = useState("");
   const [workspace, setWorkspace] = useState("Your workspace");
@@ -73,7 +74,7 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
       ? parameters.get("record")
       : null);
   const isInvalidProject =
-    signedIn === true &&
+    signedIn &&
     !detailKey &&
     Boolean(linkedProject) &&
     agents.every((project) => project.id !== linkedProject);
@@ -127,12 +128,19 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
     void (async () => {
       try {
         const session = result(
-          await api.GET("/api/v1/session/", { signal: controller.signal }),
+          await api.GET("/api/v1/session/", {
+            signal: controller.signal,
+            cache: "no-store",
+          }),
         );
         if (controller.signal.aborted) return;
-        if (session.is_authenticated) await refresh();
+        if (!session.is_authenticated) {
+          redirectToSignIn();
+          return;
+        }
+        await refresh();
         controller.signal.throwIfAborted();
-        setSignedIn(session.is_authenticated);
+        setSignedIn(true);
       } catch (error_) {
         if (!controller.signal.aborted) setError(errorMessage(error_));
       }
@@ -142,7 +150,7 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
     };
   }, [refresh]);
   useEffect(() => {
-    if (signedIn !== true) return;
+    if (!signedIn) return;
     const controller = new AbortController();
     const choose = (id: string | undefined) => {
       if (controller.signal.aborted) return;
@@ -194,6 +202,18 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
     detailKey,
     signedIn,
   ]);
+  if (!signedIn)
+    return (
+      <main className="p-6">
+        {error ? (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        ) : (
+          <p role="status">Loading your session…</p>
+        )}
+      </main>
+    );
   const value: WorkspaceContextValue = {
     agents,
     selected,
@@ -224,28 +244,11 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
             {error || selectionError}
           </div>
         ) : undefined}
-        {signedIn === undefined ? (
-          <p role="status">Loading your workspace…</p>
-        ) : undefined}
-        {signedIn === true &&
-        !selectionError &&
-        (!detailKey || detailKey === resolvedDetail)
+        {!selectionError && (!detailKey || detailKey === resolvedDetail)
           ? children
           : undefined}
-        {signedIn === true && detailKey && detailKey !== resolvedDetail ? (
+        {detailKey && detailKey !== resolvedDetail ? (
           <p role="status">Loading project…</p>
-        ) : undefined}
-        {signedIn === false ? (
-          <section className="empty">
-            <h2>Welcome to your workspace</h2>
-            <p>Sign in to manage projects, run actions and review results.</p>
-            <a
-              className="button"
-              href={`/accounts/login/?next=${encodeURIComponent(pathname)}`}
-            >
-              Sign in
-            </a>
-          </section>
         ) : undefined}
       </WorkspaceShell>
     </WorkspaceContext>
