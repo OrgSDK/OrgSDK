@@ -1,0 +1,122 @@
+OrgSDK Source-Available License
+Version 1.0
+
+Copyright (c) 2026 the OrgSDK copyright holders and contributors.
+
+1. Scope and acceptance
+
+These terms apply to the OrgSDK material made available under this license,
+including modifications of that material (the Software). The Licensor is each
+copyright holder offering their material under these terms. Exercising a right
+granted here means accepting these terms. Rights not expressly granted remain
+with their holders.
+
+Separately identified third-party material is governed by its own license. These
+terms do not replace or restrict rights granted by third-party licenses. Retain
+the applicable notices, including those accompanying dependencies and copied
+source. These terms do not give ownership of your data, actions or outputs to
+the Licensor.
+
+2. Source access and sharing
+
+You may inspect, copy and modify the Software, and share original or modified
+copies without charging for the copies. Every shared copy must include these
+terms and retain applicable copyright, attribution and license notices.
+Identify your modifications. Recipients obtain their rights directly under
+these terms and must independently qualify for running the Software. You may
+not offer broader rights to the covered material than you have received.
+
+3. Permitted operation without a separate agreement
+
+You may run original or modified copies of the Software without a license fee:
+
+(a) as an individual for your own personal, non-business activities; or
+(b) for a business's own internal activities while its entire Organization
+    Group has fewer than 15 Staff.
+
+Business activity performed by an individual on behalf of an organization is
+subject to (b), including use through a personal account or personal computer.
+The threshold is 0 through 14 Staff across the Organization Group, rather than
+the number of users, accounts, projects, installations or concurrent sessions.
+Part-time and full-time Staff each count as one person, counted only once.
+
+An Organization Group is a business, sole trader or other business entity
+together with all entities that control it, that it controls, or that are under
+common control. Control means the ability to direct an entity's management,
+whether through ownership, agreement or another arrangement.
+
+Staff are working owners, employees, and individual contractors or agency
+workers regularly working in the Organization Group's operations. Inactive
+investors and suppliers merely providing goods or occasional services are not
+Staff. Count Staff across the whole group, including people who do not use the
+Software. Dividing an operation between entities, installations or accounts
+does not reduce its Staff count.
+
+An Organization Group with 15 or more Staff must obtain a separate written
+commercial license before starting or continuing to run the Software. A group
+that grows to that size must obtain that permission or stop running it.
+
+4. Hosting, resale and customer access
+
+Regardless of Staff count, a separate written commercial license from the
+relevant Licensor is required to:
+
+(a) sell, rent, sublicense for a fee, or charge for copies of the Software;
+(b) operate or host the Software for third parties as a service; or
+(c) give customers or other third parties access to the Software's project,
+    action-authoring, execution, orchestration or management capabilities as
+    part of a product or service, including an embedded or white-label product.
+
+These restrictions apply to direct access and to access through another user
+interface, API, MCP endpoint, agent or intermediary. They apply when access is
+free, charged separately, or bundled into another product or service. Renaming,
+modifying or concealing the Software does not remove these restrictions.
+
+A qualifying business may use the Software internally to carry out its own
+work and deliver ordinary results to customers. Giving a customer a report or
+other completed result does not by itself provide access to the Software.
+Giving customers the ability to define, configure, submit or manage their own
+work through the Software is access requiring a commercial license.
+
+You may charge for consulting, installation, training, maintenance or custom
+development for a qualifying recipient's own internal installation. The
+recipient must control that installation, independently qualify under section
+3 or hold a commercial license, and retain control of its data and accounts.
+Operation solely to install, develop or maintain that recipient-controlled
+installation is assessed using the recipient's eligibility, rather than the
+service provider's Staff count.
+This permission does not include operating a hosted service for the recipient
+or licensing use on behalf of an otherwise ineligible organization.
+
+For permission beyond these terms, contact the maintainers through the OrgSDK
+organization at https://github.com/OrgSDK. A separate written agreement may
+grant additional rights to material its parties are authorized to license.
+
+5. Patents and branding
+
+Each Licensor grants permission under patent claims it controls that would
+necessarily be infringed by the unmodified Software, solely for activities
+permitted by these terms. This does not cover infringement introduced by your
+changes or combinations. If you bring a patent claim alleging that the
+Software infringes a patent, your patent permission under this section ends.
+
+No trademark or branding rights are granted, other than displaying the notices
+required by these terms and accurately identifying the origin of the Software.
+Do not imply endorsement of your modifications or services.
+
+6. Ending and restoring permission
+
+Permission ends automatically when you breach these terms. If you correct the
+breach within 30 days after first receiving written notice of it, permission
+is restored. A later breach after such restoration requires written permission
+from the relevant Licensor to restore your rights. Rights of recipients who
+continue to comply with these terms are unaffected by your breach.
+
+7. Warranty and liability
+
+To the extent allowed by applicable law, the Software is supplied without
+warranties or promises about quality, fitness, availability, security or
+non-infringement. You are responsible for evaluating and operating it. To that
+same extent, the Licensor and contributors are not liable for losses or damages
+arising from the Software or these terms. Nothing here excludes a right,
+guarantee or liability that applicable law does not allow to be excluded.

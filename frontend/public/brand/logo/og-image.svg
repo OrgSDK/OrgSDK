@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none" role="img" aria-label="OrgSDK — Run your agent team in the cloud">
+  <title>OrgSDK — Social Card</title>
+  <!-- 1200x630 social / OG card. Pure-white surface (brand restraint),
+       Orbit-O lockup + tagline + URL. Rendered to og-image.png by render.ts. -->
+  <rect width="1200" height="630" fill="#ffffff"/>
+
+  <!-- Light lockup (mirrors lockup-light.svg), scaled 2.6x -> 520x146, centered. -->
+  <g transform="translate(340,164) scale(2.6)">
+    <g transform="translate(4,6) scale(0.75)">
+      <circle cx="32" cy="32" r="19" stroke="#4f46e5" stroke-width="12" fill="none"/>
+      <circle cx="50" cy="14" r="6" fill="#8b5cf6"/>
+    </g>
+    <text x="58" y="37" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" font-size="26" letter-spacing="-0.02em">
+      <tspan fill="#0f172a">Org</tspan><tspan fill="#4338ca">SDK</tspan>
+    </text>
+  </g>
+
+  <text x="600" y="392" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="400" font-size="46" fill="#475569">Run your agent team in the cloud.</text>
+  <text x="600" y="514" text-anchor="middle" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="500" font-size="30" fill="#4338ca" letter-spacing="0.08em">orgsdk.ai</text>
+</svg>

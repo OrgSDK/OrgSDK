@@ -1,0 +1,10 @@
+FROM oven/bun:1.4.0 AS bun
+FROM mcr.microsoft.com/playwright:v1.60.0-noble
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+WORKDIR /executor
+COPY LICENSE package.json bun.lock ./
+RUN bun install --frozen-lockfile --production
+COPY src/ src/
+USER 1000
+ENTRYPOINT ["bun", "--no-env-file", "/executor/src/worker.ts"]

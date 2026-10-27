@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 216 64" fill="none" role="img" aria-label="OrgSDK logo">
+  <title>OrgSDK — Integrated Lockup</title>
+  <!-- The "O" = a stroked circle (fill none). Tune the ring with:
+       r = radius/size, stroke-width = ring thickness, stroke = color.
+       Visually identical to the filled-path ring in primary.svg. -->
+  <circle cx="25" cy="31" r="14.5" stroke="#4f46e5" stroke-width="9" fill="none"/>
+  <circle cx="38" cy="18" r="4.5" fill="#8b5cf6"/>
+
+  <!-- TUNE THE GAP: change x. Ring outer right edge ~ x=44 (cx 25 + r 19).
+       x=44 = touching; higher = more gap. Nudge in 1px steps. -->
+  <text x="47" y="50" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" font-size="52" letter-spacing="-0.02em">
+    <tspan fill="#0f172a">rg</tspan><tspan fill="#4338ca">SDK</tspan>
+  </text>
+</svg>

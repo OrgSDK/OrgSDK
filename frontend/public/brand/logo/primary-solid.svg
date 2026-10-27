@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="OrgSDK logo mark">
+  <title>OrgSDK — Orbit O</title>
+  <!-- Alias of primary.svg (the mark is a single stroked ring + node). -->
+  <circle cx="32" cy="32" r="19" stroke="#4f46e5" stroke-width="12" fill="none"/>
+  <circle cx="50" cy="14" r="6" fill="#8b5cf6"/>
+</svg>

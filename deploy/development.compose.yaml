@@ -1,0 +1,37 @@
+# Local infrastructure. Run the Django ASGI API and Next.js on the host.
+name: orgsdk-platform
+services:
+  executor:
+    image: ${EXECUTOR_SUPERVISOR_IMAGE:-orgsdk-supervisor:dev}
+    build:
+      context: ../runtime
+      dockerfile: Dockerfile.supervisor
+    entrypoint: [bun, --watch, /executor/src/supervisor.ts]
+    profiles: [execution]
+    env_file:
+      - path: ../.runtime/executor.env
+        required: false
+    environment:
+      DJANGO_URL: http://127.0.0.1:${DJANGO_PORT:-8000}
+      EXECUTOR_IMAGE: ${EXECUTOR_JOB_IMAGE:-orgsdk-job:dev}
+      EXECUTOR_SOURCE_DIR: ${EXECUTOR_SOURCE_DIR:-${PWD}/runtime/src}
+      EXECUTION_NETWORK: host
+      EXECUTOR_DATA_DIR: /var/lib/orgsdk
+      EXECUTOR_DATA_VOLUME: ${COMPOSE_PROJECT_NAME:-orgsdk-platform}-project-data
+    # Host networking reaches the loopback-only Django development server.
+    # This local trusted-code setup requires Linux or Docker Desktop host networking.
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - project-data:/var/lib/orgsdk
+      - ../runtime/src:/executor/src:ro
+    restart: unless-stopped
+volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U django -d django_template"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  project-data: { name: "${COMPOSE_PROJECT_NAME:-orgsdk-platform}-project-data" }

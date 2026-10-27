@@ -1,0 +1,51 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.env
+.env.*
+!.env.example
+*.sqlite3
+*.sqlite3-*
+media/
+staticfiles/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+.playwright-cli/
+playwright-session/
+playwright-user-data/
+docs/local-user.md
+.agents/
+.codex/
+*.tgz
+test-results/
+.DS_Store
+
+# Frontend and runtime state
+node_modules/
+.runtime/
+
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+runtime/node_modules/
+
+*.tsbuildinfo
+
+.coverage.*
+
+# Bundled from the locked Monaco dependency before dev/build
+frontend/public/monaco/
+
+# Generated plugin bundles and local marketplace metadata
+runtime/bundled/
+apps/actions/bundled_plugins.json
