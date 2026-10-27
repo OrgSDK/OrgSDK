@@ -29,9 +29,7 @@ export function Schedules({ actionId = "" }: { actionId?: string }): ReactNode {
   const { selected: projectId, setDirty } = useWorkspace();
   const query = useWorkspaceQuery(loadScheduleData);
   const actions = (query.data?.actions ?? []).filter(
-    (item) =>
-      (item.project ?? item.agent) === projectId &&
-      (!actionId || item.id === actionId),
+    (item) => item.project === projectId && (!actionId || item.id === actionId),
   );
   const actionIds = new Set(actions.map((item) => item.id));
   const schedules = (query.data?.schedules ?? []).filter((item) =>

@@ -9,8 +9,8 @@ export default function Page(): ReactNode {
     >
       <p className="text-sm">
         This installation does not send password reset emails. If you manage the
-        server, use Django’s changepassword management command for your
-        username, then sign in with your new password.
+        server, use the orgsdk reset-password command for your username, then
+        sign in with your new password.
       </p>
       <Link href="/accounts/login/" className="text-sm">
         Back to sign in

@@ -36,7 +36,7 @@ async function loadGrantOptions(signal: AbortSignal, projectId: string) {
   ]);
   const versions = await Promise.all(
     actions
-      .filter((action) => (action.project ?? action.agent) === projectId)
+      .filter((action) => action.project === projectId)
       .map(async (action) => {
         const response = result(
           await api.GET("/api/v1/actions/{id}/versions/", {
@@ -47,7 +47,7 @@ async function loadGrantOptions(signal: AbortSignal, projectId: string) {
         return response.map((version) => ({
           ...version,
           actionName: action.name,
-          project: action.project ?? action.agent,
+          project: action.project,
         }));
       }),
   );

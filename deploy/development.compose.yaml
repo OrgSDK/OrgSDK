@@ -1,5 +1,5 @@
-# Local infrastructure. Run the Django ASGI API and Next.js on the host.
-name: orgsdk-platform
+# Optional local executor for the host Bun server. Uses a separate development volume.
+name: ${COMPOSE_PROJECT_NAME:-orgsdk-bun-dev}
 services:
   executor:
     image: ${EXECUTOR_SUPERVISOR_IMAGE:-orgsdk-supervisor:dev}
@@ -7,19 +7,14 @@ services:
       context: ../runtime
       dockerfile: Dockerfile.supervisor
     entrypoint: [bun, --watch, /executor/src/supervisor.ts]
-    profiles: [execution]
-    env_file:
-      - path: ../.runtime/executor.env
-        required: false
     environment:
-      DJANGO_URL: http://127.0.0.1:${DJANGO_PORT:-8000}
+      DJANGO_URL: http://127.0.0.1:${PORT:-8080}
+      LOCAL_EXECUTOR_BOOTSTRAP_TOKEN: ${LOCAL_EXECUTOR_BOOTSTRAP_TOKEN:-}
       EXECUTOR_IMAGE: ${EXECUTOR_JOB_IMAGE:-orgsdk-job:dev}
       EXECUTOR_SOURCE_DIR: ${EXECUTOR_SOURCE_DIR:-${PWD}/runtime/src}
       EXECUTION_NETWORK: host
       EXECUTOR_DATA_DIR: /var/lib/orgsdk
-      EXECUTOR_DATA_VOLUME: ${COMPOSE_PROJECT_NAME:-orgsdk-platform}-project-data
-    # Host networking reaches the loopback-only Django development server.
-    # This local trusted-code setup requires Linux or Docker Desktop host networking.
+      EXECUTOR_DATA_VOLUME: ${COMPOSE_PROJECT_NAME:-orgsdk-bun-dev}-project-data
     network_mode: host
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -27,11 +22,4 @@ services:
       - ../runtime/src:/executor/src:ro
     restart: unless-stopped
 volumes:
-      - postgres-data:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U django -d django_template"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-volumes:
-  project-data: { name: "${COMPOSE_PROJECT_NAME:-orgsdk-platform}-project-data" }
+  project-data: { name: '${COMPOSE_PROJECT_NAME:-orgsdk-bun-dev}-project-data' }

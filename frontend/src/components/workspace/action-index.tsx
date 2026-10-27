@@ -35,13 +35,11 @@ export function ActionIndex(): ReactNode {
     );
   }
   const actions = (query.data ?? []).filter(
-    (action) => (action.project ?? action.agent) === projectId,
+    (action) => action.project === projectId,
   );
   const searchText = search.trim().toLowerCase();
   const matching = actions.filter((action) =>
-    `${action.name} ${action.description ?? ""}`
-      .toLowerCase()
-      .includes(searchText),
+    `${action.name} ${action.description}`.toLowerCase().includes(searchText),
   );
   const projectQuery = new URLSearchParams({ project: projectId }).toString();
 

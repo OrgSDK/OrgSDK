@@ -20,15 +20,19 @@ const config: NextConfig = {
     ],
     rewrites() {
       const backend =
-        process.env.DJANGO_PROXY_TARGET ?? "http://127.0.0.1:8000";
+        process.env.ORGSDK_PROXY_TARGET ?? "http://127.0.0.1:8080";
       return Promise.resolve([
+        {
+          source: "/trpc/:path*",
+          destination: `${backend}/trpc/:path*`,
+        },
         {
           source: "/api/auth/:path*",
           destination: `${backend}/api/auth/:path*`,
         },
         ...["api", "admin", "mcp"].map((prefix) => ({
           source: `/${prefix}/:path*/`,
-          // Django routes end in a slash; dropping it creates a redirect loop.
+          // Compatibility REST routes retain their trailing slash.
           destination: `${backend}/${prefix}/:path*/`,
         })),
         {

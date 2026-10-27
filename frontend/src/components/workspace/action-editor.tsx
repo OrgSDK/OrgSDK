@@ -1,9 +1,9 @@
 "use client";
-// Adapted from AIOrg's WorkspaceActionEditor; transport stays with Django.
+// Adapted from AIOrg's WorkspaceActionEditor.
 import Editor, { loader, type OnMount } from "@monaco-editor/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import { result, errorMessage } from "../../api/result";
+import { trpc } from "../../api/trpc";
+import { errorMessage } from "../../api/result";
 import { sdkDeclarations } from "../../generated/sdk-declarations";
 import zodLibraries from "../../generated/zod-libraries.json";
 import { actionCompilerOptions } from "./action-editor-config";
@@ -58,11 +58,9 @@ export default function ActionEditor({
     if (projectId)
       void (async () => {
         try {
-          const response = result(
-            await api.GET("/api/v1/projects/{id}/sdk/", {
-              params: { path: { id: projectId } },
-              signal: controller.signal,
-            }),
+          const response = await trpc.projects.sdk.query(
+            { id: projectId },
+            { signal: controller.signal },
           );
           if (!controller.signal.aborted) {
             setLoaded({

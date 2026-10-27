@@ -4,8 +4,8 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { loadDocuments } from "../api/workspace-queries";
-import { api } from "../api/client";
-import { errorMessage, result } from "../api/result";
+import { trpc } from "../api/trpc";
+import { errorMessage } from "../api/result";
 import type { components } from "../api/schema";
 
 export function Documents(): ReactNode {
@@ -32,18 +32,8 @@ export function Documents(): ReactNode {
     try {
       const body = { title, content };
       if (selected)
-        result(
-          await api.PATCH("/api/v1/documents/{id}/", {
-            params: { path: { id: selected } },
-            body,
-          }),
-        );
-      else
-        result(
-          await api.POST("/api/v1/documents/", {
-            body: { ...body, kind: "document" },
-          }),
-        );
+        await trpc.documents.update.mutate({ id: selected, changes: body });
+      else await trpc.documents.create.mutate({ ...body, kind: "document" });
       await load();
       setError("");
     } catch (error_) {

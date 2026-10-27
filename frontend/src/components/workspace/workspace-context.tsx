@@ -1,4 +1,5 @@
 "use client";
+import { loadSession } from "../../api/trpc";
 import {
   createContext,
   Suspense,
@@ -127,12 +128,7 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
     const controller = new AbortController();
     void (async () => {
       try {
-        const session = result(
-          await api.GET("/api/v1/session/", {
-            signal: controller.signal,
-            cache: "no-store",
-          }),
-        );
+        const session = await loadSession(controller.signal);
         if (controller.signal.aborted) return;
         if (!session.is_authenticated) {
           redirectToSignIn();

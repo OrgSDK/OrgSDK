@@ -1,7 +1,8 @@
 "use client";
 import { useState, type ReactNode } from "react";
 import { api } from "../api/client";
-import { errorMessage, result, requireSuccess } from "../api/result";
+import { errorMessage, result } from "../api/result";
+import { trpc } from "../api/trpc";
 import type { components } from "../api/schema";
 import {
   loadDocuments,
@@ -149,7 +150,7 @@ function ProjectOverview({ agent }: { agent: Project }): ReactNode {
   const query = useWorkspaceQuery(loadProjectActivity);
   const projectQuery = `project=${encodeURIComponent(agent.id)}`;
   const actions = query.data?.actions.filter(
-    (action) => (action.project ?? action.agent) === agent.id,
+    (action) => action.project === agent.id,
   );
   const runs = query.data?.runs
     .filter((run) => run.project === agent.id)
@@ -301,12 +302,10 @@ function ProjectAccess({
     setError("");
     setNotice("");
     try {
-      const updated = result(
-        await api.PATCH("/api/v1/projects/{id}/", {
-          params: { path: { id: agent.id } },
-          body: grants,
-        }),
-      );
+      const updated = await trpc.projects.update.mutate({
+        id: agent.id,
+        changes: grants,
+      });
       await refresh();
       setGrants({
         readable_tables: updated.readable_tables ?? [],
@@ -485,12 +484,10 @@ function ProjectSettings({
     setError("");
     setNotice("");
     try {
-      const updated = result(
-        await api.PATCH("/api/v1/projects/{id}/", {
-          params: { path: { id: agent.id } },
-          body: { name: name.trim(), enabled },
-        }),
-      );
+      const updated = await trpc.projects.update.mutate({
+        id: agent.id,
+        changes: { name: name.trim(), enabled },
+      });
       await refresh();
       setName(updated.name);
       setNotice("Project settings saved.");
@@ -514,11 +511,7 @@ function ProjectSettings({
     setError("");
     setNotice("");
     try {
-      requireSuccess(
-        await api.DELETE("/api/v1/projects/{id}/", {
-          params: { path: { id: agent.id } },
-        }),
-      );
+      await trpc.projects.delete.mutate({ id: agent.id });
       onDirtyChange(false);
       await refresh();
       await navigateTo("/projects/");

@@ -1,6 +1,6 @@
 # Persistent project executor
 
-This private-release npm package provides `orgsdk-executor`. Install the local `npm pack` tarball with npm; it has not been published. Node 22+ and Bun 1.4.x on PATH are required. Docker execution additionally requires Docker with `--mount volume-subpath` support, a built executor image, and network access to Django.
+This private-release npm package provides `orgsdk-executor`. Install the local `npm pack` tarball with npm; it has not been published. Node 22+ and Bun 1.4.x on PATH are required. Docker execution additionally requires Docker with `--mount volume-subpath` support, a built executor image, and network access to the OrgSDK application.
 
 Create an executor identity for the chosen project in the application. Register using its token on stdin (or `EXECUTOR_TOKEN`), without placing the token in command history:
 
@@ -29,12 +29,12 @@ orgsdk-executor install --agent AGENT_ID --manifest manifest.json --file plugin.
 
 Runtime checks: `bun run check`. Build a local installable artifact with `npm pack`. Do not publish without separate authorization.
 
-For an existing plugin checkout using the canonical `.plugin.json` with `name`, `version`, and `entry`, install its dependencies in that checkout, then run `orgsdk-executor package-plugin --directory CHECKOUT --output RELEASE_DIR`. This adapter uses Bun to bundle the entry and installed dependencies into one ESM file and emits a manifest preserving the original plugin metadata (including any declared tools/docs/auth/config). The adapter accepts a checkout root containing `plugin/.plugin.json` or the plugin directory itself. It also emits `<slug>.catalog.json`, an array matching the Django marketplace catalog (tool schemas, documentation, auth metadata and configuration schema). Set the immutable HTTPS `package_url` in that catalog and configure `PLUGIN_CATALOG_PATH` to use it; `release_metadata` is pinned when installed. The companion manifest is for the local install command. The emitted digest pins the exact compiled bytes; reproducing the source build still requires the checkout's own dependency lock. Canonical source `.tgz` packages are not directly installed or executed. Local preinstall via `install --file` avoids a release server for development without weakening digest checks.
+For an existing plugin checkout using the canonical `.plugin.json` with `name`, `version`, and `entry`, install its dependencies in that checkout, then run `orgsdk-executor package-plugin --directory CHECKOUT --output RELEASE_DIR`. This adapter uses Bun to bundle the entry and installed dependencies into one ESM file and emits a manifest preserving the original plugin metadata (including any declared tools/docs/auth/config). The adapter accepts a checkout root containing `plugin/.plugin.json` or the plugin directory itself. It also emits `<slug>.catalog.json`, an array matching the OrgSDK marketplace catalog (tool schemas, documentation, auth metadata and configuration schema). Set the immutable HTTPS `package_url` in that catalog and configure `PLUGIN_CATALOG_PATH` to use it; `release_metadata` is pinned when installed. The companion manifest is for the local install command. The emitted digest pins the exact compiled bytes; reproducing the source build still requires the checkout's own dependency lock. Canonical source `.tgz` packages are not directly installed or executed. Local preinstall via `install --file` avoids a release server for development without weakening digest checks.
 
 ## Install an optional local Linux service
 
 Use this optional systemd service to run a project executor on a local Linux machine.
-The service communicates with Django over HTTP and never connects to PostgreSQL.
+The service communicates with the Bun application over HTTP and never accesses the application database.
 Use `http://localhost:8080` when the service runs on the server machine, or the
 server's reachable local network address when using another machine. Docker
 jobs also need a server address reachable from their container; container
@@ -110,3 +110,5 @@ bun --no-env-file runtime/scripts/verify-plugin-releases.ts \
 ```
 
 Use `--catalog /path/releases.json --bundle-root /path/bundles` before publication. Add `--render-pdf` when the matching engine is provisioned to exercise real PDF output. Every package is checksum-verified, installed in temporary `orgsdk-platform-test` project storage, and loaded to compare its exported tools to the catalog. Data Tools is exercised through the VM action interface. This does not prove provider OAuth setup or live external writes.
+
+The retained `DJANGO_URL` executor setting is the application base URL for protocol compatibility. Point it at the Bun server, for example `http://127.0.0.1:8080`. The server binary does not include or start the executor.

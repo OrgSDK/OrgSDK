@@ -27,9 +27,7 @@ export function Webhooks({ actionId = "" }: { actionId?: string }): ReactNode {
   const { canManage, selected: projectId, setDirty } = useWorkspace();
   const query = useWorkspaceQuery(loadData, 10_000);
   const actions = (query.data?.actions ?? []).filter(
-    (item) =>
-      (item.project ?? item.agent) === projectId &&
-      (!actionId || item.id === actionId),
+    (item) => item.project === projectId && (!actionId || item.id === actionId),
   );
   const actionIds = new Set(actions.map((item) => item.id));
   const hooks = (query.data?.hooks ?? []).filter((hook) =>

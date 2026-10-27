@@ -138,7 +138,7 @@ function ActionWorkspace({
         const allActions = await loadActions(controller.signal);
         controller.signal.throwIfAborted();
         const list = allActions.filter(
-          (action) => (action.project ?? action.agent) === projectId,
+          (action) => action.project === projectId,
         );
         setActions(list);
         if (selectedId) {
@@ -157,7 +157,7 @@ function ActionWorkspace({
           const ordered = data.toSorted((a, b) => b.number - a.number);
           const version = ordered[0];
           setSelected(action);
-          setAgent(action.project ?? action.agent ?? projectId);
+          setAgent(action.project);
           setName(action.name);
           setVersions(ordered);
           setVersionId(version?.id ?? "");

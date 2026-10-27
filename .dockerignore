@@ -23,6 +23,9 @@ docs/local-user.md
 test-results
 
 node_modules
+dist
+build
+playwright-report
 frontend/dist
 .runtime
 

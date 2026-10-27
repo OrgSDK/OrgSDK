@@ -1,4 +1,5 @@
 import { api } from "./client";
+import { trpc, type RouterOutputs } from "./trpc";
 import { result } from "./result";
 import type { components } from "./schema";
 async function allPages<T>(
@@ -16,36 +17,27 @@ async function allPages<T>(
 }
 export async function loadRuns(
   signal: AbortSignal,
-): Promise<components["schemas"]["Run"][]> {
-  return allPages(async (page) =>
-    result(
-      await api.GET("/api/v1/runs/", { signal, params: { query: { page } } }),
-    ),
-  );
+): Promise<RouterOutputs["runs"]["list"]["results"]> {
+  const page = await trpc.runs.list.query(undefined, { signal });
+  return page.results;
 }
 export async function loadActions(
   signal: AbortSignal,
-): Promise<components["schemas"]["Action"][]> {
-  return allPages(async (page) =>
-    result(
-      await api.GET("/api/v1/actions/", {
-        signal,
-        params: { query: { page } },
-      }),
-    ),
-  );
+): Promise<RouterOutputs["actions"]["list"]["results"]> {
+  const page = await trpc.actions.list.query(undefined, { signal });
+  return page.results;
 }
-export async function loadAgents(
-  signal: AbortSignal,
-): Promise<components["schemas"]["Project"][]> {
-  return allPages(async (page) =>
-    result(
-      await api.GET("/api/v1/projects/", {
-        signal,
-        params: { query: { page } },
-      }),
-    ),
-  );
+export async function loadAgents(signal: AbortSignal): Promise<
+  (RouterOutputs["projects"]["list"]["results"][number] & {
+    plugins: string[];
+  })[]
+> {
+  const page = await trpc.projects.list.query(undefined, { signal });
+  return page.results.map((project) => {
+    if (!project.plugins)
+      throw new Error("Project details are unavailable for this account.");
+    return { ...project, plugins: project.plugins };
+  });
 }
 export async function loadApprovals(
   signal: AbortSignal,
@@ -118,15 +110,9 @@ export async function loadTokens(
 }
 export async function loadDocuments(
   signal: AbortSignal,
-): Promise<components["schemas"]["Document"][]> {
-  return allPages(async (page) =>
-    result(
-      await api.GET("/api/v1/documents/", {
-        signal,
-        params: { query: { page } },
-      }),
-    ),
-  );
+): Promise<RouterOutputs["documents"]["list"]["results"]> {
+  const page = await trpc.documents.list.query(undefined, { signal });
+  return page.results;
 }
 
 export async function loadConversations(
