@@ -1,10 +1,10 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import { result, errorMessage } from "../../api/result";
+import { trpc } from "../../api/trpc";
+import { errorMessage } from "../../api/result";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { loadActions, loadWebhooks } from "../../api/workspace-queries";
-import type { components } from "../../api/schema";
+import type { WebhookSecret } from "../../api/types";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { ResourceState } from "./resource-state";
@@ -39,8 +39,7 @@ export function Webhooks({ actionId = "" }: { actionId?: string }): ReactNode {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [issued, setIssued] =
-    useState<components["schemas"]["WebhookSecret"]>();
+  const [issued, setIssued] = useState<WebhookSecret>();
   useUnsavedChanges(
     name.trim() !== "" || action !== actionId || !!issued,
     setDirty,
@@ -70,7 +69,7 @@ export function Webhooks({ actionId = "" }: { actionId?: string }): ReactNode {
         <p>
           Send <code>X-Webhook-Secret</code> and a stable, unique{" "}
           <code>X-Webhook-Delivery</code> header with{" "}
-          <code>{'{"inputs": {}}'}</code>. JSON bodies are limited to 64 KiB.
+          <code>{'{"inputs": {}}'}</code>. JSON bodies are limited to 200 KB.
           Retrying the same delivery never queues another run.
         </p>
         <ResourceState {...query} />
@@ -126,12 +125,10 @@ export function Webhooks({ actionId = "" }: { actionId?: string }): ReactNode {
                     disabled={busy}
                     onClick={() => {
                       void perform(async () => {
-                        result(
-                          await api.PATCH("/api/v1/webhooks/{id}/", {
-                            params: { path: { id: hook.id } },
-                            body: { enabled: !hook.enabled },
-                          }),
-                        );
+                        await trpc.webhooks.update.mutate({
+                          id: hook.id,
+                          enabled: !hook.enabled,
+                        });
                         setNotice(
                           hook.enabled
                             ? "Webhook disabled."
@@ -157,11 +154,7 @@ export function Webhooks({ actionId = "" }: { actionId?: string }): ReactNode {
                         )
                           return;
                         setIssued(
-                          result(
-                            await api.POST("/api/v1/webhooks/{id}/rotate/", {
-                              params: { path: { id: hook.id } },
-                            }),
-                          ),
+                          await trpc.webhooks.rotate.mutate({ id: hook.id }),
                         );
                       });
                     }}
@@ -218,14 +211,10 @@ export function Webhooks({ actionId = "" }: { actionId?: string }): ReactNode {
               event.preventDefault();
               void perform(async () => {
                 setIssued(
-                  result(
-                    await api.POST("/api/v1/webhooks/", {
-                      body: {
-                        name,
-                        action,
-                      } satisfies components["schemas"]["WebhookRequest"],
-                    }),
-                  ),
+                  await trpc.webhooks.create.mutate({
+                    name,
+                    action,
+                  }),
                 );
                 setName("");
                 setAction(actionId);

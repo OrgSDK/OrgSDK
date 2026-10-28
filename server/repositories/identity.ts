@@ -1,10 +1,9 @@
 import { and, eq } from "drizzle-orm";
-import type { Store } from "../db";
+import type { AppDatabase } from "../db/database";
 import { accessTokens } from "../db/schema";
 import { memberships, sessions, users, workspaces } from "../db/schema/core";
 
-export function identityRepository(store: Store) {
-  const database = store.db;
+export function identityRepository(database: AppDatabase) {
   return {
     workspaceForHost(host: string) {
       return database

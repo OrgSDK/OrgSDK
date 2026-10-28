@@ -1,142 +1,101 @@
 import { expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { openStore } from "../db";
-import { accessTokens, projects } from "../db/schema";
-import { memberships, users, workspaces } from "../db/schema/core";
-import type { AppContext } from "../http/context";
-import { type projectSnapshot } from "../projects/snapshot";
-import { createRun } from "../runs/create";
+import { accessTokens, projects, runs } from "../db/schema";
+import { snapshotAgents } from "../projects/snapshot-schema";
+import { appRouter } from "../router";
 import { validateValues } from "../shared/contracts";
-test("runs snapshot project grants, enforce idempotency and scoped access", () => {
-  const dir = mkdtempSync(join(tmpdir(), "orgsdk-domain-"));
-  const store = openStore(dir);
+import { rpcFixture } from "./rpc-fixture";
+
+test("native runs snapshot project grants, enforce idempotency and scoped access", async () => {
+  const f = rpcFixture();
   try {
-    const user = store.db
-      .insert(users)
-      .values({
-        username: "tester",
-        email: "test@example.com",
-        passwordHash: "x",
-      })
-      .returning()
-      .get();
-    const workspace = store.db
-      .insert(workspaces)
-      .values({
-        name: "Test",
-        host: "localhost",
-        createdAt: new Date().toISOString(),
-      })
-      .returning()
-      .get();
-    store.db
-      .insert(memberships)
-      .values({ workspaceId: workspace.id, userId: user.id, role: "owner" })
+    const caller = f.caller();
+    f.store.db
+      .update(projects)
+      .set({ readableTables: ["table-a"] })
+      .where(eq(projects.id, f.project.id))
       .run();
-    const project = store.db
-      .insert(projects)
-      .values({
-        id: crypto.randomUUID(),
-        workspaceId: workspace.id,
-        name: "Project",
-        enabled: true,
-        readableTables: ["table-a"],
-        writableTables: [],
-        readableDocuments: [],
-        writableDocuments: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-      .returning()
-      .get();
-    const ctx: AppContext = {
-      request: new Request("http://localhost/"),
-      store,
-      user,
-      workspace,
-      role: "owner",
-      token: null,
-      responseHeaders: new Headers(),
-      sessionId: null,
-    };
-    const body = {
-      project: project.id,
-      operation: "code",
+    const input = {
+      project: f.project.id,
+      operation: "code" as const,
       source: "return 1;",
       inputs: {},
       idempotency_key: "one",
     };
-    const run = createRun(ctx, body);
-    expect(
-      (run.snapshot as ReturnType<typeof projectSnapshot>).agents[0]!.resources
-        .tables.read,
-    ).toEqual(["table-a"]);
-    expect(createRun(ctx, body).id).toBe(run.id);
-    store.db
+    const run = await caller.runs.create(input);
+    expect(run.project).toBe(f.project.id);
+    expect(Object.hasOwn(run, "agent")).toBe(false);
+    const legacyInput = await f.rpc(
+      "runs.create",
+      { ...input, project: undefined, agent: f.project.id },
+      "mutation",
+    );
+    expect(legacyInput.status).toBe(400);
+    const stored = f.store.db
+      .select()
+      .from(runs)
+      .where(eq(runs.id, run.id))
+      .get()!;
+    expect(snapshotAgents(stored.snapshot)[0]!.resources!.tables.read).toEqual([
+      "table-a",
+    ]);
+    expect((await caller.runs.create(input)).id).toBe(run.id);
+    f.store.db
       .update(projects)
       .set({ readableTables: [] })
-      .where(eq(projects.id, project.id))
+      .where(eq(projects.id, f.project.id))
       .run();
-    expect(createRun(ctx, body).id).toBe(run.id);
-    expect(
-      (run.snapshot as ReturnType<typeof projectSnapshot>).agents[0]!.resources
-        .tables.read,
-    ).toEqual(["table-a"]);
-    expect(() => createRun(ctx, { ...body, source: "return 2;" })).toThrow(
-      "Idempotency",
+    expect((await caller.runs.create(input)).id).toBe(run.id);
+    expect(snapshotAgents(stored.snapshot)[0]!.resources!.tables.read).toEqual([
+      "table-a",
+    ]);
+    await Promise.resolve(
+      expect(
+        caller.runs.create({ ...input, source: "return 2;" }),
+      ).rejects.toThrow("Idempotency"),
     );
-    const token = store.db
+    const token = f.store.db
       .insert(accessTokens)
       .values({
         id: crypto.randomUUID(),
-        workspaceId: workspace.id,
-        actorId: user.id,
+        workspaceId: f.workspace.id,
+        actorId: f.user.id,
         name: "Client",
-        digest: "digest",
+        digest: "no-grant",
         scopes: ["code:execute"],
-        projects: [],
-        actionVersions: [],
-        revoked: false,
-        firstUsedAt: null,
-        lastUsedAt: null,
-        requestCount: 0,
-        successCount: 0,
-        errorCount: 0,
-        restRequestCount: 0,
-        mcpRequestCount: 0,
-        lastTransport: "",
-        lastOutcome: "",
-        lastStatusCode: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: f.time,
+        updatedAt: f.time,
       })
       .returning()
       .get();
-    expect(() =>
-      createRun({ ...ctx, token }, { ...body, idempotency_key: "two" }),
-    ).toThrow("outside the client grant");
-    const other = store.db
+    await Promise.resolve(
+      expect(
+        appRouter
+          .createCaller({ ...f.context(), token })
+          .runs.create({ ...input, idempotency_key: "two" }),
+      ).rejects.toThrow("outside the client grant"),
+    );
+    const other = f.store.db
       .insert(projects)
-      .values({ ...project, id: crypto.randomUUID(), name: "Other" })
+      .values({ ...f.project, id: crypto.randomUUID(), name: "Other" })
       .returning()
       .get();
-    const granted = { ...token, projects: [other.id] };
-    expect(() =>
-      createRun(
-        { ...ctx, token: granted },
-        { ...body, idempotency_key: "other" },
-      ),
-    ).toThrow("outside the client grant");
+    await Promise.resolve(
+      expect(
+        appRouter
+          .createCaller({
+            ...f.context(),
+            token: { ...token, projects: [other.id] },
+          })
+          .runs.create({ ...input, idempotency_key: "other" }),
+      ).rejects.toThrow("outside the client grant"),
+    );
     expect(() =>
       validateValues([{ key: "count", type: "number", required: true }], {
         count: "bad",
       }),
     ).toThrow();
   } finally {
-    store.close();
-    rmSync(dir, { recursive: true, force: true });
+    f.close();
   }
 });

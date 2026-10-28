@@ -1,16 +1,18 @@
+import { inTransaction } from "../db/transaction";
 import { and, eq, type SQL } from "drizzle-orm";
 import { actionTestSuites } from "../db/schema";
-import { requireWorkspace, type AppContext } from "../http/context";
+import { requireWorkspace } from "../shared/authorization";
+import { type ServiceContext } from "../application";
 import { base } from "../shared/records";
 import { recordAudit } from "./audit";
 
-export function actionTestSuitesRepository(context: AppContext) {
+export function actionTestSuitesRepository(context: ServiceContext) {
   type Create = Omit<
     typeof actionTestSuites.$inferInsert,
     "id" | "workspaceId" | "createdAt" | "updatedAt"
   >;
   const workspaceId = requireWorkspace(context).id;
-  const database = context.store.db;
+  const database = context.db;
   const scoped = (id?: string, filter?: SQL) =>
     and(
       eq(actionTestSuites.workspaceId, workspaceId),
@@ -26,17 +28,17 @@ export function actionTestSuitesRepository(context: AppContext) {
         .all();
     },
     create(data: Create) {
-      return context.store.sqlite
-        .transaction(() => {
-          const row = database
-            .insert(actionTestSuites)
-            .values({ ...data, ...base(workspaceId) })
-            .returning()
-            .get();
-          recordAudit(context, "action.tests", row.id, "created");
-          return row;
-        })
-        .immediate();
+      return inTransaction(context, (context) => {
+        const database = context.db;
+
+        const row = database
+          .insert(actionTestSuites)
+          .values({ ...data, ...base(workspaceId) })
+          .returning()
+          .get();
+        recordAudit(context, "action.tests", row.id, "created");
+        return row;
+      });
     },
   };
 }

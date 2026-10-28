@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
-import { call, req, setup, store } from "./core-fixture";
+import { client, setup, store } from "./core-fixture";
 test("password verification cannot restore a session after an operator resets the password", async () => {
   const s = store();
-  await call(s, req("/api/v1/setup/", "POST", setup));
+  await client(s).auth.setup(setup);
   const original = Bun.password.verify;
-  let release!: () => void, entered!: () => void;
+  let release!: () => void;
+  let entered!: () => void;
   const started = new Promise<void>((resolve) => {
     entered = resolve;
   });
@@ -18,19 +19,16 @@ test("password verification cannot restore a session after an operator resets th
       await gate;
       return result;
     };
-    const login = call(
-      s,
-      req("/api/auth/browser/v1/auth/login", "POST", {
-        email: setup.email,
-        password: setup.password1,
-      }),
-    );
+    const pending = client(s).auth.login({
+      email: setup.email,
+      password: setup.password1,
+    });
     await started;
     s.sqlite
       .query("UPDATE users SET password_hash=? WHERE id=1")
       .run("reset-hash");
     release();
-    await Promise.resolve(expect(login).rejects.toThrow("account changed"));
+    await Promise.resolve(expect(pending).rejects.toThrow("account changed"));
     expect(
       s.sqlite.query("SELECT count(*) AS count FROM sessions").get(),
     ).toEqual({ count: 0 });

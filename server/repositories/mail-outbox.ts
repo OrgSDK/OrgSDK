@@ -1,10 +1,11 @@
+import { inTransaction } from "../db/transaction";
 import { and, asc, eq, isNull, lt, lte, or } from "drizzle-orm";
-import type { Store } from "../db";
+import type { AppDependencies } from "../application";
 import { invitations } from "../db/schema/core";
 import { mailOutbox } from "../db/schema/maintenance";
 
 export function enqueueMail(
-  store: Store,
+  store: AppDependencies,
   message: Pick<
     typeof mailOutbox.$inferInsert,
     "id" | "recipient" | "subject" | "body"
@@ -16,7 +17,7 @@ export function enqueueMail(
     .run();
 }
 
-export function revokeUnsentMail(store: Store, id: string): void {
+export function revokeUnsentMail(store: AppDependencies, id: string): void {
   const unsent = and(
     eq(mailOutbox.id, id),
     isNull(mailOutbox.sentAt),
@@ -26,56 +27,56 @@ export function revokeUnsentMail(store: Store, id: string): void {
 }
 
 export function claimMail(
-  store: Store,
+  store: AppDependencies,
   time: number,
 ): typeof mailOutbox.$inferSelect | undefined {
-  return store.sqlite
-    .transaction(() => {
-      const availableLease = or(
-        isNull(mailOutbox.leaseUntil),
-        lt(mailOutbox.leaseUntil, time),
-      );
-      const due = and(
-        isNull(mailOutbox.sentAt),
-        lte(mailOutbox.nextAttempt, time),
-        availableLease,
-      );
-      const row = store.db
+  return inTransaction(store, (store) => {
+    const availableLease = or(
+      isNull(mailOutbox.leaseUntil),
+      lt(mailOutbox.leaseUntil, time),
+    );
+    const due = and(
+      isNull(mailOutbox.sentAt),
+      lte(mailOutbox.nextAttempt, time),
+      availableLease,
+    );
+    const row = store.db
+      .select()
+      .from(mailOutbox)
+      .where(due)
+      .orderBy(asc(mailOutbox.nextAttempt))
+      .limit(1)
+      .get();
+    if (!row) {
+      return;
+    }
+    if (row.id.startsWith("invitation:")) {
+      const id = Number(row.id.slice("invitation:".length));
+      const invitation = store.db
         .select()
-        .from(mailOutbox)
-        .where(due)
-        .orderBy(asc(mailOutbox.nextAttempt))
-        .limit(1)
+        .from(invitations)
+        .where(eq(invitations.id, id))
         .get();
-      if (!row) return;
-      if (row.id.startsWith("invitation:")) {
-        const id = Number(row.id.slice("invitation:".length));
-        const invitation = store.db
-          .select()
-          .from(invitations)
-          .where(eq(invitations.id, id))
-          .get();
-        if (
-          !invitation ||
-          invitation.acceptedAt ||
-          invitation.revokedAt ||
-          invitation.expiresAt <= new Date(time).toISOString()
-        ) {
-          store.db.delete(mailOutbox).where(eq(mailOutbox.id, row.id)).run();
-          return;
-        }
+      if (
+        !invitation ||
+        invitation.acceptedAt ||
+        invitation.revokedAt ||
+        invitation.expiresAt <= new Date(time).toISOString()
+      ) {
+        store.db.delete(mailOutbox).where(eq(mailOutbox.id, row.id)).run();
+        return;
       }
-      store.db
-        .update(mailOutbox)
-        .set({ leaseUntil: time + 120_000 })
-        .where(eq(mailOutbox.id, row.id))
-        .run();
-      return row;
-    })
-    .immediate();
+    }
+    store.db
+      .update(mailOutbox)
+      .set({ leaseUntil: time + 120_000 })
+      .where(eq(mailOutbox.id, row.id))
+      .run();
+    return row;
+  });
 }
 
-export function markMailSent(store: Store, id: string): void {
+export function markMailSent(store: AppDependencies, id: string): void {
   store.db
     .update(mailOutbox)
     .set({ sentAt: Date.now(), leaseUntil: null, body: "", lastError: null })
@@ -84,7 +85,7 @@ export function markMailSent(store: Store, id: string): void {
 }
 
 export function retryMail(
-  store: Store,
+  store: AppDependencies,
   job: typeof mailOutbox.$inferSelect,
 ): void {
   const attempts = job.attempts + 1;

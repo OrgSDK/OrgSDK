@@ -1,16 +1,27 @@
+import { z } from "zod";
+import type { JsonObject, TableColumn } from "../db/types";
+export { validateCases } from "./action-tests";
 import Ajv from "ajv/dist/2020";
-import { HttpError } from "../http/responses";
+import { ServiceError } from "./errors";
 
-export const object = (value: unknown): value is Record<string, any> =>
+export const object = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
 export const jsonValue = (value: unknown, name: string) => {
   if (
     !object(value) ||
     JSON.stringify(value).includes("\\u0000") ||
     Buffer.byteLength(JSON.stringify(value)) > 200000
-  )
-    throw new HttpError(400, `${name} must be an object under 200KB.`);
-  return value;
+  ) {
+    throw new ServiceError(
+      "BAD_REQUEST",
+      `${name} must be an object under 200KB.`,
+    );
+  }
+  const parsed = z.record(z.string(), z.json()).safeParse(value);
+  if (!parsed.success) {
+    throw new ServiceError("BAD_REQUEST", `${name} must contain JSON values.`);
+  }
+  return parsed.data;
 };
 export const sourceText = (value: unknown) => {
   if (
@@ -18,11 +29,12 @@ export const sourceText = (value: unknown) => {
     !value.trim() ||
     value.includes("\0") ||
     Buffer.byteLength(value) > 200000
-  )
-    throw new HttpError(
-      400,
+  ) {
+    throw new ServiceError(
+      "BAD_REQUEST",
       "Source must be nonblank UTF-8 text under 200KB, without NUL.",
     );
+  }
   return value;
 };
 export function schema(value: unknown) {
@@ -31,153 +43,110 @@ export function schema(value: unknown) {
   const pending: [unknown, number][] = [[result, 0]];
   while (pending.length) {
     const [node, depth] = pending.pop()!;
-    if (++count > 2000 || depth > 30)
-      throw new HttpError(400, "JSON Schema is too complex.");
+    if (++count > 2000 || depth > 30) {
+      throw new ServiceError("BAD_REQUEST", "JSON Schema is too complex.");
+    }
     if (object(node)) {
-      if (["$ref", "$dynamicRef", "$recursiveRef"].some((k) => k in node))
-        throw new HttpError(
-          400,
+      if (["$ref", "$dynamicRef", "$recursiveRef"].some((key) => key in node)) {
+        throw new ServiceError(
+          "BAD_REQUEST",
           "Use inline JSON Schemas without reference keywords.",
         );
-      for (const value of Object.values(node))
-        if (value && typeof value === "object")
+      }
+      for (const value of Object.values(node)) {
+        if (value && typeof value === "object") {
           pending.push([value, depth + 1]);
-    } else if (Array.isArray(node))
-      for (const value of node)
-        if (value && typeof value === "object")
+        }
+      }
+    } else if (Array.isArray(node)) {
+      for (const value of node) {
+        if (value && typeof value === "object") {
           pending.push([value, depth + 1]);
+        }
+      }
+    }
   }
   try {
     new Ajv({ strict: false }).compile(result);
   } catch {
-    throw new HttpError(400, "Invalid JSON Schema.");
+    throw new ServiceError("BAD_REQUEST", "Invalid JSON Schema.");
   }
   return result;
 }
-export function validateContract(contract: any, value: any) {
+export function validateContract(contract: JsonObject, value: unknown) {
   try {
-    if (!new Ajv({ strict: false }).compile(contract)(value))
-      throw new HttpError(400, "Inputs do not match the action schema.");
+    if (!new Ajv({ strict: false }).compile(contract)(value)) {
+      throw new ServiceError(
+        "BAD_REQUEST",
+        "Inputs do not match the action schema.",
+      );
+    }
   } catch (error) {
-    if (error instanceof HttpError) throw error;
-    throw new HttpError(400, "Invalid action schema.");
+    if (error instanceof ServiceError) {
+      throw error;
+    }
+    throw new ServiceError("BAD_REQUEST", "Invalid action schema.");
   }
 }
-export function validateColumns(columns: any) {
-  if (!Array.isArray(columns) || columns.length < 1 || columns.length > 50)
-    throw new HttpError(400, "Define between 1 and 50 columns.");
-  const keys = new Set();
-  for (const col of columns) {
-    if (
-      !object(col) ||
-      Object.keys(col).sort().join() !== "key,required,type" ||
-      typeof col.key !== "string" ||
-      !/^[a-z][a-z0-9_]{0,47}$/.test(col.key) ||
-      keys.has(col.key) ||
-      !["text", "number", "boolean", "date"].includes(col.type) ||
-      typeof col.required !== "boolean"
+export function validateColumns(columns: unknown): TableColumn[] {
+  const parsed = z
+    .array(
+      z.strictObject({
+        key: z.string().regex(/^[a-z][a-z0-9_]{0,47}$/),
+        type: z.enum(["text", "number", "boolean", "date"]),
+        required: z.boolean(),
+      }),
     )
-      throw new HttpError(400, "Invalid table columns.");
-    keys.add(col.key);
+    .min(1)
+    .max(50)
+    .safeParse(columns);
+  if (
+    !parsed.success ||
+    new Set(parsed.data.map((column) => column.key)).size !== parsed.data.length
+  ) {
+    throw new ServiceError("BAD_REQUEST", "Invalid table columns.");
   }
-  return columns;
+  return parsed.data;
 }
-export function validateValues(columns: any[], values: any) {
+export function validateValues(
+  columns: TableColumn[],
+  values: unknown,
+): asserts values is JsonObject {
   if (
     !object(values) ||
-    Object.keys(values).some((k) => !columns.some((c) => c.key === k))
-  )
-    throw new HttpError(400, "Use only defined column keys.");
-  for (const col of columns) {
-    const value = values[col.key];
+    Object.keys(values).some(
+      (key) => !columns.some((column) => column.key === key),
+    )
+  ) {
+    throw new ServiceError("BAD_REQUEST", "Use only defined column keys.");
+  }
+  for (const column of columns) {
+    const value = values[column.key];
     if (value == null) {
-      if (col.required) throw new HttpError(400, `${col.key} is required.`);
+      if (column.required) {
+        throw new ServiceError("BAD_REQUEST", `${column.key} is required.`);
+      }
       continue;
     }
     const valid =
-      col.type === "text"
+      column.type === "text"
         ? typeof value === "string" &&
           value.length <= 10000 &&
           !value.includes("\0") &&
-          (!col.required || !!value.trim())
-        : col.type === "number"
+          (!column.required || !!value.trim())
+        : column.type === "number"
           ? typeof value === "number" &&
             Number.isFinite(value) &&
             Math.abs(value) <= 1e100
-          : col.type === "boolean"
+          : column.type === "boolean"
             ? typeof value === "boolean"
             : typeof value === "string" &&
               /^\d{4}-\d{2}-\d{2}$/.test(value) &&
               !Number.isNaN(Date.parse(value)) &&
               new Date(value).toISOString().slice(0, 10) === value;
-    if (!valid) throw new HttpError(400, `Invalid value for ${col.key}.`);
+    if (!valid) {
+      throw new ServiceError("BAD_REQUEST", `Invalid value for ${column.key}.`);
+    }
   }
-}
-export function validateCases(version: any, cases: any) {
-  if (
-    !Array.isArray(cases) ||
-    cases.length < 1 ||
-    cases.length > 50 ||
-    Buffer.byteLength(JSON.stringify(cases)) > 200000
-  )
-    throw new HttpError(400, "Provide 1 to 50 bounded test cases.");
-  const names = new Set();
-  for (const c of cases) {
-    if (
-      !object(c) ||
-      typeof c.name !== "string" ||
-      !c.name.trim() ||
-      c.name.length > 200 ||
-      names.has(c.name) ||
-      !object(c.inputs) ||
-      !("expected" in c) ||
-      !Array.isArray(c.mocks ?? []) ||
-      !Array.isArray(c.forbidden_calls ?? []) ||
-      (c.mocks ?? []).length > 100 ||
-      (c.forbidden_calls ?? []).length > 100
-    )
-      throw new HttpError(400, "Invalid test case.");
-    if (
-      Object.keys(c).some(
-        (k) =>
-          !["name", "inputs", "expected", "mocks", "forbidden_calls"].includes(
-            k,
-          ),
-      )
-    )
-      throw new HttpError(400, "Invalid test case fields.");
-    names.add(c.name);
-    validateContract(version.inputSchema, c.inputs);
-    validateContract(version.outputSchema, c.expected);
-    if (
-      (c.forbidden_calls ?? []).some(
-        (x: any) =>
-          typeof x !== "string" ||
-          x.length > 201 ||
-          !/^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)?$/.test(x),
-      )
-    )
-      throw new HttpError(400, "Invalid forbidden call.");
-    for (const m of c.mocks ?? [])
-      if (
-        !object(m) ||
-        typeof m.tool !== "string" ||
-        !/^[a-z][a-zA-Z0-9]*(?:\.[a-z][a-zA-Z0-9]*)?$/.test(m.tool) ||
-        !Array.isArray(m.args) ||
-        m.args.length > 30 ||
-        "result" in m === "error" in m ||
-        ("error" in m && typeof m.error !== "string") ||
-        Object.keys(m).some(
-          (k) => !["tool", "args", "result", "error", "times"].includes(k),
-        ) ||
-        ("times" in m &&
-          (!Number.isInteger(m.times) || m.times < 1 || m.times > 100))
-      )
-        throw new HttpError(400, "Invalid test mock.");
-  }
-  return cases.map((c) => ({
-    ...c,
-    mocks: (c.mocks ?? []).map((m: any) => ({ ...m, times: m.times ?? 1 })),
-    forbidden_calls: c.forbidden_calls ?? [],
-  }));
+  jsonValue(values, "Values");
 }

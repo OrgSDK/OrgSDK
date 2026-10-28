@@ -1,16 +1,16 @@
 "use client";
 import { useState, useEffect, type ReactNode } from "react";
-import type { components } from "../../api/schema";
-import { api } from "../../api/client";
-import { errorMessage, result, requireSuccess } from "../../api/result";
+import type { Project } from "../../api/types";
+import { trpc } from "../../api/trpc";
+import { errorMessage } from "../../api/result";
 import { Button } from "../ui/button";
 import { useDiscardConfirmation } from "./discard-dialog";
 
-export function AgentRunner({
-  agent,
+export function ProjectRunner({
+  project,
   refresh,
 }: {
-  agent: Pick<components["schemas"]["Agent"], "id" | "runner">;
+  project: Pick<Project, "id" | "runner">;
   refresh: () => Promise<void>;
 }): ReactNode {
   const [origin, setOrigin] = useState("http://localhost");
@@ -40,19 +40,13 @@ export function AgentRunner({
     setToken("");
     try {
       if (shouldRevoke) {
-        requireSuccess(
-          await api.DELETE("/api/v1/projects/{id}/executor/", {
-            params: { path: { id: agent.id } },
-          }),
-        );
+        await trpc.projects.disconnectExecutor.mutate({ id: project.id });
         setNotice("Runner access revoked.");
       } else {
-        const registration = result(
-          await api.POST("/api/v1/projects/{id}/executor/", {
-            params: { path: { id: agent.id } },
-            body: { locally_managed: isLocal },
-          }),
-        );
+        const registration = await trpc.projects.connectExecutor.mutate({
+          id: project.id,
+          locally_managed: isLocal,
+        });
         if (isLocal)
           setNotice(
             "Local Docker runner enabled. It will connect automatically.",
@@ -81,8 +75,8 @@ export function AgentRunner({
       clearInterval(timer);
     };
   }, []);
-  const lastSeen = agent.runner.last_seen_at
-    ? new Date(agent.runner.last_seen_at).getTime()
+  const lastSeen = project.runner.last_seen_at
+    ? new Date(project.runner.last_seen_at).getTime()
     : undefined;
   let registrationStatus = "Registered · waiting for connection";
   if (lastSeen !== undefined)
@@ -90,7 +84,7 @@ export function AgentRunner({
       now - lastSeen > 60_000
         ? "Unavailable · no recent heartbeat"
         : "Available";
-  if (!agent.runner.enabled) registrationStatus = "Revoked";
+  if (!project.runner.enabled) registrationStatus = "Revoked";
   return (
     <section className="panel">
       <h2>Project runner</h2>
@@ -99,14 +93,15 @@ export function AgentRunner({
         working folder.
       </p>
       <p>
-        {agent.runner.registered ? registrationStatus : "Not registered"} ·{" "}
-        {agent.runner.locally_managed
+        {project.runner.registered ? registrationStatus : "Not registered"} ·{" "}
+        {project.runner.locally_managed
           ? "Managed by local Docker Compose"
           : "Linked runner"}
       </p>
-      {agent.runner.last_seen_at ? (
+      {project.runner.last_seen_at ? (
         <p className="small">
-          Last connected: {new Date(agent.runner.last_seen_at).toLocaleString()}
+          Last connected:{" "}
+          {new Date(project.runner.last_seen_at).toLocaleString()}
         </p>
       ) : (
         <p className="small">Waiting for the runner to connect.</p>
@@ -131,7 +126,9 @@ export function AgentRunner({
         </Button>
         <Button
           variant="outline"
-          disabled={busy || !agent.runner.registered || !agent.runner.enabled}
+          disabled={
+            busy || !project.runner.registered || !project.runner.enabled
+          }
           onClick={() => {
             void perform(true);
           }}

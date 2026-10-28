@@ -1,19 +1,23 @@
+import { inTransaction } from "../db/transaction";
 import { eq, or } from "drizzle-orm";
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
-import type { Store } from "../db";
+import type { AppDependencies } from "../application";
 import { sessions, users } from "../db/schema/core";
 import { identityRepository } from "../repositories/identity";
 
-export async function resetPassword(store: Store, email: string) {
-  if (!process.stdin.isTTY)
+export async function resetPassword(store: AppDependencies, email: string) {
+  if (!process.stdin.isTTY) {
     throw new Error(
       "Run reset-password in an interactive terminal. Passwords are never accepted as command arguments.",
     );
-  const user = identityRepository(store).userByEmail(
+  }
+  const user = identityRepository(store.db).userByEmail(
     email.trim().toLowerCase(),
   );
-  if (!user) throw new Error("Account not found.");
+  if (!user) {
+    throw new Error("Account not found.");
+  }
   const output = new Writable({
     write(_chunk, _encoding, callback) {
       callback();
@@ -30,30 +34,32 @@ export async function resetPassword(store: Store, email: string) {
     process.stdout.write("\nConfirm password: ");
     const confirmation = await terminal.question("");
     process.stdout.write("\n");
-    if (password !== confirmation) throw new Error("Passwords do not match.");
-    if (password.length < 8 || password.length > 1024 || /^\d+$/.test(password))
+    if (password !== confirmation) {
+      throw new Error("Passwords do not match.");
+    }
+    if (
+      password.length < 8 ||
+      password.length > 1024 ||
+      /^\d+$/.test(password)
+    ) {
       throw new Error(
         "Use a password of 8–1024 characters that is not entirely numeric.",
       );
+    }
     const passwordHash = await Bun.password.hash(password);
-    store.sqlite
-      .transaction(() => {
-        store.db
-          .update(users)
-          .set({ passwordHash })
-          .where(eq(users.id, user.id))
-          .run();
-        store.db
-          .delete(sessions)
-          .where(
-            or(
-              eq(sessions.userId, user.id),
-              eq(sessions.pendingUserId, user.id),
-            ),
-          )
-          .run();
-      })
-      .immediate();
+    inTransaction(store, (store) => {
+      store.db
+        .update(users)
+        .set({ passwordHash })
+        .where(eq(users.id, user.id))
+        .run();
+      store.db
+        .delete(sessions)
+        .where(
+          or(eq(sessions.userId, user.id), eq(sessions.pendingUserId, user.id)),
+        )
+        .run();
+    });
     console.log("Password changed. Existing sign-in sessions were revoked.");
   } finally {
     terminal.close();

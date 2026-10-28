@@ -1,16 +1,19 @@
 import { eq } from "drizzle-orm";
 import * as resourceTables from "../db/schema";
 import { isClient } from "../domain/permissions";
-import type { AppContext } from "../http/context";
+import { type ServiceContext } from "../application";
 import { executorsRepository } from "../repositories/executors";
 import { pluginsRepository } from "../repositories/plugins";
-export function serializeProject(ctx: AppContext, row: any) {
+export function serializeProject(
+  ctx: ServiceContext,
+  row: typeof resourceTables.projects.$inferSelect,
+) {
   const executor = executorsRepository(ctx).list(
     eq(resourceTables.executors.projectId, row.id),
   )[0];
   const pluginIds = pluginsRepository(ctx)
     .list(eq(resourceTables.plugins.projectId, row.id))
-    .map((x) => x.id);
+    .map((plugin) => plugin.id);
   const minimal = {
     id: row.id,
     name: row.name,
@@ -23,7 +26,9 @@ export function serializeProject(ctx: AppContext, row: any) {
       protocol_version: executor?.protocolVersion ?? null,
     },
   };
-  if (isClient(ctx)) return minimal;
+  if (isClient(ctx)) {
+    return minimal;
+  }
   return {
     ...minimal,
     plugins: pluginIds,

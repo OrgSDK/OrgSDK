@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { runSchema } from "./wire-schemas";
 import { expect, test } from "bun:test";
 import { join, resolve } from "node:path";
 import { jobSchema } from "../../runtime/src/contract";
@@ -6,13 +8,19 @@ test("a separate existing executor process runs code against the Bun API", async
   const f = await fixture();
   try {
     const token = await f.register();
-    const run = await f.json("/api/v1/runs/", "POST", {
-      project: f.project.id,
-      operation: "code",
-      source: "console.log('executed'); return 6 * 7;",
-      inputs: {},
-      idempotency_key: "real-worker",
-    });
+    const run = runSchema.parse(
+      await f.data(
+        "runs.create",
+        {
+          project: f.project.id,
+          operation: "code",
+          source: "console.log('executed'); return 6 * 7;",
+          inputs: {},
+          idempotency_key: "real-worker",
+        },
+        "mutation",
+      ),
+    );
     const job = jobSchema.parse(
       await f.json("/internal/execution/v1/claim/", "POST", undefined, token),
     );
@@ -38,12 +46,14 @@ test("a separate existing executor process runs code against the Bun API", async
     clearTimeout(timeout);
     const errors = await new Response(process.stderr).text();
     expect(exit, errors).toBe(0);
-    const result = await f.json(`/api/v1/runs/${run.id}/`);
+    const result = runSchema.parse(await f.data("runs.get", { id: run.id }));
     expect(result.status).toBe("succeeded");
     expect(result.output).toEqual({ result: 42 });
-    const events = await f.json(`/api/v1/runs/${run.id}/events/`);
+    const events = z
+      .array(z.object({ sequence: z.number() }))
+      .parse(await f.data("runs.events", { id: run.id }));
     expect(events.length).toBeGreaterThan(0);
-    expect(events[0].sequence).toBe(1);
+    expect(events[0]!.sequence).toBe(1);
   } finally {
     await f.close();
   }

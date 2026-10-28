@@ -12,7 +12,12 @@ export default function Page(): ReactNode {
   );
 }
 function Content(): ReactNode {
-  const { agents, selected: projectId, setDirty, navigateTo } = useWorkspace();
+  const {
+    projects,
+    selected: projectId,
+    setDirty,
+    navigateTo,
+  } = useWorkspace();
   const parameters = useSearchParams();
   const selectedId = parameters.get("action") ?? "";
   const isCreating = parameters.get("new") === "1";
@@ -20,7 +25,7 @@ function Content(): ReactNode {
   return (
     <Actions
       key={selectedId}
-      agents={agents}
+      projects={projects}
       onDirtyChange={setDirty}
       selectedId={selectedId}
       onSelect={(id) => {

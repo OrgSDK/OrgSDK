@@ -8,7 +8,7 @@ Install Bun 1.4, Node 22 and npm, then run `make install` and `make build`. Star
 
 The Drizzle schema is the source of truth. Startup applies pending generated migrations to `orgsdk.sqlite3`, and the executable embeds the migration files. Start the initial installation in an empty data directory. This is a greenfield schema without compatibility with the earlier experimental database.
 
-For development, run `make dev` and `make frontend` in separate terminals. Next uses `ORGSDK_PROXY_TARGET` (default `http://127.0.0.1:8080`). Run `make check` for code checks and `make e2e` for browser tests against a temporary isolated database. Install Playwright's browser if needed with `bunx playwright install chromium`.
+For development, run `make dev` and `make frontend` in separate terminals. Next uses `ORGSDK_PROXY_TARGET` (default `http://127.0.0.1:8080`). Run `make check` for code checks and `make e2e` for browser tests against a temporary isolated database. Install Playwright's browser if needed with `bunx playwright install chromium`. E2E tests also need OpenSSL for their temporary TLS mailbox. To test the standalone product, run `ORGSDK_E2E_BINARY=dist/orgsdk bun scripts/e2e.ts` after building. The harness creates disposable installation data and a local mailbox, rejects browser requests to retired `/api` routes, and exercises the separate Bun worker without changing an existing installation.
 
 ## Database development
 
@@ -42,4 +42,4 @@ If local account recovery is needed, an administrator with access to the server 
 
 For an HTTPS reverse proxy, set `ORGSDK_PUBLIC_ORIGIN` to the public HTTPS origin, preserve the public Host header, and keep the backend reachable through that trusted proxy. The application uses the explicit origin for CSRF and Secure cookies; it ignores forwarded scheme and host headers. Health checks and authenticated internal executor routes keep their direct service address.
 
-The prior Django implementation and its management commands are retained in Git history. The Django admin interface is retired; use the application settings and account pages. REST compatibility type snapshots remain for existing clients; tRPC types come from the Bun server.
+The prior Django implementation and its management commands are retained in Git history. The Django admin interface is retired; use the application settings and account pages. The frontend uses native tRPC throughout, with input and output types inferred directly from the Bun server router. Application REST compatibility routes and OpenAPI snapshots have been removed.

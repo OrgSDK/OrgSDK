@@ -24,7 +24,7 @@ export function WorkspaceShell({
   tab: string;
   children: ReactNode;
 }): ReactNode {
-  const { agents: projects, selected } = useWorkspace();
+  const { projects, selected } = useWorkspace();
   const project = projects.find((item) => item.id === selected);
   const [open, setOpen] = useState(false);
   const [pageHeader, setPageHeader] = useState<HTMLDivElement | null>(null);

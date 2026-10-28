@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
-import { auth, authResult } from "../../api/auth";
+import { trpc } from "../../api/trpc";
 import { formText } from "../../lib/form-fields";
 import { AccountShell } from "./account-shell";
 import { AccountAccess } from "./account-access";
@@ -11,12 +11,11 @@ function EmailForm(): ReactNode {
   const [error, setError] = useState("");
   useEffect(() => {
     let isActive = true;
-    void auth
-      .GET("/api/auth/browser/v1/account/email")
-      .then((result) => {
-        const body = authResult(result);
+    void trpc.auth.emails
+      .query()
+      .then((addresses) => {
         if (isActive)
-          setEmail(body.data.find((address) => address.primary)?.email ?? "");
+          setEmail(addresses.find((address) => address.primary)?.email ?? "");
       })
       .catch((error_: unknown) => {
         if (isActive)
@@ -40,11 +39,9 @@ function EmailForm(): ReactNode {
       <AccountForm
         submitLabel="Save email address"
         onSubmit={async (fields) => {
-          authResult(
-            await auth.POST("/api/auth/browser/v1/account/email", {
-              body: { email: formText(fields, "email") },
-            }),
-          );
+          await trpc.auth.changeEmail.mutate({
+            email: formText(fields, "email"),
+          });
           setEmail(formText(fields, "email"));
           return "Email address saved.";
         }}
@@ -89,14 +86,10 @@ export function ChangePassword(): ReactNode {
             const password = formText(fields, "new_password");
             if (password !== formText(fields, "confirm_password"))
               throw new Error("The new passwords do not match.");
-            authResult(
-              await auth.POST("/api/auth/browser/v1/account/password/change", {
-                body: {
-                  current_password: formText(fields, "current_password"),
-                  new_password: password,
-                },
-              }),
-            );
+            await trpc.auth.changePassword.mutate({
+              current_password: formText(fields, "current_password"),
+              new_password: password,
+            });
             return "Your password has been changed.";
           }}
         >

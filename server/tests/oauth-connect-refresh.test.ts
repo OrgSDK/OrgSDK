@@ -6,34 +6,24 @@ import {
   assertExecutionSecretCurrent,
   executionSecret,
 } from "../oauth/refresh";
-import { handleOAuth } from "../oauth/routes";
+import { handleOAuthCallback } from "../oauth/transport";
 import { decrypt } from "../shared/security";
 import { fakeFetch, fixture, request } from "./oauth-fixture";
 test("OAuth binds session and user, consumes state once, exchanges securely and refreshes only on server", async () => {
   const before = process.env.ORGSDK_PUBLIC_ORIGIN;
-  process.env.ORGSDK_PUBLIC_ORIGIN = "http://localhost:8080";
-  const f = await fixture();
+  process.env.ORGSDK_PUBLIC_ORIGIN = "http://localhost";
+  const f = fixture();
   try {
-    const start = createContext(
-      request(
-        "/api/v1/credentials/oauth-connect/",
-        "POST",
-        {
-          plugin: f.id,
-          name: "Google",
-          client_id: "client-id",
-          client_secret: "client-secret",
-        },
-        `${f.cookie}; csrftoken=test`,
-      ),
-      f.store,
-    );
-    const begin = await handleOAuth(start);
-    expect(begin?.status).toBe(200);
-    const url = new URL((await begin!.json()).authorization_url);
+    const begin = await f.caller().credentials.beginOAuth({
+      plugin: f.id,
+      name: "Google",
+      client_id: "client-id",
+      client_secret: "client-secret",
+    });
+    const url = new URL(begin.authorization_url);
     expect(url.origin).toBe("https://accounts.google.com");
     expect(url.searchParams.get("redirect_uri")).toBe(
-      "http://localhost:8080/api/v1/credentials/oauth-callback/",
+      "http://localhost/oauth/callback",
     );
     expect(url.searchParams.get("code_challenge_method")).toBe("S256");
     const state = url.searchParams.get("state")!;
@@ -43,10 +33,10 @@ test("OAuth binds session and user, consumes state once, exchanges securely and 
     };
     expect(row.state_digest).not.toBe(state);
     expect(row.encrypted_payload).not.toContain("client-secret");
-    const callback = `/api/v1/credentials/oauth-callback/?state=${encodeURIComponent(state)}&code=test-code`;
+    const callback = `/oauth/callback?state=${encodeURIComponent(state)}&code=test-code`;
     await Promise.resolve(
       expect(
-        handleOAuth(createContext(request(callback), f.store)),
+        handleOAuthCallback(createContext(request(callback), f.store)),
       ).rejects.toThrow(),
     );
     let verifier = "";
@@ -63,7 +53,7 @@ test("OAuth binds session and user, consumes state once, exchanges securely and 
         scope: "email",
       });
     });
-    const result = await handleOAuth(
+    const result = await handleOAuthCallback(
       createContext(
         request(callback, "GET", undefined, `${f.cookie}; csrftoken=test`),
         f.store,
@@ -77,7 +67,7 @@ test("OAuth binds session and user, consumes state once, exchanges securely and 
     );
     await Promise.resolve(
       expect(
-        handleOAuth(
+        handleOAuthCallback(
           createContext(
             request(callback, "GET", undefined, `${f.cookie}; csrftoken=test`),
             f.store,
@@ -125,7 +115,10 @@ test("OAuth binds session and user, consumes state once, exchanges securely and 
     ).toBe(credential.id);
   } finally {
     f.close();
-    if (before === undefined) delete process.env.ORGSDK_PUBLIC_ORIGIN;
-    else process.env.ORGSDK_PUBLIC_ORIGIN = before;
+    if (before === undefined) {
+      delete process.env.ORGSDK_PUBLIC_ORIGIN;
+    } else {
+      process.env.ORGSDK_PUBLIC_ORIGIN = before;
+    }
   }
 });

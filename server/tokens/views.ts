@@ -1,4 +1,5 @@
-export function tokenView(row: any) {
+import type { accessTokens } from "../db/schema";
+export function tokenView(row: typeof accessTokens.$inferSelect) {
   return {
     id: row.id,
     name: row.name,
@@ -19,7 +20,7 @@ export function tokenView(row: any) {
     request_count: row.requestCount,
     success_count: row.successCount,
     error_count: row.errorCount,
-    rest_request_count: row.restRequestCount,
+    trpc_request_count: row.trpcRequestCount,
     mcp_request_count: row.mcpRequestCount,
     last_transport: row.lastTransport,
     last_outcome: row.lastOutcome,

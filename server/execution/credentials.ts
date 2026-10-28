@@ -1,3 +1,5 @@
+import { snapshotAgents } from "../projects/snapshot-schema";
+import { inTransaction } from "../db/transaction";
 import { and, eq } from "drizzle-orm";
 import * as t from "../db/schema";
 import type { AppContext } from "../http/context";
@@ -15,14 +17,13 @@ export async function serveCredential(
   const authorize = () => {
     const run = runCapability(ctx);
     live(run);
-    const allowed = ((run.snapshot.agents ?? []) as any[])
-      .flatMap((agent: any) =>
-        (agent.plugins ?? []).map((plugin: any) => plugin.credential_id),
-      )
-      .filter(Boolean);
-    if (!allowed.includes(credentialId))
+    const allowed = snapshotAgents(run.snapshot).flatMap((agent) =>
+      agent.plugins.map((plugin) => plugin.credential_id),
+    );
+    if (!allowed.includes(credentialId)) {
       throw new HttpError(403, "Credential is outside this run capability.");
-    const credential = ctx.store.db
+    }
+    const credential = ctx.db
       .select()
       .from(t.credentials)
       .where(
@@ -32,26 +33,26 @@ export async function serveCredential(
         ),
       )
       .get();
-    if (!credential) throw new HttpError(404, "Credential not found.");
+    if (!credential) {
+      throw new HttpError(404, "Credential not found.");
+    }
     return { run, credential };
   };
   const { credential } = authorize();
-  const secret = await executionSecret(ctx.store, credential);
-  return ctx.store.sqlite
-    .transaction(() => {
-      const current = authorize();
-      assertExecutionSecretCurrent(ctx.store, current.credential, secret);
-      ctx.store.db
-        .insert(t.auditRecords)
-        .values({
-          ...base(current.run.workspaceId),
-          actorId: current.run.actorId,
-          action: "credential.used",
-          resource: credential.id,
-          data: {},
-        })
-        .run();
-      return json({ secret });
-    })
-    .immediate();
+  const secret = await executionSecret(ctx, credential);
+  return inTransaction(ctx, (ctx) => {
+    const current = authorize();
+    assertExecutionSecretCurrent(ctx, current.credential, secret);
+    ctx.db
+      .insert(t.auditRecords)
+      .values({
+        ...base(current.run.workspaceId),
+        actorId: current.run.actorId,
+        action: "credential.used",
+        resource: credential.id,
+        data: {},
+      })
+      .run();
+    return json({ secret });
+  });
 }

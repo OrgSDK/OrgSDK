@@ -1,11 +1,12 @@
 import { and, eq, type SQL } from "drizzle-orm";
 import { auditRecords } from "../db/schema";
-import { requireWorkspace, type AppContext } from "../http/context";
-import { HttpError } from "../http/responses";
+import { requireWorkspace } from "../shared/authorization";
+import { type ServiceContext } from "../application";
+import { ServiceError } from "../shared/errors";
 
-export function auditRecordsRepository(context: AppContext) {
+export function auditRecordsRepository(context: ServiceContext) {
   const workspaceId = requireWorkspace(context).id;
-  const database = context.store.db;
+  const database = context.db;
   const scoped = (id?: string, filter?: SQL) =>
     and(
       eq(auditRecords.workspaceId, workspaceId),
@@ -15,7 +16,9 @@ export function auditRecordsRepository(context: AppContext) {
   return {
     find(id: string) {
       const row = database.select().from(auditRecords).where(scoped(id)).get();
-      if (!row) throw new HttpError(404, "Not found.");
+      if (!row) {
+        throw new ServiceError("NOT_FOUND", "Not found.");
+      }
       return row;
     },
     list(filter?: SQL) {

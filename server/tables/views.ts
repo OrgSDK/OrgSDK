@@ -1,4 +1,5 @@
-export function standard(row: any) {
+import type { workspaceTables, tableRows } from "../db/schema";
+export function standard(row: typeof workspaceTables.$inferSelect) {
   return {
     id: row.id,
     name: row.name,
@@ -9,7 +10,7 @@ export function standard(row: any) {
   };
 }
 
-export function rowView(row: any) {
+export function rowView(row: typeof tableRows.$inferSelect) {
   return {
     id: row.id,
     values: row.values,

@@ -1,3 +1,5 @@
+import { Database } from "bun:sqlite";
+import { readFileSync } from "node:fs";
 import { expect, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -8,10 +10,10 @@ test("an unmanaged database at the expected filename is refused without modifica
   const dir = mkdtempSync(join(tmpdir(), "orgsdk-core-"));
   dirs.push(dir);
   const path = join(dir, "orgsdk.sqlite3");
-  const db = new (require("bun:sqlite").Database)(path);
+  const db = new Database(path);
   db.exec("CREATE TABLE external_records (id INTEGER PRIMARY KEY);");
   db.close();
-  const before = require("node:fs").readFileSync(path);
+  const before = readFileSync(path);
   expect(() => openStore(dir)).toThrow("refusing to open");
-  expect(require("node:fs").readFileSync(path)).toEqual(before);
+  expect(readFileSync(path)).toEqual(before);
 });

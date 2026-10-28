@@ -1,35 +1,26 @@
 import { expect, test } from "bun:test";
-import { createContext, requireWorkspace } from "../http/context";
-import { call, req, setup, store } from "./core-fixture";
+import { requireWorkspace } from "../shared/authorization";
+import {
+  client,
+  loginOwner,
+  sessionCookie,
+  setup,
+  store,
+} from "./core-fixture";
 test("invitations queue encrypted mail, retry and admit only matching account", async () => {
-  const savedHost = process.env.SMTP_HOST,
-    savedFrom = process.env.SMTP_FROM;
+  const savedHost = process.env.SMTP_HOST;
+  const savedFrom = process.env.SMTP_FROM;
   process.env.SMTP_HOST = "test.invalid";
   process.env.SMTP_FROM = "noreply@example.com";
   try {
     const s = store();
-    await call(s, req("/api/v1/setup/", "POST", setup));
-    const login = await call(
-      s,
-      req("/api/auth/browser/v1/auth/login", "POST", {
-        email: setup.email,
-        password: setup.password1,
-      }),
-    );
-    const session = login.ctx.responseHeaders
-      .getSetCookie()
-      .find((x) => x.startsWith("sessionid="))!
-      .split(";")[0]!;
-    const created = await call(
-      s,
-      req(
-        "/api/v1/workspaces/invitations/",
-        "POST",
-        { email: "member@example.com", role: "member" },
-        `${session}; csrftoken=test`,
-      ),
-    );
-    expect(created.response.status).toBe(201);
+    await client(s).auth.setup(setup);
+    const { cookie } = await loginOwner(s);
+    const created = await client(s, cookie).workspace.invite({
+      email: "member@example.com",
+      role: "member",
+    });
+    expect(created.email).toBe("member@example.com");
     const row = s.sqlite.query("SELECT body FROM mail_outbox").get() as {
       body: string;
     };
@@ -54,51 +45,33 @@ test("invitations queue encrypted mail, retry and admit only matching account", 
     const token = new URL(message.match(/http:\/\/\S+/)![0]!).searchParams.get(
       "token",
     )!;
-    const signup = await call(
-      s,
-      req("/api/auth/browser/v1/auth/signup", "POST", {
-        email: "member@example.com",
-        username: "member",
-        password: "strong password here",
-      }),
-    );
-    const memberSession = signup.ctx.responseHeaders
-      .getSetCookie()
-      .find((x) => x.startsWith("sessionid="))!
-      .split(";")[0]!;
-    const accepted = await call(
-      s,
-      req(
-        `/api/v1/workspaces/invitations/${token}/accept/`,
-        "POST",
-        {},
-        `${memberSession}; csrftoken=test`,
-      ),
-    );
-    expect(accepted.response.status).toBe(200);
-    const member = createContext(
-      req("/api/v1/workspaces/current/", "GET", undefined, memberSession),
-      s,
-    );
-    expect(requireWorkspace(member).name).toBe("Test");
+    const signup = client(s);
+    await signup.auth.signup({
+      email: "member@example.com",
+      username: "member",
+      password: "strong password here",
+    });
+    const memberCookie = `${sessionCookie(signup.ctx)}; csrftoken=test`;
+    expect(
+      await client(s, memberCookie).workspace.acceptInvitation({ token }),
+    ).toEqual({ id: 1, name: "Test" });
+    expect(requireWorkspace(client(s, memberCookie).ctx).name).toBe("Test");
     await Promise.resolve(
       expect(
-        call(
-          s,
-          req(
-            "/api/v1/workspaces/members/1/",
-            "DELETE",
-            undefined,
-            `${memberSession}; csrftoken=test`,
-          ),
-        ),
+        client(s, memberCookie).workspace.removeMember({ id: 1 }),
       ).rejects.toThrow(),
     );
     s.close();
   } finally {
-    if (savedHost === undefined) delete process.env.SMTP_HOST;
-    else process.env.SMTP_HOST = savedHost;
-    if (savedFrom === undefined) delete process.env.SMTP_FROM;
-    else process.env.SMTP_FROM = savedFrom;
+    if (savedHost === undefined) {
+      delete process.env.SMTP_HOST;
+    } else {
+      process.env.SMTP_HOST = savedHost;
+    }
+    if (savedFrom === undefined) {
+      delete process.env.SMTP_FROM;
+    } else {
+      process.env.SMTP_FROM = savedFrom;
+    }
   }
 });

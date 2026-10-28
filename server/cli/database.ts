@@ -20,10 +20,12 @@ function verifySnapshot(sqlite: Database): void {
 }
 
 export function backupDatabase(dataDir: string, destination: string): void {
-  if (!existsSync(join(dataDir, databaseFilename)))
+  if (!existsSync(join(dataDir, databaseFilename))) {
     throw new Error("No database to back up.");
-  if (existsSync(destination))
+  }
+  if (existsSync(destination)) {
     throw new Error("Backup destination already exists.");
+  }
   const source = new Database(join(dataDir, databaseFilename), {
     readonly: true,
   });
@@ -44,8 +46,9 @@ export function backupDatabase(dataDir: string, destination: string): void {
 
 export function restoreDatabase(dataDir: string, source: string): void {
   const destination = join(dataDir, databaseFilename);
-  if (existsSync(destination))
+  if (existsSync(destination)) {
     throw new Error("Restore requires an empty installation.");
+  }
   const snapshot = new Database(source, { readonly: true });
   try {
     verifySnapshot(snapshot);

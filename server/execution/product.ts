@@ -1,7 +1,9 @@
+import { text } from "../shared/validation";
 import { and, eq } from "drizzle-orm";
 import * as t from "../db/schema";
 import type { AppContext } from "../http/context";
-import { HttpError, json, page } from "../http/responses";
+import { HttpError, json } from "../http/responses";
+import { page } from "../shared/pagination";
 import { base } from "../shared/records";
 import { type Run } from "./authority";
 import { projectData } from "./project-data";
@@ -11,41 +13,47 @@ export function handleProduct(
   run: Run,
   route: string,
   method: string,
-  body: Record<string, any>,
+  body: Record<string, unknown>,
 ): Response {
-  if (route === "product/project-data/" && method === "POST")
+  if (route === "product/project-data/" && method === "POST") {
     return json(projectData(ctx, run, body));
+  }
   const productMatch = route.match(
     /^product\/(artifacts|approvals|runs)\/(?:([^/]+)\/)?$/,
   );
   if (productMatch) {
-    const resource = productMatch[1],
-      id = productMatch[2];
-    if (resource === "runs" && method === "GET" && (!id || id === run.id))
+    const resource = productMatch[1];
+    const id = productMatch[2];
+    if (resource === "runs" && method === "GET" && (!id || id === run.id)) {
       return json({
         id: run.id,
         status: run.status,
         output: run.output,
         error: run.error,
       });
+    }
     const table =
       resource === "artifacts"
         ? t.artifacts
         : resource === "approvals"
           ? t.approvals
           : null;
-    if (!table)
+    if (!table) {
       throw new HttpError(403, "Operation is outside this run capability.");
+    }
     if (method === "GET") {
-      const items = ctx.store.db
+      const items = ctx.db
         .select()
         .from(table)
         .where(
           and(eq(table.workspaceId, run.workspaceId), eq(table.runId, run.id)),
         )
         .all();
-      const view = (entry: any) =>
-        resource === "approvals"
+      const view = (
+        entry:
+          typeof t.approvals.$inferSelect | typeof t.artifacts.$inferSelect,
+      ) =>
+        "prompt" in entry
           ? {
               id: entry.id,
               run: entry.runId,
@@ -62,22 +70,26 @@ export function handleProduct(
             };
       if (id) {
         const selected = items.find((entry) => entry.id === id);
-        if (!selected) throw new HttpError(404, "Not found.");
+        if (!selected) {
+          throw new HttpError(404, "Not found.");
+        }
         return json(view(selected));
       }
       return json(page(items.map(view)));
     }
     if (method === "POST" && !id) {
-      if (body.run !== run.id)
+      if (body.run !== run.id) {
         throw new HttpError(403, "Capability is bound to another run.");
+      }
       if (resource === "approvals") {
         if (
           typeof body.prompt !== "string" ||
           !body.prompt.trim() ||
           body.prompt.length > 20000
-        )
+        ) {
           throw new HttpError(400, "Invalid approval prompt.");
-        const approval = ctx.store.db
+        }
+        const approval = ctx.db
           .insert(t.approvals)
           .values({
             ...base(run.workspaceId),
@@ -88,7 +100,7 @@ export function handleProduct(
           })
           .returning()
           .get()!;
-        ctx.store.db
+        ctx.db
           .update(t.runs)
           .set({ status: "waiting_approval" })
           .where(eq(t.runs.id, run.id))
@@ -110,16 +122,17 @@ export function handleProduct(
         body.name.length > 200 ||
         typeof body.content !== "string" ||
         Buffer.byteLength(body.content) > 1000000
-      )
+      ) {
         throw new HttpError(400, "Invalid artifact.");
-      const artifact = ctx.store.db
+      }
+      const artifact = ctx.db
         .insert(t.artifacts)
         .values({
           ...base(run.workspaceId),
           runId: run.id,
           name: body.name,
           content: redact(ctx, run.workspaceId, body.content),
-          mediaType: body.media_type ?? "text/plain",
+          mediaType: text(body.media_type ?? "text/plain", "media type"),
         })
         .returning()
         .get()!;

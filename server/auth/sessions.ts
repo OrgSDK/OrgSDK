@@ -1,11 +1,13 @@
+import { inTransaction } from "../db/transaction";
 import { eq } from "drizzle-orm";
 import { sessions, type users } from "../db/schema/core";
-import { type AppContext, requireUser, setCookie } from "../http/context";
-import { HttpError } from "../http/responses";
+import { type ServiceContext } from "../application";
+import { type IdentityContext, requireIdentity } from "./context";
+import { ServiceError } from "../shared/errors";
 import { identityRepository } from "../repositories/identity";
 import { digest, randomSecret } from "../shared/security";
 export function rotateSession(
-  ctx: AppContext,
+  ctx: IdentityContext,
   userId: number | null,
   pendingUserId: number | null = null,
   guard?: () => void,
@@ -14,82 +16,90 @@ export function rotateSession(
   const secret = randomSecret();
   const id = digest(secret);
   const time = Date.now();
-  ctx.store.sqlite
-    .transaction(() => {
-      guard?.();
-      mutation?.();
-      if (ctx.sessionId)
-        ctx.store.db
-          .delete(sessions)
-          .where(eq(sessions.id, ctx.sessionId))
-          .run();
-      ctx.store.db
-        .insert(sessions)
-        .values({
-          id,
-          userId,
-          pendingUserId,
-          workspaceId: ctx.workspace?.id ?? null,
-          expiresAt: time + (pendingUserId ? 5 * 60000 : 14 * 86400000),
-          reauthenticatedAt: userId ? time : null,
-        })
-        .run();
-    })
-    .immediate();
+  inTransaction(ctx, (ctx) => {
+    guard?.();
+    mutation?.();
+    if (ctx.sessionId) {
+      ctx.db.delete(sessions).where(eq(sessions.id, ctx.sessionId)).run();
+    }
+    ctx.db
+      .insert(sessions)
+      .values({
+        id,
+        userId,
+        pendingUserId,
+        workspaceId: ctx.workspace?.id ?? null,
+        expiresAt: time + (pendingUserId ? 5 * 60000 : 14 * 86400000),
+        reauthenticatedAt: userId ? time : null,
+      })
+      .run();
+  });
   ctx.sessionId = id;
-  setCookie(ctx, "sessionid", secret, true);
-  setCookie(ctx, "csrftoken", randomSecret());
+  ctx.sessionChanged(secret);
 }
 
-export function requireFresh(ctx: AppContext) {
-  requireUser(ctx);
+export function requireFresh(ctx: ServiceContext) {
+  requireIdentity(ctx);
   const session = ctx.sessionId
-    ? identityRepository(ctx.store).session(ctx.sessionId)
+    ? identityRepository(ctx.db).session(ctx.sessionId)
     : undefined;
   if (
     !session?.reauthenticatedAt ||
     session.userId !== ctx.user?.id ||
     session.expiresAt <= Date.now() ||
     session.reauthenticatedAt < Date.now() - 300000
-  )
-    throw new HttpError(401, "Confirm your identity to continue.");
+  ) {
+    throw new ServiceError(
+      "UNAUTHORIZED",
+      "Confirm your identity to continue.",
+    );
+  }
 }
 
 export function assertCurrentUser(
-  ctx: AppContext,
+  ctx: ServiceContext,
   user: typeof users.$inferSelect,
   withSession = true,
 ) {
-  const current = identityRepository(ctx.store).user(user.id);
+  const current = identityRepository(ctx.db).user(user.id);
   if (
     !current ||
     current.passwordHash !== user.passwordHash ||
     current.email !== user.email ||
     current.totpSecret !== user.totpSecret
-  )
-    throw new HttpError(401, "Your account changed. Sign in again.");
+  ) {
+    throw new ServiceError(
+      "UNAUTHORIZED",
+      "Your account changed. Sign in again.",
+    );
+  }
   if (withSession) {
     const session = ctx.sessionId
-      ? identityRepository(ctx.store).session(ctx.sessionId)
+      ? identityRepository(ctx.db).session(ctx.sessionId)
       : undefined;
     if (
       !session ||
       session.userId !== user.id ||
       session.expiresAt <= Date.now()
-    )
-      throw new HttpError(401, "Your session has expired. Sign in again.");
+    ) {
+      throw new ServiceError(
+        "UNAUTHORIZED",
+        "Your session has expired. Sign in again.",
+      );
+    }
   }
 }
 
-export function markFresh(ctx: AppContext, user: typeof users.$inferSelect) {
-  ctx.store.sqlite
-    .transaction(() => {
-      assertCurrentUser(ctx, user);
-      ctx.store.db
-        .update(sessions)
-        .set({ reauthenticatedAt: Date.now() })
-        .where(eq(sessions.id, ctx.sessionId!))
-        .run();
-    })
-    .immediate();
+export function markFresh(
+  ctx: ServiceContext,
+  user: typeof users.$inferSelect,
+) {
+  inTransaction(ctx, (ctx) => {
+    assertCurrentUser(ctx, user);
+    ctx.db
+      .update(sessions)
+      .set({ reauthenticatedAt: Date.now() })
+      .where(eq(sessions.id, ctx.sessionId!))
+      .run();
+  });
 }

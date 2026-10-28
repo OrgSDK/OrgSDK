@@ -29,9 +29,6 @@
         "project": {
           "type": "string",
           "format": "uuid"
-        },
-        "namespace": {
-          "type": "string"
         }
       },
       "required": ["project"],
@@ -366,11 +363,6 @@
           "type": "string",
           "format": "uuid"
         },
-        "agent": {
-          "type": "string",
-          "format": "uuid",
-          "description": "Legacy project alias"
-        },
         "name": {
           "type": "string"
         },
@@ -388,7 +380,7 @@
           "format": "uuid"
         }
       },
-      "required": ["name", "source"],
+      "required": ["project", "name", "source"],
       "additionalProperties": false
     },
     "mutates": true
@@ -402,10 +394,6 @@
         "project": {
           "type": "string",
           "format": "uuid"
-        },
-        "agent": {
-          "type": "string",
-          "description": "Legacy project alias"
         },
         "action": {
           "type": "string"

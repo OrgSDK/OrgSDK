@@ -12,14 +12,14 @@ export default function Page(): ReactNode {
   );
 }
 function Content(): ReactNode {
-  const { agents, selected: project, navigateTo } = useWorkspace();
+  const { projects, selected: project, navigateTo } = useWorkspace();
   const parameters = useSearchParams();
   return (
     <ActionScope current="runs">
       {(actionId) => (
         <Runs
           key={`${project}:${actionId}`}
-          agents={agents}
+          projects={projects}
           actionId={actionId}
           selected={parameters.get("run") ?? ""}
           onSelect={(run) => {

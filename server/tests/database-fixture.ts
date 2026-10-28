@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { databaseFilename, migrationsFolder } from "../db/migrate";
 import journal from "../db/migrations/meta/_journal.json";
 import * as schema from "../db/schema";
+import { createSecretCipher } from "../shared/secrets";
 import { ensureEncryptionKey } from "../shared/security";
 
 export function temporaryDatabase() {
@@ -23,7 +24,9 @@ export function temporaryDatabase() {
   };
 }
 
-export function initialStore(dataDir: string) {
+export const latestMigrationCount = journal.entries.length;
+
+export function initialStore(dataDir: string, migrationLimit = 1) {
   mkdirSync(dataDir, { recursive: true });
   const migrationDirectory = mkdtempSync(
     join(tmpdir(), "orgsdk-initial-migration-"),
@@ -32,22 +35,23 @@ export function initialStore(dataDir: string) {
     create: true,
   });
   try {
-    const entries = journal.entries.slice(0, 1);
+    const entries = journal.entries.slice(0, migrationLimit);
     mkdirSync(join(migrationDirectory, "meta"));
     writeFileSync(
       join(migrationDirectory, "meta/_journal.json"),
       JSON.stringify({ ...journal, entries }),
     );
-    for (const entry of entries)
+    for (const entry of entries) {
       copyFileSync(
         join(migrationsFolder, `${entry.tag}.sql`),
         join(migrationDirectory, `${entry.tag}.sql`),
       );
+    }
     sqlite.exec("PRAGMA foreign_keys=ON;");
     const db = drizzle(sqlite, { schema });
     migrate(db, { migrationsFolder: migrationDirectory });
-    ensureEncryptionKey(dataDir);
-    return { db, sqlite, dataDir, close: () => sqlite.close() };
+    const secrets = createSecretCipher(ensureEncryptionKey(dataDir));
+    return { db, sqlite, dataDir, secrets, close: () => sqlite.close() };
   } catch (error) {
     sqlite.close();
     throw error;

@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import * as t from "../db/schema";
-import type { AppContext } from "../http/context";
+import { type ServiceContext } from "../application";
 import { type Executor } from "./authority";
-export function pluginsFor(ctx: AppContext, worker: Executor) {
-  return ctx.store.db
+export function pluginsFor(ctx: ServiceContext, worker: Executor) {
+  return ctx.db
     .select()
     .from(t.plugins)
     .where(
@@ -28,7 +28,7 @@ export function pluginsFor(ctx: AppContext, worker: Executor) {
     }));
 }
 
-export function configuration(ctx: AppContext, worker: Executor) {
+export function configuration(ctx: ServiceContext, worker: Executor) {
   return {
     id: worker.id,
     pool: worker.pool,

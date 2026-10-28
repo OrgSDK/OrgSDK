@@ -1,15 +1,17 @@
+import { inTransaction } from "../db/transaction";
 import { and, eq, type SQL } from "drizzle-orm";
 import { webhookDeliveries } from "../db/schema";
-import { requireWorkspace, type AppContext } from "../http/context";
+import { requireWorkspace } from "../shared/authorization";
+import { type ServiceContext } from "../application";
 import { base } from "../shared/records";
 
-export function webhookDeliveriesRepository(context: AppContext) {
+export function webhookDeliveriesRepository(context: ServiceContext) {
   type Create = Omit<
     typeof webhookDeliveries.$inferInsert,
     "id" | "workspaceId" | "createdAt" | "updatedAt"
   >;
   const workspaceId = requireWorkspace(context).id;
-  const database = context.store.db;
+  const database = context.db;
   const scoped = (id?: string, filter?: SQL) =>
     and(
       eq(webhookDeliveries.workspaceId, workspaceId),
@@ -25,16 +27,16 @@ export function webhookDeliveriesRepository(context: AppContext) {
         .all();
     },
     create(data: Create) {
-      return context.store.sqlite
-        .transaction(() => {
-          const row = database
-            .insert(webhookDeliveries)
-            .values({ ...data, ...base(workspaceId) })
-            .returning()
-            .get();
-          return row;
-        })
-        .immediate();
+      return inTransaction(context, (context) => {
+        const database = context.db;
+
+        const row = database
+          .insert(webhookDeliveries)
+          .values({ ...data, ...base(workspaceId) })
+          .returning()
+          .get();
+        return row;
+      });
     },
   };
 }

@@ -1,8 +1,11 @@
-import type { AppContext } from "../http/context";
-export function serializeRun(_ctx: AppContext, row: any) {
+import type { runs } from "../db/schema";
+import { type ServiceContext } from "../application";
+export function serializeRun(
+  _ctx: ServiceContext,
+  row: typeof runs.$inferSelect,
+) {
   return {
     id: row.id,
-    agent: row.projectId,
     project: row.projectId,
     origin: row.origin,
     origin_reference: row.originReference,

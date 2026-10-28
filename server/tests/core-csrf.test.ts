@@ -1,28 +1,21 @@
 import { expect, test } from "bun:test";
-import { checkCsrf, createContext } from "../http/context";
-import { HttpError } from "../http/responses";
-import { store } from "./core-fixture";
-test("unsafe requests require matching token and same origin", () => {
+import { client, setup, store } from "./core-fixture";
+test("RPC mutations require matching CSRF token and same origin", async () => {
   const s = store();
-  const ctx = createContext(
-    new Request("http://localhost/api/v1/setup/", {
-      method: "POST",
-      headers: {
-        cookie: "csrftoken=a",
-        "x-csrftoken": "a",
+  await Promise.resolve(
+    expect(
+      client(s, "csrftoken=test", "localhost", {
         origin: "http://evil.example",
-      },
-    }),
-    s,
+      }).auth.setup(setup),
+    ).rejects.toThrow("Invalid origin"),
   );
-  expect(() => checkCsrf(ctx)).toThrow(HttpError);
-  expect(() =>
-    checkCsrf(
-      createContext(
-        new Request("http://localhost/api/v1/setup/", { method: "POST" }),
-        s,
-      ),
-    ),
-  ).toThrow(HttpError);
+  await Promise.resolve(
+    expect(
+      client(s, "", "localhost", { "x-csrftoken": "" }).auth.setup(setup),
+    ).rejects.toThrow("CSRF verification failed"),
+  );
+  expect(await client(s).auth.setupStatus()).toMatchObject({
+    setup_required: true,
+  });
   s.close();
 });

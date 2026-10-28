@@ -12,13 +12,7 @@ import { WorkspaceLink } from "../../../components/workspace/workspace-link";
 import { useUnsavedChanges } from "../../../components/workspace/use-unsaved-changes";
 
 export default function Page(): ReactNode {
-  const {
-    agents: projects,
-    selected,
-    setDirty,
-    refresh,
-    navigateTo,
-  } = useWorkspace();
+  const { projects, selected, setDirty, refresh, navigateTo } = useWorkspace();
   const parameters = useSearchParams();
   const current = projects.find((project) => project.id === selected);
   if (parameters.get("new") === "1") {
@@ -42,7 +36,7 @@ export default function Page(): ReactNode {
     return (
       <Workbench
         key={current.id}
-        agent={current}
+        project={current}
         tab={tab}
         refresh={refresh}
         onDirtyChange={setDirty}

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { inspectInlinePlugin } from "../src/lib/inline-plugin-tools.ts";
-import { pinnedPluginTools } from "../src/lib/plugin-tools.ts";
+import { pinnedPluginTools, pluginAuth } from "../src/lib/plugin-tools.ts";
 
 test("the inline double fixture lists its declared tool without invoking code", () => {
   const source = `export const safeFunctions = [{name:'double', calling:'positional', description:'Double a number', parameters:[{name:'value',type:'number',description:'The number to double'}], returnType:'number', handler:(value)=>value*2}];`;
@@ -120,4 +120,38 @@ test("top-level mutation preserves literal tools but never claims completeness",
 test("missing pinned metadata differs from an explicitly empty tool list", () => {
   expect(pinnedPluginTools(null)).toEqual({ tools: [], isComplete: false });
   expect(pinnedPluginTools([])).toEqual({ tools: [], isComplete: true });
+});
+
+test("malformed JSON tool metadata remains incomplete instead of being treated as an array", () => {
+  for (const metadata of [undefined, {}, "tools", 1, true]) {
+    expect(pinnedPluginTools(metadata)).toEqual({
+      tools: [],
+      isComplete: false,
+    });
+  }
+});
+
+test("plugin authentication copy accepts only string fields from actual catalog JSON", () => {
+  expect(
+    pluginAuth({
+      type: "oauth2",
+      provider: "test",
+      label: "Connection",
+      hint: "Use your app",
+      scopes: ["read"],
+    }),
+  ).toEqual({
+    type: "oauth2",
+    provider: "test",
+    label: "Connection",
+    hint: "Use your app",
+  });
+  for (const metadata of [
+    null,
+    [],
+    "auth",
+    { type: [], provider: {}, label: 42, hint: true },
+  ]) {
+    expect(pluginAuth(metadata)).toEqual({});
+  }
 });

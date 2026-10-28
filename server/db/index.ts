@@ -3,6 +3,7 @@ import { count, isNotNull, isNull, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { chmodSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { createSecretCipher } from "../shared/secrets";
 import { ensureEncryptionKey } from "../shared/security";
 import {
   assertManagedDatabase,
@@ -66,8 +67,8 @@ export function openStore(dataDir: string) {
         );
       }
     }
-    ensureEncryptionKey(dataDir);
-    return { db, sqlite, dataDir, close: () => sqlite.close() };
+    const secrets = createSecretCipher(ensureEncryptionKey(dataDir));
+    return { db, sqlite, dataDir, secrets, close: () => sqlite.close() };
   } catch (error) {
     sqlite.close();
     throw error;

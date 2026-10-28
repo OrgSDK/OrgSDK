@@ -1,8 +1,9 @@
 "use client";
 import { CalendarClock, Pause, Play, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import { result, errorMessage, requireSuccess } from "../../api/result";
+import { z } from "zod";
+import { trpc } from "../../api/trpc";
+import { errorMessage } from "../../api/result";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { loadActions, loadSchedules } from "../../api/workspace-queries";
 import { Button } from "../ui/button";
@@ -111,12 +112,10 @@ export function Schedules({ actionId = "" }: { actionId?: string }): ReactNode {
                 disabled={isBusy}
                 onClick={() => {
                   void perform(async () => {
-                    result(
-                      await api.PATCH("/api/v1/schedules/{id}/", {
-                        params: { path: { id: schedule.id } },
-                        body: { enabled: !schedule.enabled },
-                      }),
-                    );
+                    await trpc.schedules.update.mutate({
+                      id: schedule.id,
+                      enabled: !schedule.enabled,
+                    });
                     setNotice(
                       schedule.enabled
                         ? "Schedule paused."
@@ -165,11 +164,7 @@ export function Schedules({ actionId = "" }: { actionId?: string }): ReactNode {
                       }))
                     )
                       return;
-                    requireSuccess(
-                      await api.DELETE("/api/v1/schedules/{id}/", {
-                        params: { path: { id: schedule.id } },
-                      }),
-                    );
+                    await trpc.schedules.delete.mutate({ id: schedule.id });
                     setNotice("Schedule deleted.");
                   });
                 }}
@@ -186,16 +181,13 @@ export function Schedules({ actionId = "" }: { actionId?: string }): ReactNode {
           onSubmit={(event) => {
             event.preventDefault();
             void perform(async () => {
-              const parsed: unknown = JSON.parse(inputs);
+              const parsed = z
+                .record(z.string(), z.json())
+                .parse(JSON.parse(inputs));
               const body = { action, cron, inputs: parsed };
               if (selected)
-                result(
-                  await api.PATCH("/api/v1/schedules/{id}/", {
-                    params: { path: { id: selected } },
-                    body,
-                  }),
-                );
-              else result(await api.POST("/api/v1/schedules/", { body }));
+                await trpc.schedules.update.mutate({ id: selected, ...body });
+              else await trpc.schedules.create.mutate(body);
               setNotice("Schedule saved.");
               resetDraft();
             });

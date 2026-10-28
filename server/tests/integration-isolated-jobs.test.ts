@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { runSchema } from "./wire-schemas";
 import { expect, test } from "bun:test";
 import { jobSchema } from "../../runtime/src/contract";
 import { fixture } from "./integration-fixture";
@@ -5,11 +7,17 @@ test("isolated protocol-three jobs cannot access project data and executor repla
   const f = await fixture();
   try {
     const worker = await f.register();
-    const validation = await f.json("/api/v1/actions/validate-code/", "POST", {
-      project: f.project.id,
-      source: "return 1;",
-      idempotency_key: "isolated",
-    });
+    const validation = runSchema.parse(
+      await f.data(
+        "actions.validateCode",
+        {
+          project: f.project.id,
+          source: "return 1;",
+          idempotency_key: "isolated",
+        },
+        "mutation",
+      ),
+    );
     const claim = jobSchema.parse(
       await f.json("/internal/execution/v1/claim/", "POST", undefined, worker),
     );
@@ -25,7 +33,11 @@ test("isolated protocol-three jobs cannot access project data and executor repla
         )
       ).status,
     ).toBe(403);
-    await f.json(`/api/v1/projects/${f.project.id}/executor/`, "DELETE");
+    await f.data(
+      "projects.disconnectExecutor",
+      { id: f.project.id },
+      "mutation",
+    );
     expect(
       (
         await f.request(
@@ -46,9 +58,11 @@ test("isolated protocol-three jobs cannot access project data and executor repla
         )
       ).status,
     ).toBe(401);
-    expect((await f.json(`/api/v1/projects/${f.project.id}/`)).id).toBe(
-      f.project.id,
-    );
+    expect(
+      z
+        .object({ id: z.string() })
+        .parse(await f.data("projects.get", { id: f.project.id })).id,
+    ).toBe(f.project.id);
   } finally {
     await f.close();
   }

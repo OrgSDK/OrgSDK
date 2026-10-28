@@ -1,203 +1,176 @@
-import { and, eq } from "drizzle-orm";
-import * as t from "../db/schema";
-import type { AppContext } from "../http/context";
+import { and, asc, eq, inArray } from "drizzle-orm";
+import { documents, tableRows, workspaceTables } from "../db/schema";
+import { type ServiceContext } from "../application";
 import { HttpError } from "../http/responses";
 import { validateValues } from "../shared/contracts";
 import { base, now } from "../shared/records";
 import { rowView, standard } from "../tables/views";
 import { live, type Run } from "./authority";
+import { paginateData } from "./data-pagination";
+import { dataOperationSchema } from "./data-schemas";
 import { bounded } from "./redaction";
-export function grantIds(
-  ctx: AppContext,
-  run: Run,
-  kind: "tables" | "documents",
-  write = false,
-): string[] {
-  const snapshot = run.snapshot as any;
-  const root = snapshot.agents?.find(
-    (agent: any) => agent.id === run.projectId,
-  );
-  const grants = root?.resources?.[kind] ?? {};
-  const immutable: string[] = [
-    ...(grants.write ?? []),
-    ...(write ? [] : (grants.read ?? [])),
-  ];
-  const project = ctx.store.db
-    .select()
-    .from(t.projects)
-    .where(
-      and(
-        eq(t.projects.id, run.projectId),
-        eq(t.projects.workspaceId, run.workspaceId),
-      ),
-    )
-    .get();
-  if (!project) return [];
-  const writable: string[] =
-    kind === "tables" ? project.writableTables : project.writableDocuments;
-  const readable: string[] =
-    kind === "tables" ? project.readableTables : project.readableDocuments;
-  const current = new Set([...writable, ...(write ? [] : readable)]);
-  return immutable.filter((id) => current.has(id));
-}
+import { grantIds } from "./run-grants";
+export { grantIds } from "./run-grants";
+
+const documentView = (document: typeof documents.$inferSelect) => ({
+  id: document.id,
+  kind: document.kind,
+  title: document.title,
+  content: document.content,
+});
 
 export function projectData(
-  ctx: AppContext,
+  context: ServiceContext,
   run: Run,
-  body: Record<string, any>,
+  body: Record<string, unknown>,
 ) {
   live(run);
-  const operations: Record<string, string[]> = {
-    list_tables: ["offset", "limit"],
-    get_table: ["table_id"],
-    list_rows: ["table_id", "offset", "limit"],
-    write_row: ["table_id", "table_revision", "values", "row_id", "revision"],
-    delete_row: ["table_id", "row_id", "revision"],
-    list_documents: ["offset", "limit"],
-    get_document: ["document_id"],
-    write_document: ["document_id", "title", "content"],
-  };
-  const fields = operations[body.operation];
-  if (
-    !fields ||
-    Object.keys(body).some(
-      (key) => key !== "operation" && !fields.includes(key),
-    )
-  )
-    throw new HttpError(400, "Invalid data operation.");
   bounded(body);
-  const offset = body.offset ?? 0,
-    limit = body.limit ?? 100;
-  if (
-    !Number.isInteger(offset) ||
-    offset < 0 ||
-    offset > 1000000 ||
-    !Number.isInteger(limit) ||
-    limit < 1 ||
-    limit > 100
-  )
-    throw new HttpError(400, "Invalid pagination.");
-  const paginate = (items: unknown[]) => {
-    const selected: unknown[] = [];
-    for (const item of items.slice(offset, offset + limit)) {
-      if (
-        Buffer.byteLength(
-          JSON.stringify({
-            items: [...selected, item],
-            next_offset: offset + selected.length + 1,
-          }),
-        ) > 200000
-      ) {
-        if (!selected.length)
-          throw new HttpError(400, "Resource exceeds the response limit.");
-        break;
-      }
-      selected.push(item);
+  const input = dataOperationSchema.parse(body);
+  const documentOperation =
+    input.operation === "list_documents" ||
+    input.operation === "get_document" ||
+    input.operation === "write_document";
+  if (documentOperation) {
+    const accessibleDocuments = context.db
+      .select()
+      .from(documents)
+      .where(
+        and(
+          eq(documents.workspaceId, run.workspaceId),
+          inArray(documents.id, grantIds(context, run, "documents")),
+        ),
+      )
+      .orderBy(asc(documents.id))
+      .all();
+    if (input.operation === "list_documents") {
+      return paginateData(
+        accessibleDocuments.map(documentView),
+        input.offset,
+        input.limit,
+      );
     }
-    return {
-      items: selected,
-      next_offset:
-        offset + selected.length < items.length
-          ? offset + selected.length
-          : null,
-    };
-  };
-  const kind = body.operation.includes("document") ? "documents" : "tables";
-  const ids = grantIds(ctx, run, kind);
-  const table = kind === "documents" ? t.documents : t.workspaceTables;
-  const records = ctx.store.db
-    .select()
-    .from(table)
-    .where(eq(table.workspaceId, run.workspaceId))
-    .all()
-    .filter((row) => ids.includes(row.id))
-    .sort((a, b) => a.id.localeCompare(b.id));
-  const documentView = (row: any) => ({
-    id: row.id,
-    kind: row.kind,
-    title: row.title,
-    content: row.content,
-  });
-  if (body.operation === "list_tables") return paginate(records.map(standard));
-  if (body.operation === "list_documents")
-    return paginate(records.map(documentView));
-  const id = kind === "documents" ? body.document_id : body.table_id;
-  const record: any = records.find((row) => row.id === id);
-  if (!record) throw new HttpError(403, "Resource is outside this run grant.");
-  const write = ["write_document", "write_row", "delete_row"].includes(
-    body.operation,
-  );
-  if (write && !grantIds(ctx, run, kind, true).includes(id))
-    throw new HttpError(403, "Resource is read only.");
-  if (body.operation === "get_document") return bounded(documentView(record));
-  if (body.operation === "write_document") {
-    const title = body.title ?? record.title,
-      content = body.content ?? record.content;
-    if (
-      typeof title !== "string" ||
-      !title.trim() ||
-      title.length > 200 ||
-      typeof content !== "string" ||
-      Buffer.byteLength(content) > 200000 ||
-      `${title}${content}`.includes("\0")
-    )
-      throw new HttpError(400, "Invalid document.");
-    const updated = ctx.store.db
-      .update(t.documents)
-      .set({ title, content, updatedAt: now() })
-      .where(eq(t.documents.id, id))
+    const document = accessibleDocuments.find(
+      (candidate) => candidate.id === input.document_id,
+    );
+    if (!document) {
+      throw new HttpError(403, "Resource is outside this run grant.");
+    }
+    if (input.operation === "get_document") {
+      return bounded(documentView(document));
+    }
+    if (!grantIds(context, run, "documents", true).includes(document.id)) {
+      throw new HttpError(403, "Resource is read only.");
+    }
+    const updated = context.db
+      .update(documents)
+      .set({
+        title: input.title ?? document.title,
+        content: input.content ?? document.content,
+        updatedAt: now(),
+      })
+      .where(
+        and(
+          eq(documents.id, document.id),
+          eq(documents.workspaceId, run.workspaceId),
+        ),
+      )
       .returning()
       .get();
+    if (!updated) {
+      throw new HttpError(404, "Document not found.");
+    }
     return bounded(documentView(updated));
   }
-  if (body.operation === "get_table") return bounded(standard(record));
-  const rows = ctx.store.db
+
+  const tables = context.db
     .select()
-    .from(t.tableRows)
+    .from(workspaceTables)
     .where(
       and(
-        eq(t.tableRows.workspaceId, run.workspaceId),
-        eq(t.tableRows.tableId, id),
+        eq(workspaceTables.workspaceId, run.workspaceId),
+        inArray(workspaceTables.id, grantIds(context, run, "tables")),
       ),
     )
-    .all()
-    .sort((a, b) => a.id.localeCompare(b.id));
-  if (body.operation === "list_rows") return paginate(rows.map(rowView));
-  const row = rows.find((row) => row.id === body.row_id);
-  if (body.operation === "delete_row") {
-    if (!row) throw new HttpError(404, "Row not found.");
-    if (!Number.isInteger(body.revision) || row.revision !== body.revision)
-      throw new HttpError(409, "Row changed. Reload before saving.");
-    ctx.store.db.delete(t.tableRows).where(eq(t.tableRows.id, row.id)).run();
+    .orderBy(asc(workspaceTables.id))
+    .all();
+  if (input.operation === "list_tables") {
+    return paginateData(tables.map(standard), input.offset, input.limit);
+  }
+  const table = tables.find((candidate) => candidate.id === input.table_id);
+  if (!table) {
+    throw new HttpError(403, "Resource is outside this run grant.");
+  }
+  if (input.operation === "get_table") {
+    return bounded(standard(table));
+  }
+  if (
+    input.operation !== "list_rows" &&
+    !grantIds(context, run, "tables", true).includes(table.id)
+  ) {
+    throw new HttpError(403, "Resource is read only.");
+  }
+
+  const matchesTable = and(
+    eq(tableRows.workspaceId, run.workspaceId),
+    eq(tableRows.tableId, table.id),
+  );
+  if (input.operation === "list_rows") {
+    const rows = context.db
+      .select()
+      .from(tableRows)
+      .where(matchesTable)
+      .orderBy(asc(tableRows.id))
+      .all();
+    return paginateData(rows.map(rowView), input.offset, input.limit);
+  }
+  const row =
+    input.row_id === undefined
+      ? undefined
+      : context.db
+          .select()
+          .from(tableRows)
+          .where(and(matchesTable, eq(tableRows.id, input.row_id)))
+          .get();
+  if (input.row_id !== undefined && !row) {
+    throw new HttpError(404, "Row not found.");
+  }
+  if (row && row.revision !== input.revision) {
+    throw new HttpError(409, "Row changed. Reload before saving.");
+  }
+  if (input.operation === "delete_row") {
+    context.db
+      .delete(tableRows)
+      .where(and(matchesTable, eq(tableRows.id, input.row_id)))
+      .run();
     return { deleted: true };
   }
-  if (record.revision !== body.table_revision)
+  if (table.revision !== input.table_revision) {
     throw new HttpError(409, "Table schema changed. Reload before saving.");
-  validateValues(record.columns, body.values);
-  if ((body.row_id === undefined) !== (body.revision === undefined))
-    throw new HttpError(400, "Row updates require both row ID and revision.");
-  if (body.row_id !== undefined) {
-    if (!row) throw new HttpError(404, "Row not found.");
-    if (!Number.isInteger(body.revision) || row.revision !== body.revision)
-      throw new HttpError(409, "Row changed. Reload before saving.");
-    const updated = ctx.store.db
-      .update(t.tableRows)
+  }
+  validateValues(table.columns, input.values);
+  if (row) {
+    const updated = context.db
+      .update(tableRows)
       .set({
-        values: body.values,
+        values: input.values,
         revision: row.revision + 1,
         updatedAt: now(),
       })
-      .where(eq(t.tableRows.id, row.id))
+      .where(and(matchesTable, eq(tableRows.id, row.id)))
       .returning()
       .get();
+    if (!updated) {
+      throw new HttpError(404, "Row not found.");
+    }
     return bounded(rowView(updated));
   }
-  const created = ctx.store.db
-    .insert(t.tableRows)
+  const created = context.db
+    .insert(tableRows)
     .values({
       ...base(run.workspaceId),
-      tableId: id,
-      values: body.values,
+      tableId: table.id,
+      values: input.values,
       revision: 1,
     })
     .returning()

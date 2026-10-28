@@ -1,22 +1,12 @@
 import { expect, test } from "bun:test";
-import { call, req, setup, store } from "./core-fixture";
+import { client, loginOwner, setup, store } from "./core-fixture";
 test("identity confirmation cannot revive a revoked session during password verification", async () => {
   const s = store();
-  await call(s, req("/api/v1/setup/", "POST", setup));
-  const login = await call(
-    s,
-    req("/api/auth/browser/v1/auth/login", "POST", {
-      email: setup.email,
-      password: setup.password1,
-    }),
-  );
-  const session = login.ctx.responseHeaders
-    .getSetCookie()
-    .find((x) => x.startsWith("sessionid="))!
-    .split(";")[0]!;
-  const cookie = `${session}; csrftoken=test`;
+  await client(s).auth.setup(setup);
+  const { cookie } = await loginOwner(s);
   const original = Bun.password.verify;
-  let release!: () => void, entered!: () => void;
+  let release!: () => void;
+  let entered!: () => void;
   const started = new Promise<void>((resolve) => {
     entered = resolve;
   });
@@ -30,20 +20,14 @@ test("identity confirmation cannot revive a revoked session during password veri
       await gate;
       return result;
     };
-    const confirmation = call(
-      s,
-      req(
-        "/api/auth/browser/v1/auth/reauthenticate",
-        "POST",
-        { password: setup.password1 },
-        cookie,
-      ),
-    );
+    const pending = client(s, cookie).auth.reauthenticate({
+      password: setup.password1,
+    });
     await started;
     s.sqlite.query("DELETE FROM sessions").run();
     release();
     await Promise.resolve(
-      expect(confirmation).rejects.toThrow("session has expired"),
+      expect(pending).rejects.toThrow("session has expired"),
     );
     expect(
       s.sqlite.query("SELECT count(*) AS count FROM sessions").get(),

@@ -1,7 +1,7 @@
-export function serializeAction(row: any) {
+import type { actions, actionVersions, actionTestSuites } from "../db/schema";
+export function serializeAction(row: typeof actions.$inferSelect) {
   return {
     id: row.id,
-    agent: row.projectId,
     project: row.projectId,
     name: row.name,
     description: row.description,
@@ -9,7 +9,7 @@ export function serializeAction(row: any) {
   };
 }
 
-export function serializeVersion(row: any) {
+export function serializeVersion(row: typeof actionVersions.$inferSelect) {
   return {
     id: row.id,
     number: row.number,
@@ -23,13 +23,13 @@ export function serializeVersion(row: any) {
   };
 }
 
-export function suiteView(s: any) {
+export function suiteView(suite: typeof actionTestSuites.$inferSelect) {
   return {
-    id: s.id,
-    version: s.versionId,
-    revision: s.number,
-    digest: s.digest,
-    cases: s.cases,
-    created_at: s.createdAt,
+    id: suite.id,
+    version: suite.versionId,
+    revision: suite.number,
+    digest: suite.digest,
+    cases: suite.cases,
+    created_at: suite.createdAt,
   };
 }

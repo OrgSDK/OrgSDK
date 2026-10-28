@@ -1,68 +1,57 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { ZodError } from "zod";
 import { handleMcp } from "../api/mcp";
-import { appRouter } from "../api/trpc";
-import { handleAuth } from "../auth/routes";
 import { handleWebhookIngress } from "../automations/ingress";
-import type { Store } from "../db";
-import { handleDomain } from "../domain/routes";
+import type { AppDependencies } from "../application";
 import { handleExecution } from "../execution/routes";
+import { handleOAuthCallback } from "../oauth/transport";
+import { appRouter } from "../router";
+import { ServiceError, serviceErrorStatus } from "../shared/errors";
 import { checkCsrf, createContext, type AppContext } from "./context";
 import { publicRequest } from "./origin";
 import { finishResponse } from "./response-middleware";
 import { HttpError, json } from "./responses";
 
-function isEndpoint(path: string, endpoint: string): boolean {
-  return path === endpoint || path.startsWith(`${endpoint}/`);
-}
-
-async function dispatch(ctx: AppContext, path: string): Promise<Response> {
+async function dispatch(context: AppContext, path: string): Promise<Response> {
+  if (path === "/trpc" || path.startsWith("/trpc/")) {
+    return fetchRequestHandler({
+      endpoint: "/trpc",
+      req: context.request,
+      router: appRouter,
+      createContext: () => context,
+    });
+  }
   if (path.startsWith("/internal/execution/v1/")) {
-    return (await handleExecution(ctx)) ?? json({ detail: "Not found." }, 404);
-  }
-  // Webhooks authenticate a secret; all other public mutations require CSRF.
-  if (path.startsWith("/api/v1/webhook-ingress/")) {
     return (
-      (await handleWebhookIngress(ctx)) ?? json({ detail: "Not found." }, 404)
+      (await handleExecution(context)) ?? json({ detail: "Not found." }, 404)
     );
   }
-  checkCsrf(ctx);
-  for (const endpoint of ["/trpc", "/api/trpc"]) {
-    if (isEndpoint(path, endpoint)) {
-      return fetchRequestHandler({
-        endpoint,
-        req: ctx.request,
-        router: appRouter,
-        createContext: () => ctx,
-      });
-    }
+  if (path.startsWith("/webhooks/")) {
+    return (
+      (await handleWebhookIngress(context)) ??
+      json({ detail: "Not found." }, 404)
+    );
   }
-  return (
-    (await handleAuth(ctx)) ??
-    (await handleMcp(ctx)) ??
-    (await handleDomain(ctx)) ??
-    json({ detail: "Not found." }, 404)
-  );
+  if (path === "/oauth/callback" && context.request.method === "GET") {
+    return handleOAuthCallback(context);
+  }
+  if (path === "/mcp/") {
+    checkCsrf(context);
+    return (await handleMcp(context)) ?? json({ detail: "Not found." }, 404);
+  }
+  return json({ detail: "Not found." }, 404);
 }
 
-function errorResponse(
-  error: unknown,
-  path: string,
-  ctx?: AppContext,
-): Response {
-  if (error instanceof HttpError) {
-    return json(
-      error.fields ??
-        (path.startsWith("/api/auth/")
-          ? {
-              status: error.status,
-              errors: [{ message: error.message }],
-              meta: { is_authenticated: !!ctx?.user },
-            }
-          : { detail: error.message }),
-      error.status,
-    );
+function errorResponse(error: unknown): Response {
+  if (error instanceof ServiceError) {
+    return json({ detail: error.message }, serviceErrorStatus[error.code]);
   }
-  // Do not log submitted values or raw requests: they can contain credentials.
+  if (error instanceof ZodError) {
+    return json({ detail: "Invalid input." }, 400);
+  }
+  if (error instanceof HttpError) {
+    return json(error.fields ?? { detail: error.message }, error.status);
+  }
   console.error(
     "Request failed:",
     error instanceof Error ? error.name : "unknown error",
@@ -72,17 +61,19 @@ function errorResponse(
 
 export async function handleApi(
   request: Request,
-  store: Store,
+  dependencies: AppDependencies,
 ): Promise<Response> {
   const path = new URL(request.url).pathname;
-  let ctx: AppContext | undefined;
+  let context: AppContext | undefined;
   let response: Response;
   try {
-    if (!path.startsWith("/internal/")) request = publicRequest(request);
-    ctx = createContext(request, store);
-    response = await dispatch(ctx, path);
+    if (!path.startsWith("/internal/")) {
+      request = publicRequest(request);
+    }
+    context = createContext(request, dependencies);
+    response = await dispatch(context, path);
   } catch (error) {
-    response = errorResponse(error, path, ctx);
+    response = errorResponse(error);
   }
-  return ctx ? finishResponse(ctx, response) : response;
+  return context ? finishResponse(context, response) : response;
 }

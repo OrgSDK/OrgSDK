@@ -1,6 +1,6 @@
-import { type AppContext } from "../http/context";
+import { type ServiceContext } from "../application";
 import { recordAuthAttempt } from "../repositories/auth-attempts";
 import { digest } from "../shared/security";
-export function throttle(ctx: AppContext, key: string) {
-  recordAuthAttempt(ctx.store, digest(key), Date.now());
+export function throttle(ctx: ServiceContext, key: string) {
+  recordAuthAttempt(ctx, digest(key), Date.now());
 }

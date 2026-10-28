@@ -1,16 +1,14 @@
 "use client";
+import type { Action } from "../../api/types";
 import { useCallback, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { api } from "../../api/client";
-import type { components } from "../../api/schema";
-import { result } from "../../api/result";
+import { trpc } from "../../api/trpc";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { useWorkspace } from "./workspace-context";
 import { WorkspaceLink } from "./workspace-link";
 import { ResourceState } from "./resource-state";
 
-type Action = components["schemas"]["Action"];
 const sections = [
   { id: "editor", label: "Code & configuration", path: "/actions/" },
   { id: "runs", label: "Runs", path: "/runs/" },
@@ -26,7 +24,7 @@ export function ActionNavigation({
   action: Action;
   current: Section;
 }): ReactNode {
-  const project = action.project ?? action.agent ?? "";
+  const project = action.project;
   const parameters = new URLSearchParams({ project, action: action.id });
   return (
     <div className="mb-6 min-w-0 space-y-3">
@@ -98,13 +96,8 @@ function ScopedAction({
   const load = useCallback(
     async (signal: AbortSignal) => {
       if (!actionId) return;
-      const action = result(
-        await api.GET("/api/v1/actions/{id}/", {
-          signal,
-          params: { path: { id: actionId } },
-        }),
-      );
-      if ((action.project ?? action.agent) !== project)
+      const action = await trpc.actions.get.query({ id: actionId }, { signal });
+      if (action.project !== project)
         throw new Error(
           "This action is not available in the selected project.",
         );

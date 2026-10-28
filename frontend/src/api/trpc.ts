@@ -1,41 +1,73 @@
-import { createTRPCClient, httpBatchLink, TRPCClientError } from "@trpc/client";
-import type { inferRouterOutputs } from "@trpc/server";
-import type { AppRouter } from "../../../server/api/trpc";
+import {
+  createTRPCClient,
+  httpBatchLink,
+  httpSubscriptionLink,
+  splitLink,
+  isTRPCClientError,
+  type TRPCClient,
+} from "@trpc/client";
+import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "../../../server/router";
 
+export type RouterInputs = inferRouterInputs<AppRouter>;
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
-
-export const trpc = createTRPCClient<AppRouter>({
-  links: [
-    httpBatchLink({
-      url: "/trpc",
-      headers() {
-        const token = document.cookie
-          .split("; ")
-          .find((cookie) => cookie.startsWith("csrftoken="))
-          ?.slice("csrftoken=".length);
-        return token ? { "X-CSRFToken": token } : {};
-      },
-    }),
-  ],
-});
+export interface ClientOptions {
+  url?: string;
+  fetch?: typeof globalThis.fetch;
+  csrfToken?: () => string | undefined;
+}
+function csrfToken(): string | undefined {
+  return typeof document === "undefined"
+    ? undefined
+    : document.cookie
+        .split(";")
+        .map((cookie) => cookie.trim())
+        .find((cookie) => cookie.startsWith("csrftoken="))
+        ?.slice("csrftoken=".length);
+}
+export function createTypedClient(
+  options: ClientOptions = {},
+): TRPCClient<AppRouter> {
+  const url = options.url ?? "/trpc";
+  return createTRPCClient<AppRouter>({
+    links: [
+      splitLink({
+        condition: (operation) => operation.type === "subscription",
+        true: httpSubscriptionLink({
+          url,
+          eventSourceOptions: { withCredentials: true },
+        }),
+        false: httpBatchLink({
+          url,
+          fetch(input, init) {
+            return (options.fetch ?? globalThis.fetch)(input, {
+              ...init,
+              signal: init?.signal ?? null,
+              credentials: "same-origin",
+            });
+          },
+          headers() {
+            const token = (options.csrfToken ?? csrfToken)();
+            return token ? { "X-CSRFToken": token } : {};
+          },
+        }),
+      }),
+    ],
+  });
+}
+export const trpc = createTypedClient();
 
 export async function loadSession(
   signal: AbortSignal,
-): Promise<RouterOutputs["session"]> {
+): Promise<RouterOutputs["auth"]["session"]> {
   try {
-    return await trpc.session.query(undefined, { signal });
+    return await trpc.auth.session.query(undefined, { signal });
   } catch (error) {
-    const data: unknown =
-      error instanceof TRPCClientError ? error.data : undefined;
     if (
-      typeof data === "object" &&
-      data !== null &&
-      "code" in data &&
-      data.code === "PRECONDITION_FAILED"
+      isTRPCClientError<AppRouter>(error) &&
+      error.data?.code === "PRECONDITION_FAILED"
     ) {
-      // The session endpoint uses this response only until first-run setup completes.
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      location.assign("/setup/");
+      location.assign(new URL("/setup/", location.origin).href);
     }
     throw error;
   }

@@ -1,9 +1,8 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { api } from "../api/client";
-import { errorMessage, result } from "../api/result";
+import { errorMessage } from "../api/result";
 import { trpc } from "../api/trpc";
-import type { components } from "../api/schema";
+import type { Project } from "../api/types";
 import {
   loadDocuments,
   loadPlugins,
@@ -12,7 +11,7 @@ import {
 } from "../api/workspace-queries";
 import { useWorkspaceQuery } from "../api/use-workspace-query";
 import { ActionCard } from "./workspace/action-card";
-import { AgentRunner } from "./workspace/agent-runner";
+import { ProjectRunner } from "./workspace/agent-runner";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useUnsavedChanges } from "./workspace/use-unsaved-changes";
@@ -21,7 +20,6 @@ import { useWorkspace } from "./workspace/workspace-context";
 import { WorkspaceLink } from "./workspace/workspace-link";
 import { ResourceState } from "./workspace/resource-state";
 
-type Project = components["schemas"]["Project"];
 type ProjectTab = "overview" | "access" | "runner" | "settings";
 const projectTabs: { id: ProjectTab; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -51,47 +49,38 @@ async function loadProjectActivity(signal: AbortSignal) {
   return { runs, actions };
 }
 async function loadProjectAccess(signal: AbortSignal) {
-  const [plugins, documents, firstTables] = await Promise.all([
+  const [plugins, documents, tablesPage] = await Promise.all([
     loadPlugins(signal),
     loadDocuments(signal),
-    (async () => result(await api.GET("/api/v1/tables/", { signal })))(),
+    trpc.tables.list.query(undefined, { signal }),
   ]);
-  const tables = [...firstTables.results];
-  let next = firstTables.next;
-  let page = 1;
-  while (next) {
-    page += 1;
-    const response = result(
-      await api.GET("/api/v1/tables/", { signal, params: { query: { page } } }),
-    );
-    tables.push(...response.results);
-    next = response.next;
-  }
-  return { plugins, documents, tables };
+  return { plugins, documents, tables: tablesPage.results };
 }
 export function Workbench({
-  agent,
+  project,
   tab,
   refresh,
   onDirtyChange,
 }: {
-  agent: Project;
+  project: Project;
   tab: ProjectTab;
   refresh: () => Promise<void>;
   onDirtyChange: (isDirty: boolean) => void;
 }): ReactNode {
   const { canManage } = useWorkspace();
-  const projectQuery = `project=${encodeURIComponent(agent.id)}`;
+  const projectQuery = `project=${encodeURIComponent(project.id)}`;
   return (
     <div className="min-w-0">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="!mb-1 !text-xl">{agent.name}</h2>
+          <h2 className="!mb-1 !text-xl">{project.name}</h2>
           <p className="small">
             Configure the tools and data your MCP agent can use.
           </p>
         </div>
-        <span className="badge">{agent.enabled ? "Enabled" : "Disabled"}</span>
+        <span className="badge">
+          {project.enabled ? "Enabled" : "Disabled"}
+        </span>
       </div>
       <nav
         className="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-4"
@@ -112,23 +101,23 @@ export function Workbench({
           </Button>
         ))}
       </nav>
-      {tab === "overview" ? <ProjectOverview agent={agent} /> : undefined}
+      {tab === "overview" ? <ProjectOverview project={project} /> : undefined}
       {tab === "access" ? (
         <ProjectAccess
-          agent={agent}
+          project={project}
           refresh={refresh}
           onDirtyChange={onDirtyChange}
         />
       ) : undefined}
       {tab === "runner" ? (
         canManage ? (
-          <AgentRunner agent={agent} refresh={refresh} />
+          <ProjectRunner project={project} refresh={refresh} />
         ) : (
           <section className="panel">
             <h2>Project runner</h2>
             <p>
-              {agent.runner.registered ? "Registered" : "Not registered"} ·{" "}
-              {agent.runner.enabled ? "Enabled" : "Revoked"}
+              {project.runner.registered ? "Registered" : "Not registered"} ·{" "}
+              {project.runner.enabled ? "Enabled" : "Revoked"}
             </p>
             <p className="small mt-3">
               An owner or admin can configure this project’s runner.
@@ -138,7 +127,7 @@ export function Workbench({
       ) : undefined}
       {tab === "settings" ? (
         <ProjectSettings
-          agent={agent}
+          project={project}
           refresh={refresh}
           onDirtyChange={onDirtyChange}
         />
@@ -146,14 +135,14 @@ export function Workbench({
     </div>
   );
 }
-function ProjectOverview({ agent }: { agent: Project }): ReactNode {
+function ProjectOverview({ project }: { project: Project }): ReactNode {
   const query = useWorkspaceQuery(loadProjectActivity);
-  const projectQuery = `project=${encodeURIComponent(agent.id)}`;
+  const projectQuery = `project=${encodeURIComponent(project.id)}`;
   const actions = query.data?.actions.filter(
-    (action) => action.project === agent.id,
+    (action) => action.project === project.id,
   );
   const runs = query.data?.runs
-    .filter((run) => run.project === agent.id)
+    .filter((run) => run.project === project.id)
     .slice(0, 5);
   return (
     <>
@@ -187,7 +176,7 @@ function ProjectOverview({ agent }: { agent: Project }): ReactNode {
           </Button>
           <Button asChild variant="outline">
             <WorkspaceLink href={`/projects/?${projectQuery}&tab=runner`}>
-              {agent.runner.registered ? "Manage runner" : "Set up runner"}
+              {project.runner.registered ? "Manage runner" : "Set up runner"}
             </WorkspaceLink>
           </Button>
         </div>
@@ -270,30 +259,38 @@ function ProjectOverview({ agent }: { agent: Project }): ReactNode {
     </>
   );
 }
+function projectGrants(project: Project) {
+  return {
+    readable_tables:
+      "readable_tables" in project ? project.readable_tables : [],
+    writable_tables:
+      "writable_tables" in project ? project.writable_tables : [],
+    readable_documents:
+      "readable_documents" in project ? project.readable_documents : [],
+    writable_documents:
+      "writable_documents" in project ? project.writable_documents : [],
+  };
+}
 function ProjectAccess({
-  agent,
+  project,
   refresh,
   onDirtyChange,
 }: {
-  agent: Project;
+  project: Project;
   refresh: () => Promise<void>;
   onDirtyChange: (isDirty: boolean) => void;
 }): ReactNode {
   const { canManage } = useWorkspace();
   const query = useWorkspaceQuery(loadProjectAccess);
-  const [grants, setGrants] = useState(() => ({
-    readable_tables: agent.readable_tables ?? [],
-    writable_tables: agent.writable_tables ?? [],
-    readable_documents: agent.readable_documents ?? [],
-    writable_documents: agent.writable_documents ?? [],
-  }));
+  const savedGrants = projectGrants(project);
+  const [grants, setGrants] = useState(() => projectGrants(project));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   useUnsavedChanges(
     grantFields.some(
       ({ field }) =>
-        JSON.stringify(grants[field]) !== JSON.stringify(agent[field] ?? []),
+        JSON.stringify(grants[field]) !== JSON.stringify(savedGrants[field]),
     ),
     onDirtyChange,
   );
@@ -303,16 +300,11 @@ function ProjectAccess({
     setNotice("");
     try {
       const updated = await trpc.projects.update.mutate({
-        id: agent.id,
-        changes: grants,
+        id: project.id,
+        ...grants,
       });
       await refresh();
-      setGrants({
-        readable_tables: updated.readable_tables ?? [],
-        writable_tables: updated.writable_tables ?? [],
-        readable_documents: updated.readable_documents ?? [],
-        writable_documents: updated.writable_documents ?? [],
-      });
+      setGrants(projectGrants(updated));
       setNotice("Project data access saved.");
     } catch (error_) {
       setError(errorMessage(error_));
@@ -321,7 +313,7 @@ function ProjectAccess({
     }
   };
   const plugins = query.data?.plugins.filter(
-    (plugin) => plugin.agent === agent.id,
+    (plugin) => plugin.project === project.id,
   );
   return (
     <>
@@ -450,7 +442,7 @@ function ProjectAccess({
         </div>
         <Button asChild variant="outline">
           <WorkspaceLink
-            href={`/plugins/?project=${encodeURIComponent(agent.id)}`}
+            href={`/plugins/?project=${encodeURIComponent(project.id)}`}
           >
             Manage project plugins
           </WorkspaceLink>
@@ -460,23 +452,23 @@ function ProjectAccess({
   );
 }
 function ProjectSettings({
-  agent,
+  project,
   refresh,
   onDirtyChange,
 }: {
-  agent: Project;
+  project: Project;
   refresh: () => Promise<void>;
   onDirtyChange: (isDirty: boolean) => void;
 }): ReactNode {
   const { canManage, navigateTo } = useWorkspace();
-  const [name, setName] = useState(agent.name);
-  const [enabled, setEnabled] = useState(agent.enabled ?? true);
+  const [name, setName] = useState(project.name);
+  const [enabled, setEnabled] = useState(project.enabled);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const canConfirm = useDiscardConfirmation();
   useUnsavedChanges(
-    name !== agent.name || enabled !== (agent.enabled ?? true),
+    name !== project.name || enabled !== project.enabled,
     onDirtyChange,
   );
   const save = async (): Promise<void> => {
@@ -485,8 +477,9 @@ function ProjectSettings({
     setNotice("");
     try {
       const updated = await trpc.projects.update.mutate({
-        id: agent.id,
-        changes: { name: name.trim(), enabled },
+        id: project.id,
+        name: name.trim(),
+        enabled,
       });
       await refresh();
       setName(updated.name);
@@ -511,7 +504,7 @@ function ProjectSettings({
     setError("");
     setNotice("");
     try {
-      await trpc.projects.delete.mutate({ id: agent.id });
+      await trpc.projects.delete.mutate({ id: project.id });
       onDirtyChange(false);
       await refresh();
       await navigateTo("/projects/");

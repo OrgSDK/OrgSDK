@@ -7,6 +7,7 @@ import { databaseFilename } from "../db/migrate";
 import {
   initialStore,
   migrationCount,
+  latestMigrationCount,
   seedWorkspace,
   temporaryDatabase,
 } from "./database-fixture";
@@ -63,7 +64,7 @@ test("the migration command initializes a database and respects the server lock"
     try {
       expect(
         sqlite.query("SELECT hash FROM __drizzle_migrations").all(),
-      ).toHaveLength(2);
+      ).toHaveLength(latestMigrationCount);
     } finally {
       sqlite.close();
     }
@@ -90,7 +91,7 @@ test("the migration command upgrades an installation from the first generated mi
       readonly: true,
     });
     try {
-      expect(migrationCount(sqlite)).toBe(2);
+      expect(migrationCount(sqlite)).toBe(latestMigrationCount);
       expect(sqlite.query("SELECT name FROM projects").get()).toEqual({
         name: project.name,
       });

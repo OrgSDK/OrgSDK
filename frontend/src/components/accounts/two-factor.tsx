@@ -1,6 +1,10 @@
 "use client";
 import { useContext, useEffect, useState, type ReactNode } from "react";
-import { auth, authResult, ReauthenticationRequired } from "../../api/auth";
+import {
+  isReauthenticationRequired,
+  ReauthenticationRequired,
+} from "../../api/auth";
+import { trpc } from "../../api/trpc";
 import { formText } from "../../lib/form-fields";
 import { Button } from "../ui/button";
 import { AccountShell } from "./account-shell";
@@ -17,12 +21,11 @@ function TwoFactorSettings(): ReactNode {
   const [error, setError] = useState("");
   useEffect(() => {
     let isActive = true;
-    void auth
-      .GET("/api/auth/browser/v1/account/authenticators")
-      .then((result) => {
-        const body = authResult(result);
+    void trpc.auth.authenticators
+      .query()
+      .then((authenticators) => {
         if (isActive)
-          setEnabled(body.data.some((item) => item.type === "totp"));
+          setEnabled(authenticators.some((item) => item.type === "totp"));
       })
       .catch((error_: unknown) => {
         if (isActive)
@@ -65,12 +68,9 @@ function TwoFactorSettings(): ReactNode {
                 <AccountForm
                   submitLabel="Enable two-factor authentication"
                   onSubmit={async (fields) => {
-                    authResult(
-                      await auth.POST(
-                        "/api/auth/browser/v1/account/authenticators/totp",
-                        { body: { code: formText(fields, "code") } },
-                      ),
-                    );
+                    await trpc.auth.enableTotp.mutate({
+                      code: formText(fields, "code"),
+                    });
                     setEnabled(true);
                     setSecret("");
                     return "Two-factor authentication enabled. Generate recovery codes below.";
@@ -92,30 +92,28 @@ function TwoFactorSettings(): ReactNode {
               onClick={() => {
                 setError("");
                 setSettingUp(true);
-                void auth
-                  .GET("/api/auth/browser/v1/account/authenticators/totp")
-                  .then((result) => {
-                    const body = result.data ?? result.error;
-                    if (
-                      result.response.status !== 404 ||
-                      !("meta" in body) ||
-                      !("secret" in body.meta) ||
-                      typeof body.meta.secret !== "string"
-                    ) {
-                      authResult(result);
+                void trpc.auth.totpSetup
+                  .mutate()
+                  .then((setup) => {
+                    setEnabled(setup.enabled);
+                    if (setup.enabled) return;
+                    if (!setup.secret)
                       throw new Error(
                         "Unable to start authenticator setup. Reload and try again.",
                       );
-                    }
-                    setSecret(body.meta.secret);
+                    setSecret(setup.secret);
                   })
                   .catch((error_: unknown) => {
-                    if (error_ instanceof ReauthenticationRequired)
-                      requestIdentity?.();
-                    setError(
+                    const requiresIdentity = isReauthenticationRequired(error_);
+                    if (requiresIdentity) requestIdentity?.();
+                    const message =
                       error_ instanceof Error
                         ? error_.message
-                        : "Unable to start setup.",
+                        : "Unable to start setup.";
+                    setError(
+                      requiresIdentity
+                        ? new ReauthenticationRequired().message
+                        : message,
                     );
                   })
                   .finally(() => {
@@ -141,22 +139,10 @@ function TwoFactorSettings(): ReactNode {
             <AccountForm
               submitLabel="Show recovery codes"
               onSubmit={async () => {
-                const body = authResult(
-                  await auth.GET(
-                    "/api/auth/browser/v1/account/authenticators/recovery-codes",
-                  ),
-                );
-                const availableCodes: unknown = body.data.unused_codes;
-                if (
-                  !Array.isArray(availableCodes) ||
-                  availableCodes.length === 0
-                )
+                const recovery = await trpc.auth.recoveryCodes.query();
+                if (recovery.unused_codes.length === 0)
                   return "These codes have already been shown. Use your saved copy or generate new codes.";
-                setCodes(
-                  availableCodes.filter(
-                    (code): code is string => typeof code === "string",
-                  ),
-                );
+                setCodes(recovery.unused_codes);
                 return "Store these codes somewhere safe.";
               }}
             >
@@ -166,12 +152,8 @@ function TwoFactorSettings(): ReactNode {
           <AccountForm
             submitLabel="Generate new recovery codes"
             onSubmit={async () => {
-              const body = authResult(
-                await auth.POST(
-                  "/api/auth/browser/v1/account/authenticators/recovery-codes",
-                ),
-              );
-              setCodes(body.data.unused_codes);
+              const recovery = await trpc.auth.generateRecoveryCodes.mutate();
+              setCodes(recovery.unused_codes);
               return "Store your recovery codes before leaving this page.";
             }}
           >
@@ -196,11 +178,7 @@ function TwoFactorSettings(): ReactNode {
             <AccountForm
               submitLabel="Disable two-factor authentication"
               onSubmit={async () => {
-                authResult(
-                  await auth.DELETE(
-                    "/api/auth/browser/v1/account/authenticators/totp",
-                  ),
-                );
+                await trpc.auth.disableTotp.mutate();
                 setEnabled(false);
                 setCodes([]);
                 return "Two-factor authentication disabled.";

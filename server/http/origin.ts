@@ -4,7 +4,9 @@ import { HttpError } from "./responses";
 // headers are deliberately ignored, so an arbitrary client cannot select it.
 export function publicRequest(request: Request): Request {
   const configured = process.env.ORGSDK_PUBLIC_ORIGIN;
-  if (!configured) return request;
+  if (!configured) {
+    return request;
+  }
   let origin: URL;
   try {
     origin = new URL(configured);
@@ -18,14 +20,16 @@ export function publicRequest(request: Request): Request {
     origin.pathname !== "/" ||
     origin.search ||
     origin.hash
-  )
+  ) {
     throw new HttpError(503, "Invalid public origin configuration.");
+  }
   const url = new URL(request.url);
   url.protocol = origin.protocol;
-  if (url.host !== origin.host)
+  if (url.host !== origin.host) {
     throw new HttpError(
       400,
       "Request hostname does not match this installation.",
     );
+  }
   return new Request(url, request);
 }

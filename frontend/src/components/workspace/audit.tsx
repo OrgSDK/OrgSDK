@@ -1,8 +1,7 @@
 "use client";
 import { useCallback, useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import { result } from "../../api/result";
-import type { paths } from "../../api/schema";
+import { trpc } from "../../api/trpc";
+import type { RouterInputs } from "../../api/trpc";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { formText } from "../../lib/form-fields";
 import { Button } from "../ui/button";
@@ -11,10 +10,8 @@ import { useWorkspace } from "./workspace-context";
 import { ResourceState } from "./resource-state";
 import { PageHeader } from "./page-header";
 
-type Filters = NonNullable<
-  paths["/api/v1/audit/"]["get"]["parameters"]["query"]
->;
-const initialFilters: Filters = { page: 1, page_size: 25 };
+type Filters = NonNullable<RouterInputs["audit"]["list"]>;
+const initialFilters: Filters = {};
 
 export function AuditLog(): ReactNode {
   const { canManage, workspace } = useWorkspace();
@@ -46,7 +43,7 @@ export function AuditLog(): ReactNode {
             event.preventDefault();
             const values = new FormData(event.currentTarget);
             const text = (key: string): string => formText(values, key).trim();
-            const next: Filters = { page: 1, page_size: 25 };
+            const next: Filters = {};
             if (text("kind")) next.kind = text("kind");
             if (text("actor")) next.actor = Number(text("actor"));
             if (text("object_id")) next.object_id = text("object_id");
@@ -100,24 +97,15 @@ export function AuditLog(): ReactNode {
       <AuditEvents
         key={`${workspace}:${JSON.stringify(filters)}`}
         filters={filters}
-        setFilters={setFilters}
       />
     </>
   );
 }
 
-function AuditEvents({
-  filters,
-  setFilters,
-}: {
-  filters: Filters;
-  setFilters: (filters: Filters) => void;
-}): ReactNode {
+function AuditEvents({ filters }: { filters: Filters }): ReactNode {
   const load = useCallback(
     async (signal: AbortSignal) =>
-      result(
-        await api.GET("/api/v1/audit/", { params: { query: filters }, signal }),
-      ),
+      await trpc.audit.list.query(filters, { signal: signal }),
     [filters],
   );
   const { data, error, isLoading, refresh } = useWorkspaceQuery(load);
@@ -131,9 +119,7 @@ function AuditEvents({
       <ResourceState isLoading={isLoading} error={error} refresh={refresh} />
       {data && !isLoading ? (
         <>
-          <p role="status">
-            {data.count} matching events · Page {filters.page ?? 1}
-          </p>
+          <p role="status">{data.count} matching events</p>
           {data.results.length === 0 ? (
             <p>No audit events match these filters.</p>
           ) : (
@@ -160,26 +146,6 @@ function AuditEvents({
               ))}
             </ol>
           )}
-          <nav className="mt-4 flex gap-2" aria-label="Audit pages">
-            <Button
-              variant="outline"
-              disabled={!data.previous}
-              onClick={() => {
-                setFilters({ ...filters, page: (filters.page ?? 1) - 1 });
-              }}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!data.next}
-              onClick={() => {
-                setFilters({ ...filters, page: (filters.page ?? 1) + 1 });
-              }}
-            >
-              Next
-            </Button>
-          </nav>
         </>
       ) : undefined}
     </section>

@@ -1,30 +1,20 @@
 import { expect, test } from "bun:test";
 import { createContext } from "../http/context";
-import { handleOAuth } from "../oauth/routes";
+import { handleOAuthCallback } from "../oauth/transport";
 import { fakeFetch, fixture, request } from "./oauth-fixture";
 test("OAuth reports generic provider errors and burns the one-time state", async () => {
   const before = process.env.ORGSDK_PUBLIC_ORIGIN;
-  process.env.ORGSDK_PUBLIC_ORIGIN = "http://localhost:8080";
-  const f = await fixture();
+  process.env.ORGSDK_PUBLIC_ORIGIN = "http://localhost";
+  const f = fixture();
   try {
-    const start = createContext(
-      request(
-        "/api/v1/credentials/oauth-connect/",
-        "POST",
-        {
-          plugin: f.id,
-          name: "Google",
-          client_id: "client-id",
-          client_secret: "client-secret",
-        },
-        `${f.cookie}; csrftoken=test`,
-      ),
-      f.store,
-    );
-    const url = new URL(
-      (await (await handleOAuth(start))!.json()).authorization_url,
-    );
-    const callback = `/api/v1/credentials/oauth-callback/?state=${url.searchParams.get("state")}&code=bad`;
+    const begin = await f.caller().credentials.beginOAuth({
+      plugin: f.id,
+      name: "Google",
+      client_id: "client-id",
+      client_secret: "client-secret",
+    });
+    const url = new URL(begin.authorization_url);
+    const callback = `/oauth/callback?state=${url.searchParams.get("state")}&code=bad`;
     const ctx = () =>
       createContext(
         request(callback, "GET", undefined, `${f.cookie}; csrftoken=test`),
@@ -32,7 +22,7 @@ test("OAuth reports generic provider errors and burns the one-time state", async
       );
     await Promise.resolve(
       expect(
-        handleOAuth(
+        handleOAuthCallback(
           ctx(),
           fakeFetch(
             () => new Response("provider exposed secret", { status: 500 }),
@@ -41,11 +31,14 @@ test("OAuth reports generic provider errors and burns the one-time state", async
       ).rejects.toThrow("OAuth token exchange failed"),
     );
     await Promise.resolve(
-      expect(handleOAuth(ctx())).rejects.toThrow("expired"),
+      expect(handleOAuthCallback(ctx())).rejects.toThrow("expired"),
     );
   } finally {
     f.close();
-    if (before === undefined) delete process.env.ORGSDK_PUBLIC_ORIGIN;
-    else process.env.ORGSDK_PUBLIC_ORIGIN = before;
+    if (before === undefined) {
+      delete process.env.ORGSDK_PUBLIC_ORIGIN;
+    } else {
+      process.env.ORGSDK_PUBLIC_ORIGIN = before;
+    }
   }
 });

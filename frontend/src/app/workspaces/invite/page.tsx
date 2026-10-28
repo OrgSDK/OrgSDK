@@ -2,8 +2,9 @@
 import { Button } from "../../../components/ui/button";
 import { Suspense, useState, type ReactNode } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { api } from "../../../api/client";
-import { result, errorMessage } from "../../../api/result";
+import { trpc } from "../../../api/trpc";
+import { bootstrapAccount } from "../../../api/auth";
+import { errorMessage } from "../../../api/result";
 function InvitationForm(): ReactNode {
   const token = useSearchParams().get("token") ?? "";
   const router = useRouter();
@@ -27,13 +28,8 @@ function InvitationForm(): ReactNode {
             onClick={() => {
               void (async () => {
                 try {
-                  result(await api.GET("/api/v1/session/"));
-                  result(
-                    await api.POST(
-                      "/api/v1/workspaces/invitations/{token}/accept/",
-                      { params: { path: { token } } },
-                    ),
-                  );
+                  await bootstrapAccount();
+                  await trpc.workspace.acceptInvitation.mutate({ token });
                   router.push("/");
                 } catch (error) {
                   setStatus(errorMessage(error));

@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import type { Store } from "../db";
+import type { AppDependencies } from "../application";
 import {
   claimMail,
   markMailSent,
@@ -21,11 +21,14 @@ export function smtpConfigured(): boolean {
   );
 }
 function smtpTransport(): Transport {
-  if (!smtpConfigured()) throw new Error("SMTP is not configured.");
+  if (!smtpConfigured()) {
+    throw new Error("SMTP is not configured.");
+  }
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASSWORD;
-  if (Boolean(user) !== Boolean(pass))
+  if (Boolean(user) !== Boolean(pass)) {
     throw new Error("SMTP credentials are incomplete.");
+  }
   const transport = nodemailer.createTransport({
     host: process.env.SMTP_HOST!,
     port: Number(process.env.SMTP_PORT ?? 587),
@@ -38,14 +41,16 @@ function smtpTransport(): Transport {
   };
 }
 export async function flushOutbox(
-  store: Store,
+  store: AppDependencies,
   send?: Transport,
 ): Promise<number> {
   const deliver = send ?? smtpTransport();
   let sent = 0;
   for (let index = 0; index < 50; index++) {
     const job = claimMail(store, Date.now());
-    if (!job) break;
+    if (!job) {
+      break;
+    }
     try {
       await deliver({
         to: job.recipient,

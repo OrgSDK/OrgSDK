@@ -27,22 +27,16 @@ const config: NextConfig = {
           destination: `${backend}/trpc/:path*`,
         },
         {
-          source: "/api/auth/:path*",
-          destination: `${backend}/api/auth/:path*`,
-        },
-        ...["api", "admin", "mcp"].map((prefix) => ({
-          source: `/${prefix}/:path*/`,
-          // Compatibility REST routes retain their trailing slash.
-          destination: `${backend}/${prefix}/:path*/`,
-        })),
-        {
-          // The local manager alone can bootstrap runners; never proxy that route.
-          source: "/internal/execution/v1/:path((?!bootstrap(?:/|$)).*)/",
-          destination: `${backend}/internal/execution/v1/:path/`,
+          source: "/mcp/:path*",
+          destination: `${backend}/mcp/:path*`,
         },
         {
-          source: "/static/:path*",
-          destination: `${backend}/static/:path*`,
+          source: "/oauth/callback",
+          destination: `${backend}/oauth/callback`,
+        },
+        {
+          source: "/webhooks/:id",
+          destination: `${backend}/webhooks/:id`,
         },
       ]);
     },

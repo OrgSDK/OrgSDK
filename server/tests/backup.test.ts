@@ -10,6 +10,7 @@ import { decrypt, encrypt } from "../shared/security";
 import {
   initialStore,
   migrationCount,
+  latestMigrationCount,
   seedWorkspace,
   temporaryDatabase,
 } from "./database-fixture";
@@ -82,7 +83,7 @@ test("backups preserve the source migration level and restored data upgrades on 
     restoreDatabase(destination, backup);
     const restored = openStore(destination);
     try {
-      expect(migrationCount(restored.sqlite)).toBe(2);
+      expect(migrationCount(restored.sqlite)).toBe(latestMigrationCount);
       expect(restored.sqlite.query("SELECT name FROM projects").get()).toEqual({
         name: project.name,
       });

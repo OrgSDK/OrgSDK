@@ -1,18 +1,14 @@
 "use client";
+import type { Action } from "../../api/types";
 
 import { ArrowUpRight, Code2 } from "lucide-react";
 import type { ReactNode } from "react";
-import type { components } from "../../api/schema";
 import { WorkspaceLink } from "./workspace-link";
 
-export function ActionCard({
-  action,
-}: {
-  action: components["schemas"]["Action"];
-}): ReactNode {
-  const description = action.description?.trim() ?? "";
+export function ActionCard({ action }: { action: Action }): ReactNode {
+  const description = action.description.trim();
   const query = new URLSearchParams({
-    project: action.project ?? action.agent ?? "",
+    project: action.project,
     action: action.id,
   }).toString();
 
@@ -26,12 +22,12 @@ export function ActionCard({
         />
         <span
           className={
-            action.enabled === false
-              ? "rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
-              : "rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
+            action.enabled
+              ? "rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
+              : "rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
           }
         >
-          {action.enabled === false ? "Disabled" : "Enabled"}
+          {action.enabled ? "Enabled" : "Disabled"}
         </span>
       </div>
       <div className="min-w-0 flex-1 space-y-2">

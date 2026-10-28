@@ -1,17 +1,19 @@
+import { inTransaction } from "../db/transaction";
 import { and, eq, type SQL } from "drizzle-orm";
 import { schedules } from "../db/schema";
-import { requireWorkspace, type AppContext } from "../http/context";
-import { HttpError } from "../http/responses";
+import { requireWorkspace } from "../shared/authorization";
+import { type ServiceContext } from "../application";
+import { ServiceError } from "../shared/errors";
 import { base, now } from "../shared/records";
 import { recordAudit } from "./audit";
 
-export function schedulesRepository(context: AppContext) {
+export function schedulesRepository(context: ServiceContext) {
   type Create = Omit<
     typeof schedules.$inferInsert,
     "id" | "workspaceId" | "createdAt" | "updatedAt"
   >;
   const workspaceId = requireWorkspace(context).id;
-  const database = context.store.db;
+  const database = context.db;
   const scoped = (id?: string, filter?: SQL) =>
     and(
       eq(schedules.workspaceId, workspaceId),
@@ -21,7 +23,9 @@ export function schedulesRepository(context: AppContext) {
   return {
     find(id: string) {
       const row = database.select().from(schedules).where(scoped(id)).get();
-      if (!row) throw new HttpError(404, "Not found.");
+      if (!row) {
+        throw new ServiceError("NOT_FOUND", "Not found.");
+      }
       return row;
     },
     list(filter?: SQL) {
@@ -32,44 +36,48 @@ export function schedulesRepository(context: AppContext) {
         .all();
     },
     create(data: Create) {
-      return context.store.sqlite
-        .transaction(() => {
-          const row = database
-            .insert(schedules)
-            .values({ ...data, ...base(workspaceId) })
-            .returning()
-            .get();
-          recordAudit(context, "schedule", row.id, "created");
-          return row;
-        })
-        .immediate();
+      return inTransaction(context, (context) => {
+        const database = context.db;
+
+        const row = database
+          .insert(schedules)
+          .values({ ...data, ...base(workspaceId) })
+          .returning()
+          .get();
+        recordAudit(context, "schedule", row.id, "created");
+        return row;
+      });
     },
     update(id: string, data: Partial<Create>) {
-      return context.store.sqlite
-        .transaction(() => {
-          const row = database
-            .update(schedules)
-            .set({ ...data, updatedAt: now() })
-            .where(scoped(id))
-            .returning()
-            .all()[0];
-          if (!row) throw new HttpError(404, "Not found.");
-          recordAudit(context, "schedule", id, "updated");
-          return row;
-        })
-        .immediate();
+      return inTransaction(context, (context) => {
+        const database = context.db;
+
+        const row = database
+          .update(schedules)
+          .set({ ...data, updatedAt: now() })
+          .where(scoped(id))
+          .returning()
+          .all()[0];
+        if (!row) {
+          throw new ServiceError("NOT_FOUND", "Not found.");
+        }
+        recordAudit(context, "schedule", id, "updated");
+        return row;
+      });
     },
     remove(id: string): void {
-      context.store.sqlite
-        .transaction(() => {
-          const deleted = database
-            .delete(schedules)
-            .where(scoped(id))
-            .returning({ id: schedules.id })
-            .get();
-          if (deleted) recordAudit(context, "schedule", id, "deleted");
-        })
-        .immediate();
+      inTransaction(context, (context) => {
+        const database = context.db;
+
+        const deleted = database
+          .delete(schedules)
+          .where(scoped(id))
+          .returning({ id: schedules.id })
+          .get();
+        if (deleted) {
+          recordAudit(context, "schedule", id, "deleted");
+        }
+      });
     },
   };
 }

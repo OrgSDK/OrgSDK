@@ -8,6 +8,7 @@ import { decrypt, encrypt } from "../shared/security";
 import {
   initialStore,
   migrationCount,
+  latestMigrationCount,
   seedWorkspace,
   temporaryDatabase,
 } from "./database-fixture";
@@ -42,7 +43,7 @@ test("generated migration upgrades preserve records and encrypted credentials an
     for (let reopen = 0; reopen < 2; reopen++) {
       const upgraded = openStore(fixture.directory);
       try {
-        expect(migrationCount(upgraded.sqlite)).toBe(2);
+        expect(migrationCount(upgraded.sqlite)).toBe(latestMigrationCount);
         expect(upgraded.db.select().from(projects).all()).toEqual([project]);
         const persisted = upgraded.db.select().from(credentials).get()!;
         expect(persisted).toEqual(credential);
@@ -95,7 +96,7 @@ test("a failed generated upgrade rolls back and can be retried without losing da
     }
     const recovered = openStore(fixture.directory);
     try {
-      expect(migrationCount(recovered.sqlite)).toBe(2);
+      expect(migrationCount(recovered.sqlite)).toBe(latestMigrationCount);
     } finally {
       recovered.close();
     }

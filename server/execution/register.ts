@@ -8,11 +8,12 @@ import { configuration } from "./configuration";
 export function register(
   ctx: AppContext,
   worker: Executor,
-  body: Record<string, any>,
+  body: Record<string, unknown>,
 ): Response {
-  const version = body.protocol_version,
-    capabilities = body.capabilities;
+  const version = body.protocol_version;
+  const capabilities = body.capabilities;
   if (
+    typeof version !== "number" ||
     ![1, 2, 3].includes(version) ||
     !Array.isArray(capabilities) ||
     capabilities.some(
@@ -22,13 +23,18 @@ export function register(
     (version < 2 && capabilities.includes("code")) ||
     (version < 3 &&
       capabilities.some((cap: string) => ["validate", "test"].includes(cap)))
-  )
+  ) {
     throw new HttpError(400, "Unsupported executor protocol or capability.");
-  const registered = ctx.store.db
+  }
+  const validatedCapabilities = capabilities.filter(
+    (capability: unknown): capability is string =>
+      typeof capability === "string",
+  );
+  const registered = ctx.db
     .update(t.executors)
     .set({
       protocolVersion: version,
-      capabilities,
+      capabilities: validatedCapabilities,
       lastSeenAt: now(),
       updatedAt: now(),
     })

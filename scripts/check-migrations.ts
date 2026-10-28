@@ -45,18 +45,20 @@ try {
       new Response(child.stdout).text(),
       new Response(child.stderr).text(),
     ]);
-    if (status !== 0)
+    if (status !== 0) {
       throw new Error(`Migration check failed.\n${stdout}\n${stderr}`);
+    }
     // Drizzle Kit can log a generation error and still exit with status zero.
     const completed =
       command.at(-1) === "check"
         ? stdout.includes("Everything's fine")
         : stdout.includes("No schema changes") ||
           JSON.stringify(before) !== JSON.stringify(fingerprint(output));
-    if (!completed)
+    if (!completed) {
       throw new Error(
         `Migration check did not complete.\n${stdout}\n${stderr}`,
       );
+    }
   }
   if (JSON.stringify(before) !== JSON.stringify(fingerprint(output))) {
     throw new Error(

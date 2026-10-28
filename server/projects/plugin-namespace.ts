@@ -1,12 +1,13 @@
 export function pluginNamespace(slug: string) {
   const parts = slug.split("-");
-  if (!parts.length || parts.some((p) => !/^[a-z][a-z0-9]*$/.test(p)))
+  if (!parts.length || parts.some((part) => !/^[a-z][a-z0-9]*$/.test(part))) {
     return null;
+  }
   const name =
     parts[0]! +
     parts
       .slice(1)
-      .map((p) => p[0]!.toUpperCase() + p.slice(1))
+      .map((part) => part[0]!.toUpperCase() + part.slice(1))
       .join("");
   const reserved = new Set([
     "actionParams",

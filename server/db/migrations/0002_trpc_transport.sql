@@ -1,0 +1,1 @@
+ALTER TABLE `access_tokens` RENAME COLUMN "rest_request_count" TO "trpc_request_count";

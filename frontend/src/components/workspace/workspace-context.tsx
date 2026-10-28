@@ -1,5 +1,5 @@
 "use client";
-import { loadSession } from "../../api/trpc";
+import { loadSession, trpc } from "../../api/trpc";
 import {
   createContext,
   Suspense,
@@ -10,17 +10,16 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { api } from "../../api/client";
 import { redirectToSignIn } from "../../api/auth";
-import { result, errorMessage } from "../../api/result";
-import { loadAgents } from "../../api/workspace-queries";
-import type { components } from "../../api/schema";
+import { errorMessage } from "../../api/result";
+import { loadProjects } from "../../api/workspace-queries";
+import type { Project } from "../../api/types";
 import { DiscardConfirmation } from "./discard-dialog";
 import { useWorkspaceNavigation } from "./use-navigation";
 import { WorkspaceShell } from "./shell";
 import { projectHref, projectSwitchHref, workspaceView } from "./routes";
 interface WorkspaceContextValue {
-  agents: components["schemas"]["Project"][];
+  projects: Project[];
   selected: string;
   setSelected: (id: string) => void;
   switchProject: (id: string) => Promise<void>;
@@ -29,7 +28,7 @@ interface WorkspaceContextValue {
   canManage: boolean;
   isDirty: boolean;
   setDirty: (isDirty: boolean) => void;
-  refresh: () => Promise<void>;
+  refresh: (signal?: AbortSignal) => Promise<void>;
   goTo: (view: string) => void;
   openRun: (id: string) => void;
   navigateTo: (href: string) => Promise<void>;
@@ -52,7 +51,7 @@ export function useWorkspace(): WorkspaceContextValue {
 }
 function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
   const [signedIn, setSignedIn] = useState(false);
-  const [agents, setAgents] = useState<components["schemas"]["Project"][]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelected] = useState("");
   const [workspace, setWorkspace] = useState("Your workspace");
   const [workspaceId, setWorkspaceId] = useState<number>();
@@ -70,34 +69,28 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
   const detailKey = runId ? `run:${runId}` : actionKey;
   const linkedProject =
     parameters.get("project") ??
-    parameters.get("agent") ??
-    (pathname.startsWith("/projects") || pathname.startsWith("/agents")
-      ? parameters.get("record")
-      : null);
+    (pathname.startsWith("/projects") ? parameters.get("record") : null);
   const isInvalidProject =
     signedIn &&
     !detailKey &&
     Boolean(linkedProject) &&
-    agents.every((project) => project.id !== linkedProject);
+    projects.every((project) => project.id !== linkedProject);
   const selected = isInvalidProject ? "" : selectedProject;
   const currentDetailError =
     detailError.key === detailKey ? detailError.message : "";
   const selectionError = isInvalidProject
     ? "This project is unavailable. Choose another project from the sidebar."
     : currentDetailError;
-  const refresh = useCallback(async (): Promise<void> => {
-    const [list, response] = await Promise.all([
-      loadAgents(new AbortController().signal),
-      api.GET("/api/v1/workspaces/current/"),
+  const refresh = useCallback(async (signal?: AbortSignal): Promise<void> => {
+    const [list, current] = await Promise.all([
+      loadProjects(signal ?? new AbortController().signal),
+      trpc.workspace.current.query(undefined, signal ? { signal } : undefined),
     ]);
-    const current = result(response);
-    setAgents(list);
+    if (signal?.aborted) return;
+    setProjects(list);
     setSelected((previous) => {
       const parameters = new URLSearchParams(location.search);
-      const linked =
-        parameters.get("project") ??
-        parameters.get("agent") ??
-        parameters.get("record");
+      const linked = parameters.get("project") ?? parameters.get("record");
       const candidates = [
         previous,
         linked,
@@ -111,7 +104,7 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
     });
     setWorkspace(current.workspace.name);
     setWorkspaceId(current.workspace.id);
-    setRole(current.role);
+    setRole(current.role ?? "member");
   }, []);
   useEffect(() => {
     if (!selected || workspaceId === undefined) return;
@@ -134,7 +127,7 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
           redirectToSignIn();
           return;
         }
-        await refresh();
+        await refresh(controller.signal);
         controller.signal.throwIfAborted();
         setSignedIn(true);
       } catch (error_) {
@@ -150,7 +143,7 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
     const controller = new AbortController();
     const choose = (id: string | undefined) => {
       if (controller.signal.aborted) return;
-      if (!id || agents.every((project) => project.id !== id))
+      if (!id || projects.every((project) => project.id !== id))
         throw new Error(
           "This record's project is unavailable. Choose another project from the sidebar.",
         );
@@ -160,21 +153,17 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
       void (async () => {
         try {
           if (runId) {
-            const record = result(
-              await api.GET("/api/v1/runs/{id}/", {
-                signal: controller.signal,
-                params: { path: { id: runId } },
-              }),
+            const record = await trpc.runs.get.query(
+              { id: runId },
+              { signal: controller.signal },
             );
             choose(record.project);
           } else if (actionId) {
-            const record = result(
-              await api.GET("/api/v1/actions/{id}/", {
-                signal: controller.signal,
-                params: { path: { id: actionId } },
-              }),
+            const record = await trpc.actions.get.query(
+              { id: actionId },
+              { signal: controller.signal },
             );
-            choose(record.project ?? record.agent);
+            choose(record.project);
           }
           if (!controller.signal.aborted)
             setDetailError({ key: detailKey, message: "" });
@@ -190,7 +179,7 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
       controller.abort();
     };
   }, [
-    agents,
+    projects,
     linkedProject,
     isInvalidProject,
     actionId,
@@ -211,11 +200,11 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
       </main>
     );
   const value: WorkspaceContextValue = {
-    agents,
+    projects,
     selected,
     setSelected,
     switchProject: async (id) => {
-      if (agents.every((project) => project.id !== id)) return;
+      if (projects.every((project) => project.id !== id)) return;
       await navigateTo(projectSwitchHref(workspaceView(pathname), id));
     },
     workspace,

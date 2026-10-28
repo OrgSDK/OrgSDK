@@ -1,9 +1,9 @@
 import { and, eq, sql } from "drizzle-orm";
-import type { Store } from "../db";
+import type { AppDependencies } from "../application";
 import { accessTokens } from "../db/schema";
 
 export function recordTokenActivity(
-  store: Store,
+  store: AppDependencies,
   token: typeof accessTokens.$inferSelect,
   status: number,
   isMcp: boolean,
@@ -21,8 +21,8 @@ export function recordTokenActivity(
         : { successCount: sql`${accessTokens.successCount} + 1` }),
       ...(isMcp
         ? { mcpRequestCount: sql`${accessTokens.mcpRequestCount} + 1` }
-        : { restRequestCount: sql`${accessTokens.restRequestCount} + 1` }),
-      lastTransport: isMcp ? "mcp" : "rest",
+        : { trpcRequestCount: sql`${accessTokens.trpcRequestCount} + 1` }),
+      lastTransport: isMcp ? "mcp" : "trpc",
       lastOutcome: hasFailed ? "error" : "success",
       lastStatusCode: status,
     })

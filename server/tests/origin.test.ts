@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,10 +23,16 @@ test("configured HTTPS origin controls CSRF, workspace host and secure cookies b
   try {
     const app = createApp(store);
     const first = await app(
-      new Request("http://workspace.example/api/v1/setup/"),
+      new Request("http://workspace.example/trpc/auth.setupStatus"),
     );
     expect(first.status).toBe(200);
-    expect((await first.json()).hostname).toBe("workspace.example");
+    expect(
+      z
+        .object({
+          result: z.object({ data: z.object({ hostname: z.string() }) }),
+        })
+        .parse(await first.json()).result.data.hostname,
+    ).toBe("workspace.example");
     const csrf = first.headers
       .getSetCookie()
       .find((value) => value.startsWith("csrftoken="))!;
@@ -40,15 +47,15 @@ test("configured HTTPS origin controls CSRF, workspace host and secure cookies b
       "x-forwarded-proto": "http",
     };
     const complete = await app(
-      new Request("http://workspace.example/api/v1/setup/", {
+      new Request("http://workspace.example/trpc/auth.setup", {
         method: "POST",
         headers,
         body: JSON.stringify(setup),
       }),
     );
-    expect(complete.status).toBe(201);
+    expect(complete.status).toBe(200);
     const login = await app(
-      new Request("http://workspace.example/api/auth/browser/v1/auth/login", {
+      new Request("http://workspace.example/trpc/auth.login", {
         method: "POST",
         headers,
         body: JSON.stringify({ email: setup.email, password: setup.password1 }),
@@ -63,7 +70,7 @@ test("configured HTTPS origin controls CSRF, workspace host and secure cookies b
       "; HttpOnly",
     );
     const badOrigin = await app(
-      new Request("http://workspace.example/api/auth/browser/v1/auth/login", {
+      new Request("http://workspace.example/trpc/auth.login", {
         method: "POST",
         headers: { ...headers, origin: "https://attacker.example" },
         body: JSON.stringify({ email: setup.email, password: setup.password1 }),
@@ -71,7 +78,7 @@ test("configured HTTPS origin controls CSRF, workspace host and secure cookies b
     );
     expect(badOrigin.status).toBe(403);
     const wrongScheme = await app(
-      new Request("http://workspace.example/api/auth/browser/v1/auth/login", {
+      new Request("http://workspace.example/trpc/auth.login", {
         method: "POST",
         headers: {
           ...headers,
@@ -85,8 +92,11 @@ test("configured HTTPS origin controls CSRF, workspace host and secure cookies b
   } finally {
     store.close();
     rmSync(dir, { recursive: true, force: true });
-    if (prior === undefined) delete process.env.ORGSDK_PUBLIC_ORIGIN;
-    else process.env.ORGSDK_PUBLIC_ORIGIN = prior;
+    if (prior === undefined) {
+      delete process.env.ORGSDK_PUBLIC_ORIGIN;
+    } else {
+      process.env.ORGSDK_PUBLIC_ORIGIN = prior;
+    }
   }
 });
 test("configured origin rejects host mismatches and ignores forged forwarding headers", async () => {
@@ -97,7 +107,7 @@ test("configured origin rejects host mismatches and ignores forged forwarding he
   try {
     const app = createApp(store);
     const spoof = await app(
-      new Request("http://attacker.example/api/v1/session/", {
+      new Request("http://attacker.example/trpc/auth.session", {
         headers: {
           "x-forwarded-host": "workspace.example",
           "x-forwarded-proto": "https",
@@ -114,13 +124,18 @@ test("configured origin rejects host mismatches and ignores forged forwarding he
       }),
     );
     expect(normalized.url).toBe("https://workspace.example/test");
-    const health = await app(new Request("http://127.0.0.1/api/health/"));
+    const health = await app(
+      new Request("http://workspace.example/trpc/system.health"),
+    );
     expect(health.status).toBe(200);
   } finally {
     store.close();
     rmSync(dir, { recursive: true, force: true });
-    if (prior === undefined) delete process.env.ORGSDK_PUBLIC_ORIGIN;
-    else process.env.ORGSDK_PUBLIC_ORIGIN = prior;
+    if (prior === undefined) {
+      delete process.env.ORGSDK_PUBLIC_ORIGIN;
+    } else {
+      process.env.ORGSDK_PUBLIC_ORIGIN = prior;
+    }
   }
 });
 test("without public origin direct HTTP remains HTTP and forwarding headers have no effect", async () => {
@@ -131,7 +146,7 @@ test("without public origin direct HTTP remains HTTP and forwarding headers have
   try {
     const app = createApp(store);
     const response = await app(
-      new Request("http://localhost:8080/api/v1/setup/", {
+      new Request("http://localhost:8080/trpc/auth.setupStatus", {
         headers: {
           "x-forwarded-proto": "https",
           "x-forwarded-host": "attacker.example",
@@ -139,7 +154,13 @@ test("without public origin direct HTTP remains HTTP and forwarding headers have
       }),
     );
     expect(response.status).toBe(200);
-    expect((await response.json()).hostname).toBe("localhost");
+    expect(
+      z
+        .object({
+          result: z.object({ data: z.object({ hostname: z.string() }) }),
+        })
+        .parse(await response.json()).result.data.hostname,
+    ).toBe("localhost");
     expect(
       response.headers
         .getSetCookie()
@@ -151,7 +172,10 @@ test("without public origin direct HTTP remains HTTP and forwarding headers have
   } finally {
     store.close();
     rmSync(dir, { recursive: true, force: true });
-    if (prior === undefined) delete process.env.ORGSDK_PUBLIC_ORIGIN;
-    else process.env.ORGSDK_PUBLIC_ORIGIN = prior;
+    if (prior === undefined) {
+      delete process.env.ORGSDK_PUBLIC_ORIGIN;
+    } else {
+      process.env.ORGSDK_PUBLIC_ORIGIN = prior;
+    }
   }
 });

@@ -1,9 +1,9 @@
 import { and, asc, eq, gt } from "drizzle-orm";
-import type { Store } from "../db";
+import type { AppDependencies } from "../application";
 import { runEvents } from "../db/schema";
 
 export function eventsAfter(
-  store: Store,
+  store: AppDependencies,
   workspaceId: number,
   runId: string,
   after: number,

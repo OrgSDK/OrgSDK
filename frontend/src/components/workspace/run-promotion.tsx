@@ -1,8 +1,8 @@
 "use client";
 import { useState, type ReactNode } from "react";
 import { parseActionJSON } from "./action-json";
-import { api } from "../../api/client";
-import { result, errorMessage } from "../../api/result";
+import { trpc } from "../../api/trpc";
+import { errorMessage } from "../../api/result";
 import { WorkspaceLink } from "./workspace-link";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -20,16 +20,12 @@ export function RunPromotion({ id }: { id: string }): ReactNode {
     setError("");
     setMessage("");
     try {
-      const saved = result(
-        await api.POST("/api/v1/runs/{id}/promote/", {
-          params: { path: { id } },
-          body: {
-            name: name.trim(),
-            input_schema: parseActionJSON(inputSchema),
-            output_schema: parseActionJSON(outputSchema),
-          },
-        }),
-      );
+      const saved = await trpc.runs.promote.mutate({
+        id,
+        name: name.trim(),
+        input_schema: parseActionJSON(inputSchema),
+        output_schema: parseActionJSON(outputSchema),
+      });
       setSavedAction(saved.action);
       setMessage(
         `Saved exact run source as version ${String(saved.version.number)} of ${name.trim()} (action ${saved.action}).`,

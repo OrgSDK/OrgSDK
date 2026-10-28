@@ -1,8 +1,9 @@
 "use client";
 import { KeyRound, Pencil, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import { result, errorMessage, requireSuccess } from "../../api/result";
+import { trpc } from "../../api/trpc";
+import { z } from "zod";
+import { errorMessage } from "../../api/result";
 import { loadCredentials } from "../../api/workspace-queries";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { Button } from "../ui/button";
@@ -64,9 +65,7 @@ export function Credentials({
           <div className="resource-empty">
             <KeyRound size={28} />
             <h3>No credentials yet</h3>
-            <p>
-              Add a provider credential, then assign it to an agent or plugin.
-            </p>
+            <p>Add a provider credential, then assign it to a plugin.</p>
           </div>
         ) : undefined}
         {query.data?.map((item) => (
@@ -103,16 +102,12 @@ export function Credentials({
                         !(await canConfirm({
                           title: "Delete this credential?",
                           description:
-                            "Agents and plugins using this credential may stop working. Credentials referenced by retained runs cannot be deleted.",
+                            "Disconnect any plugins using this credential before deleting it.",
                           actionLabel: "Delete credential",
                         }))
                       )
                         return;
-                      requireSuccess(
-                        await api.DELETE("/api/v1/credentials/{id}/", {
-                          params: { path: { id: item.id } },
-                        }),
-                      );
+                      await trpc.credentials.delete.mutate({ id: item.id });
                       setNotice("Credential deleted.");
                     });
                   }}
@@ -133,33 +128,32 @@ export function Credentials({
             onSubmit={(event) => {
               event.preventDefault();
               void perform(async () => {
-                const parsed: unknown = secret.trim()
-                  ? JSON.parse(secret)
+                const parsed = secret.trim()
+                  ? z.record(z.string(), z.json()).parse(JSON.parse(secret))
                   : undefined;
-                if (selected)
-                  result(
-                    await api.PATCH("/api/v1/credentials/{id}/", {
-                      params: { path: { id: selected } },
-                      body: {
-                        name,
-                        provider,
-                        ...(secret.trim() && { secret: parsed }),
-                      },
-                    }),
-                  );
-                else
-                  result(
-                    await api.POST("/api/v1/credentials/", {
-                      body: { name, provider, secret: parsed },
-                    }),
-                  );
+                if (selected) {
+                  await trpc.credentials.update.mutate({
+                    id: selected,
+                    name,
+                    provider,
+                    ...(parsed !== undefined && { secret: parsed }),
+                  });
+                } else {
+                  if (parsed === undefined)
+                    throw new Error(
+                      "Enter the credential secret as a JSON object.",
+                    );
+                  await trpc.credentials.create.mutate({
+                    name,
+                    provider,
+                    secret: parsed,
+                  });
+                }
                 setSecret("");
                 setSelected("");
                 setName("");
                 setProvider("openai");
-                setNotice(
-                  "Credential saved. Assign it in agent or plugin settings.",
-                );
+                setNotice("Credential saved. Assign it in plugin settings.");
               });
             }}
           >
@@ -215,6 +209,7 @@ export function Credentials({
                     setSelected("");
                     setName("");
                     setSecret("");
+                    setProvider("openai");
                   }}
                 >
                   Cancel editing

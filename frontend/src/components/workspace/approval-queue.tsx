@@ -1,8 +1,8 @@
 "use client";
 import { ShieldCheck } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import { result, errorMessage } from "../../api/result";
+import { trpc } from "../../api/trpc";
+import { errorMessage } from "../../api/result";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { loadApprovals } from "../../api/workspace-queries";
 import { Button } from "../ui/button";
@@ -28,12 +28,7 @@ export function ApprovalQueue({
     setBusyId(id);
     setError("");
     try {
-      result(
-        await api.POST("/api/v1/approvals/{id}/decide/", {
-          params: { path: { id } },
-          body: { decision },
-        }),
-      );
+      await trpc.approvals.decide.mutate({ id, decision });
       await query.refresh();
     } catch (error_) {
       setError(errorMessage(error_));

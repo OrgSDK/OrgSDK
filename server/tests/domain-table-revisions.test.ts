@@ -1,125 +1,112 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { openStore } from "../db";
-import { users, workspaces } from "../db/schema/core";
-import { handleDomain } from "../domain/routes";
-import type { AppContext } from "../http/context";
-test("table revisions reject stale writes and project grants cannot cross workspaces", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "orgsdk-table-"));
-  const store = openStore(dir);
+import { z } from "zod";
+import { workspaces } from "../db/schema/core";
+import { appRouter } from "../router";
+import { rpcFixture } from "./rpc-fixture";
+
+test("native table revisions reject stale writes and project grants cannot cross workspaces", async () => {
+  const f = rpcFixture();
   try {
-    const user = store.db
-      .insert(users)
-      .values({
-        username: "tester",
-        email: "test@example.com",
-        passwordHash: "x",
-      })
-      .returning()
-      .get();
-    const workspace = store.db
-      .insert(workspaces)
-      .values({
-        name: "A",
-        host: "a.local",
-        createdAt: new Date().toISOString(),
-      })
-      .returning()
-      .get();
-    const foreign = store.db
-      .insert(workspaces)
-      .values({
-        name: "B",
-        host: "b.local",
-        createdAt: new Date().toISOString(),
-      })
-      .returning()
-      .get();
-    const ctx: AppContext = {
-      request: new Request("http://a.local/"),
-      store,
-      user,
-      workspace,
-      role: "owner",
-      token: null,
-      responseHeaders: new Headers(),
-      sessionId: null,
-    };
-    const call = (path: string, method: string, body: any, context = ctx) =>
-      handleDomain({
-        ...context,
-        request: new Request(`http://a.local/api/v1/${path}/`, {
-          method,
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-        }),
-      });
-    const create = await call("tables", "POST", {
+    const caller = f.caller();
+    const table = await caller.tables.create({
       name: "Numbers",
       columns: [{ key: "n", type: "number", required: true }],
     });
-    const table = (await create!.json()) as any;
-    const row = await call(`tables/${table.id}/rows`, "POST", {
+    const row = await caller.tables.createRow({
+      id: table.id,
       table_revision: 1,
       values: { n: 3 },
     });
-    expect(row!.status).toBe(201);
-    const changed = await call(`tables/${table.id}`, "PATCH", {
+    expect(row.revision).toBe(1);
+    const changed = await caller.tables.update({
+      id: table.id,
       revision: 1,
       name: "Changed",
     });
-    expect(((await changed!.json()) as any).revision).toBe(2);
+    expect(changed.revision).toBe(2);
     await Promise.resolve(
       expect(
-        call(`tables/${table.id}/rows`, "POST", {
+        caller.tables.createRow({
+          id: table.id,
           table_revision: 1,
           values: { n: 4 },
         }),
       ).rejects.toThrow("changed"),
     );
-    const foreignCtx = { ...ctx, workspace: foreign };
-    const foreignTable = await call(
-      "tables",
-      "POST",
-      {
-        name: "Private",
-        columns: [{ key: "n", type: "number", required: true }],
-      },
-      foreignCtx,
-    );
-    const foreignId = ((await foreignTable!.json()) as any).id;
+    const changedRow = await caller.tables.updateRow({
+      id: table.id,
+      rowId: row.id,
+      table_revision: 2,
+      revision: 1,
+      values: { n: 4 },
+    });
+    expect(changedRow.revision).toBe(2);
     await Promise.resolve(
       expect(
-        call("projects", "POST", {
+        caller.tables.updateRow({
+          id: table.id,
+          rowId: row.id,
+          table_revision: 2,
+          revision: 1,
+          values: { n: 5 },
+        }),
+      ).rejects.toThrow("changed"),
+    );
+    await Promise.resolve(
+      expect(
+        caller.tables.deleteRow({ id: table.id, rowId: row.id, revision: 1 }),
+      ).rejects.toThrow("changed"),
+    );
+    const foreign = f.store.db
+      .insert(workspaces)
+      .values({ name: "B", host: "b.local", createdAt: f.time })
+      .returning()
+      .get();
+    const foreignCaller = appRouter.createCaller({
+      ...f.context(),
+      workspace: foreign,
+    });
+    const foreignTable = await foreignCaller.tables.create({
+      name: "Private",
+      columns: [{ key: "n", type: "number", required: true }],
+    });
+    await Promise.resolve(
+      expect(
+        caller.projects.create({
           name: "Forbidden grant",
-          readable_tables: [foreignId],
+          readable_tables: [foreignTable.id],
         }),
       ).rejects.toThrow("Not found."),
     );
-    expect(store.sqlite.query("pragma foreign_key_check").all()).toEqual([]);
     await Promise.resolve(
-      expect(
-        call("tables", "POST", {
-          name: "Bad",
-          columns: [{ key: "x", type: "text", required: true }],
-          extra: true,
-        }),
-      ).rejects.toThrow("Unexpected fields"),
+      expect(caller.tables.get({ id: foreignTable.id })).rejects.toThrow(
+        "Not found.",
+      ),
     );
-    await Promise.resolve(
-      expect(
-        call("projects", "POST", { name: "Bad", enabled: "false" }),
-      ).rejects.toThrow("boolean"),
+    const invalidTable = await f.rpc(
+      "tables.create",
+      { name: "Bad", columns: table.columns, extra: true },
+      "mutation",
     );
-    await Promise.resolve(
-      expect(
-        call("projects", "POST", { name: "Bad", model: "retired" }),
-      ).rejects.toThrow("retired"),
+    expect(invalidTable.status).toBe(400);
+    const invalidProject = await f.rpc(
+      "projects.create",
+      { name: "Bad", enabled: "false" },
+      "mutation",
     );
+    expect(invalidProject.status).toBe(400);
+    const retired = await f.rpc(
+      "projects.create",
+      { name: "Bad", model: "retired" },
+      "mutation",
+    );
+    expect(retired.status).toBe(400);
+    const rejected = z
+      .object({ error: z.object({ data: z.object({ code: z.string() }) }) })
+      .parse(await retired.json());
+    expect(rejected.error.data.code).toBe("BAD_REQUEST");
+    expect(f.store.sqlite.query("pragma foreign_key_check").all()).toEqual([]);
   } finally {
-    store.close();
-    rmSync(dir, { recursive: true, force: true });
+    f.close();
   }
 });

@@ -7,14 +7,15 @@ import { now } from "../shared/records";
 import { digest, randomSecret } from "../shared/security";
 import { type Executor } from "./authority";
 export function claim(ctx: AppContext, worker: Executor): Response {
-  const setting = ctx.store.db
+  const setting = ctx.db
     .select()
     .from(t.workspaceSettings)
     .where(eq(t.workspaceSettings.workspaceId, worker.workspaceId))
     .get();
-  if (setting && (!setting.enabled || setting.executionPool !== worker.pool))
+  if (setting && (!setting.enabled || setting.executionPool !== worker.pool)) {
     return new Response(null, { status: 204 });
-  const active = ctx.store.db
+  }
+  const active = ctx.db
     .select()
     .from(t.runs)
     .where(
@@ -27,9 +28,10 @@ export function claim(ctx: AppContext, worker: Executor): Response {
   if (
     active.some((run) => run.projectId === worker.projectId) ||
     active.length >= (setting?.maxConcurrentRuns ?? 4)
-  )
+  ) {
     return new Response(null, { status: 204 });
-  const candidates = ctx.store.db
+  }
+  const candidates = ctx.db
     .select()
     .from(t.runs)
     .where(
@@ -42,7 +44,9 @@ export function claim(ctx: AppContext, worker: Executor): Response {
     .orderBy(asc(t.runs.createdAt))
     .all();
   for (const run of candidates) {
-    if (!worker.capabilities.includes(run.operation)) continue;
+    if (!worker.capabilities.includes(run.operation)) {
+      continue;
+    }
     const protocol =
       ["validate", "test"].includes(run.operation) ||
       run.snapshot.validation_mode === "semantic"
@@ -50,8 +54,10 @@ export function claim(ctx: AppContext, worker: Executor): Response {
         : run.operation === "code"
           ? 2
           : 1;
-    if (worker.protocolVersion < protocol) continue;
-    const member = ctx.store.db
+    if (worker.protocolVersion < protocol) {
+      continue;
+    }
+    const member = ctx.db
       .select()
       .from(memberships)
       .where(
@@ -62,7 +68,7 @@ export function claim(ctx: AppContext, worker: Executor): Response {
       )
       .get();
     const token = run.tokenId
-      ? ctx.store.db
+      ? ctx.db
           .select()
           .from(t.accessTokens)
           .where(eq(t.accessTokens.id, run.tokenId))
@@ -73,7 +79,7 @@ export function claim(ctx: AppContext, worker: Executor): Response {
       run.cancelRequested ||
       (run.tokenId && (!token || token.revoked))
     ) {
-      ctx.store.db
+      ctx.db
         .update(t.runs)
         .set({
           status: "cancelled",
@@ -86,7 +92,7 @@ export function claim(ctx: AppContext, worker: Executor): Response {
     }
     const capability = randomSecret();
     const deadline = new Date(Date.now() + 3600000).toISOString();
-    ctx.store.db
+    ctx.db
       .update(t.runs)
       .set({
         status: "running",
@@ -98,7 +104,7 @@ export function claim(ctx: AppContext, worker: Executor): Response {
       })
       .where(eq(t.runs.id, run.id))
       .run();
-    ctx.store.db
+    ctx.db
       .update(t.executors)
       .set({ lastSeenAt: now() })
       .where(eq(t.executors.id, worker.id))

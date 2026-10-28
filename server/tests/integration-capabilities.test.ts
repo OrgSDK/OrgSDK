@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { runSchema } from "./wire-schemas";
 import { expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import * as tables from "../db/schema";
@@ -7,31 +9,55 @@ test("run capabilities enforce serial claims, resource grants, redaction and exp
   const f = await fixture();
   try {
     const worker = await f.register();
-    const document = await f.json("/api/v1/documents/", "POST", {
-      title: "Allowed",
-      kind: "document",
-      content: "initial",
-    });
-    await f.json(`/api/v1/projects/${f.project.id}/`, "PATCH", {
-      writable_documents: [document.id],
-    });
-    const credential = await f.json("/api/v1/credentials/", "POST", {
-      name: "Test credential",
-      provider: "test",
-      secret: { api_key: "synthetic-private-test-value" },
-    });
-    const run = await f.json("/api/v1/runs/", "POST", {
-      project: f.project.id,
-      operation: "code",
-      source: "return 1;",
-      idempotency_key: "capability",
-    });
-    const claim = await f.json(
-      "/internal/execution/v1/claim/",
-      "POST",
-      undefined,
-      worker,
+    const document = z.object({ id: z.string() }).parse(
+      await f.data(
+        "documents.create",
+        {
+          title: "Allowed",
+          kind: "document",
+          content: "initial",
+        },
+        "mutation",
+      ),
     );
+    await f.data(
+      "projects.update",
+      { id: f.project.id, writable_documents: [document.id] },
+      "mutation",
+    );
+    const credential = z.object({ id: z.string() }).parse(
+      await f.data(
+        "credentials.create",
+        {
+          name: "Test credential",
+          provider: "test",
+          secret: { api_key: "synthetic-private-test-value" },
+        },
+        "mutation",
+      ),
+    );
+    const run = runSchema.parse(
+      await f.data(
+        "runs.create",
+        {
+          project: f.project.id,
+          operation: "code",
+          source: "return 1;",
+          idempotency_key: "capability",
+        },
+        "mutation",
+      ),
+    );
+    const claim = z
+      .object({ capability: z.string() })
+      .parse(
+        await f.json(
+          "/internal/execution/v1/claim/",
+          "POST",
+          undefined,
+          worker,
+        ),
+      );
     expect(
       (
         await f.request(
@@ -66,9 +92,11 @@ test("run capabilities enforce serial claims, resource grants, redaction and exp
         )
       ).status,
     ).toBe(200);
-    await f.json(`/api/v1/projects/${f.project.id}/`, "PATCH", {
-      writable_documents: [],
-    });
+    await f.data(
+      "projects.update",
+      { id: f.project.id, writable_documents: [] },
+      "mutation",
+    );
     expect(
       (
         await f.request(
@@ -79,14 +107,22 @@ test("run capabilities enforce serial claims, resource grants, redaction and exp
         )
       ).status,
     ).toBe(403);
-    const second = await f.json("/api/v1/documents/", "POST", {
-      title: "Added later",
-      kind: "document",
-      content: "secret",
-    });
-    await f.json(`/api/v1/projects/${f.project.id}/`, "PATCH", {
-      readable_documents: [second.id],
-    });
+    const second = z.object({ id: z.string() }).parse(
+      await f.data(
+        "documents.create",
+        {
+          title: "Added later",
+          kind: "document",
+          content: "secret",
+        },
+        "mutation",
+      ),
+    );
+    await f.data(
+      "projects.update",
+      { id: f.project.id, readable_documents: [second.id] },
+      "mutation",
+    );
     expect(
       (
         await f.request(
@@ -108,7 +144,7 @@ test("run capabilities enforce serial claims, resource grants, redaction and exp
       claim.capability,
     );
     expect(
-      JSON.stringify(await f.json(`/api/v1/runs/${run.id}/events/`)),
+      JSON.stringify(await f.data("runs.events", { id: run.id })),
     ).not.toContain("synthetic-private-test-value");
     expect(
       (
@@ -126,9 +162,9 @@ test("run capabilities enforce serial claims, resource grants, redaction and exp
       .where(eq(tables.runs.id, run.id))
       .run();
     maintenance(f.store);
-    expect((await f.json(`/api/v1/runs/${run.id}/`)).status).toBe(
-      "interrupted",
-    );
+    expect(
+      runSchema.parse(await f.data("runs.get", { id: run.id })).status,
+    ).toBe("interrupted");
     expect(
       (
         await f.request(

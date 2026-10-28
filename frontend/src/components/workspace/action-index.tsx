@@ -13,8 +13,8 @@ import { useWorkspace } from "./workspace-context";
 import { WorkspaceLink } from "./workspace-link";
 
 export function ActionIndex(): ReactNode {
-  const { agents, selected: projectId } = useWorkspace();
-  const project = agents.find((item) => item.id === projectId);
+  const { projects, selected: projectId } = useWorkspace();
+  const project = projects.find((item) => item.id === projectId);
   const query = useWorkspaceQuery(loadActions);
   const [search, setSearch] = useState("");
   if (!project) {

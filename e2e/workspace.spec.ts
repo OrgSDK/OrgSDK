@@ -1,24 +1,9 @@
-import { expect, test } from "@playwright/test";
+import { expect, signIn, test } from "./fixtures";
 
-test("set up, sign in, and save a document through the real server", async ({
+test("manage projects, documents, credentials, tables and immutable actions through tRPC", async ({
   page,
 }) => {
-  await page.goto("/");
-  await expect(page).toHaveURL(/\/setup\//);
-  await page.getByLabel("Workspace name").fill("Test workspace");
-  await page.getByLabel("Username").fill("testadmin");
-  await page.getByLabel("Email", { exact: true }).fill("admin@example.test");
-  await page
-    .getByLabel("Password", { exact: true })
-    .fill("A-strong-test-password-123");
-  await page.getByLabel("Confirm password").fill("A-strong-test-password-123");
-  await page.getByRole("button", { name: "Create workspace" }).click();
-  await expect(page.getByText("Your workspace is ready.")).toBeVisible();
-  await page.getByRole("link", { name: "Sign in" }).click();
-  await page.getByLabel("Email address").fill("admin@example.test");
-  await page.getByLabel("Password").fill("A-strong-test-password-123");
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/accounts/"));
+  await signIn(page);
   await page.goto("/projects/?new=1");
   await page.getByLabel("Project name").fill("Browser test project");
   await page.getByRole("button", { name: "Create project" }).click();
@@ -38,6 +23,53 @@ test("set up, sign in, and save a document through the real server", async ({
   await expect(page.getByLabel("Content")).toHaveValue(
     "Saved through the typed client.",
   );
+  await page.goto("/credentials/");
+  await page.getByLabel("Credential name").fill("Browser credential");
+  await page
+    .getByLabel("Secret JSON", { exact: true })
+    .fill(JSON.stringify({ api_key: "synthetic-e2e-credential" }));
+  const createdCredential = page.waitForResponse((response) =>
+    response.url().includes("/trpc/credentials.create"),
+  );
+  await page.getByRole("button", { name: "Save credential" }).click();
+  const credentialResponse = await createdCredential;
+  expect(credentialResponse.status()).toBe(200);
+  expect(await credentialResponse.text()).not.toContain(
+    "synthetic-e2e-credential",
+  );
+  await expect(
+    page.getByText("Browser credential", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Secret JSON", { exact: true })).toHaveValue("");
+  await page.reload();
+  await page
+    .locator(".resource-row")
+    .filter({ has: page.getByText("Browser credential", { exact: true }) })
+    .getByRole("button", { name: "Edit", exact: true })
+    .click();
+  await page.getByLabel("Credential name").fill("Renamed credential");
+  const renamedCredential = page.waitForResponse((response) =>
+    response.url().includes("/trpc/credentials.update"),
+  );
+  await page.getByRole("button", { name: "Save credential" }).click();
+  expect((await renamedCredential).status()).toBe(200);
+  await expect(
+    page.getByText("Renamed credential", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Delete credential Renamed credential" })
+    .click();
+  const deletedCredential = page.waitForResponse((response) =>
+    response.url().includes("/trpc/credentials.delete"),
+  );
+  await page
+    .getByRole("alertdialog", { name: "Delete this credential?" })
+    .getByRole("button", { name: "Delete credential", exact: true })
+    .click();
+  expect((await deletedCredential).status()).toBe(200);
+  await expect(
+    page.getByText("Renamed credential", { exact: true }),
+  ).toHaveCount(0);
   await page.goto("/tables/");
   await page.getByLabel("Table name").fill("Measurements");
   await page.getByLabel("Column 1 key").fill("amount");

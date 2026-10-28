@@ -1,18 +1,17 @@
+import { z } from "zod";
 import { expect } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createApp } from "../app";
+import { integrationServer } from "./integration-server";
 import { openStore } from "../db";
+import { pageSchema, projectSchema } from "./wire-schemas";
+
 export async function fixture() {
   const dir = mkdtempSync(join(tmpdir(), "orgsdk-integration-"));
   const store = openStore(join(dir, "data"));
-  const server = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    fetch: createApp(store),
-  });
-  const origin = `http://127.0.0.1:${server.port}`;
+  const server = await integrationServer(store, dir);
+  const origin = server.origin;
   const cookies = new Map<string, string>();
   async function request(
     path: string,
@@ -36,12 +35,13 @@ export async function fixture() {
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
-    if (!token)
+    if (!token) {
       for (const cookie of response.headers.getSetCookie()) {
-        const [pair] = cookie.split(";");
-        const index = pair!.indexOf("=");
-        cookies.set(pair!.slice(0, index), pair!.slice(index + 1));
+        const pair = cookie.split(";")[0]!;
+        const index = pair.indexOf("=");
+        cookies.set(pair.slice(0, index), pair.slice(index + 1));
       }
+    }
     return response;
   }
   async function json(
@@ -49,33 +49,75 @@ export async function fixture() {
     method = "GET",
     body?: unknown,
     token?: string,
-  ): Promise<any> {
+  ): Promise<unknown> {
     const response = await request(path, method, body, token);
-    const result = response.status === 204 ? null : await response.json();
+    const result: unknown =
+      response.status === 204 ? null : await response.json();
     expect(response.status, JSON.stringify(result)).toBeLessThan(400);
     return result;
   }
-  await json("/api/v1/setup/");
-  await json("/api/v1/setup/", "POST", {
-    domain: "127.0.0.1",
-    workspace_name: "Test workspace",
-    username: "owner",
-    email: "owner@example.test",
-    password1: "A-strong-test-password-123",
-    password2: "A-strong-test-password-123",
-    project_name: "First project",
-  });
-  await json("/api/auth/browser/v1/auth/login", "POST", {
-    email: "owner@example.test",
-    password: "A-strong-test-password-123",
-  });
-  const project = (await json("/api/v1/projects/")).results[0];
-  async function register() {
-    const registered = await json(
-      `/api/v1/projects/${project.id}/executor/`,
-      "POST",
-      { locally_managed: false },
+  function rpc(
+    path: string,
+    input?: unknown,
+    type: "query" | "mutation" = "query",
+    token?: string,
+  ) {
+    const endpoint = `/trpc/${path}`;
+    const url =
+      type === "query" && input !== undefined
+        ? `${endpoint}?input=${encodeURIComponent(JSON.stringify(input))}`
+        : endpoint;
+    return request(
+      url,
+      type === "query" ? "GET" : "POST",
+      type === "mutation" ? input : undefined,
+      token,
     );
+  }
+  async function data(
+    path: string,
+    input?: unknown,
+    type: "query" | "mutation" = "query",
+    token?: string,
+  ): Promise<unknown> {
+    const response = await rpc(path, input, type, token);
+    const body: unknown = await response.json();
+    expect(response.status, JSON.stringify(body)).toBeLessThan(400);
+    return z
+      .object({ result: z.object({ data: z.unknown().optional() }) })
+      .parse(body).result.data;
+  }
+  await data("auth.setupStatus");
+  await data(
+    "auth.setup",
+    {
+      domain: "127.0.0.1",
+      workspace_name: "Test workspace",
+      username: "owner",
+      email: "owner@example.test",
+      password1: "A-strong-test-password-123",
+      password2: "A-strong-test-password-123",
+      project_name: "First project",
+    },
+    "mutation",
+  );
+  await data(
+    "auth.login",
+    { email: "owner@example.test", password: "A-strong-test-password-123" },
+    "mutation",
+  );
+  const project = pageSchema(projectSchema).parse(await data("projects.list"))
+    .results[0]!;
+  async function register() {
+    const registered = z
+      .object({ token: z.string() })
+      .parse(
+        await data(
+          "projects.connectExecutor",
+          { id: project.id, locally_managed: false },
+          "mutation",
+        ),
+      );
     await json(
       "/internal/execution/v1/register/",
       "POST",
@@ -85,7 +127,7 @@ export async function fixture() {
       },
       registered.token,
     );
-    return registered.token as string;
+    return registered.token;
   }
   return {
     dir,
@@ -93,10 +135,12 @@ export async function fixture() {
     origin,
     request,
     json,
+    rpc,
+    data,
     project,
     register,
     async close() {
-      await server.stop(true);
+      await server.close();
       store.close();
       rmSync(dir, { recursive: true, force: true });
     },

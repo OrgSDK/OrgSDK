@@ -1,204 +1,125 @@
 import { expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { openStore } from "../db";
-import { accessTokens, projects, runs } from "../db/schema";
-import { memberships, users, workspaces } from "../db/schema/core";
-import { handleDomain } from "../domain/routes";
-import type { AppContext } from "../http/context";
-test("action versions, webhook deliveries and immutable retry", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "orgsdk-actions-"));
-  const store = openStore(dir);
+import { z } from "zod";
+import { accessTokens, runs } from "../db/schema";
+import { appRouter } from "../router";
+import { rpcFixture } from "./rpc-fixture";
+
+test("native actions preserve immutable versions, webhook deliveries and retries", async () => {
+  const f = rpcFixture();
   try {
-    const user = store.db
-      .insert(users)
-      .values({
-        username: "tester",
-        email: "test@example.com",
-        passwordHash: "x",
-      })
-      .returning()
-      .get();
-    const workspace = store.db
-      .insert(workspaces)
-      .values({
-        name: "A",
-        host: "localhost",
-        createdAt: new Date().toISOString(),
-      })
-      .returning()
-      .get();
-    store.db
-      .insert(memberships)
-      .values({ workspaceId: workspace.id, userId: user.id, role: "owner" })
-      .run();
-    const project = store.db
-      .insert(projects)
-      .values({
-        id: crypto.randomUUID(),
-        workspaceId: workspace.id,
-        name: "Project",
-        enabled: true,
-        readableTables: [],
-        writableTables: [],
-        readableDocuments: [],
-        writableDocuments: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
-      .returning()
-      .get();
-    const ctx: AppContext = {
-      request: new Request("http://localhost/"),
-      store,
-      user,
-      workspace,
-      role: "owner",
-      token: null,
-      responseHeaders: new Headers(),
-      sessionId: null,
+    const caller = f.caller();
+    const input = {
+      project: f.project.id,
+      name: "Increment",
+      source: "return 1;",
+      input_schema: { type: "object" },
+      output_schema: { type: "number" },
     };
-    const call = async (path: string, body: any) =>
-      handleDomain({
-        ...ctx,
-        request: new Request(`http://localhost/api/v1/${path}/`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-        }),
-      });
-    const actionResponse = await call("actions/save-action", {
-      project: project.id,
-      name: "Increment",
-      source: "return 1;",
-      input_schema: { type: "object" },
-      output_schema: { type: "number" },
-    });
-    const saved = (await actionResponse!.json()) as any;
+    const saved = await caller.actions.saveAction(input);
     expect(saved.version.number).toBe(1);
-    const savedAgain = await call("actions/save-action", {
-      project: project.id,
-      name: "Increment",
-      source: "return 1;",
-      input_schema: { type: "object" },
-      output_schema: { type: "number" },
-    });
-    const same = (await savedAgain!.json()) as any;
+    const action = await caller.actions.get({ id: saved.action });
+    expect(action.project).toBe(f.project.id);
+    expect(Object.hasOwn(action, "agent")).toBe(false);
+    const legacyInput = await f.rpc(
+      "actions.saveAction",
+      { ...input, project: undefined, agent: f.project.id },
+      "mutation",
+    );
+    expect(legacyInput.status).toBe(400);
+    const same = await caller.actions.saveAction(input);
     expect(same.action).toBe(saved.action);
     expect(same.version.id).toBe(saved.version.id);
-    const suiteResponse = await call(`actions/${saved.action}/tests`, {
+    const suite = await caller.actions.saveTests({
+      id: saved.action,
       version: 1,
       cases: [{ name: "simple", inputs: {}, expected: 1 }],
     });
-    const suite = (await suiteResponse!.json()) as any;
     expect(suite.revision).toBe(1);
-    const limited = store.db
+    const limited = f.store.db
       .insert(accessTokens)
       .values({
         id: crypto.randomUUID(),
-        workspaceId: workspace.id,
-        actorId: user.id,
+        workspaceId: f.workspace.id,
+        actorId: f.user.id,
         name: "Version only",
-        digest: "scoped",
+        digest: "version-only",
         scopes: ["catalog:read", "actions:run"],
-        projects: [],
         actionVersions: [saved.version.id],
-        revoked: false,
-        firstUsedAt: null,
-        lastUsedAt: null,
-        requestCount: 0,
-        successCount: 0,
-        errorCount: 0,
-        restRequestCount: 0,
-        mcpRequestCount: 0,
-        lastTransport: "",
-        lastOutcome: "",
-        lastStatusCode: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: f.time,
+        updatedAt: f.time,
       })
       .returning()
       .get();
-    const limitedCtx = {
-      ...ctx,
+    const limitedCaller = appRouter.createCaller({
+      ...f.context(),
       token: limited,
-      request: new Request(
-        `http://localhost/api/v1/projects/${project.id}/sdk/`,
-      ),
-    };
+    });
     await Promise.resolve(
-      expect(handleDomain(limitedCtx)).rejects.toThrow(
+      expect(limitedCaller.projects.sdk({ id: f.project.id })).rejects.toThrow(
         "outside the client grant",
       ),
     );
-    const testRun = await call(`actions/${saved.action}/run-tests`, {
+    expect(
+      (await limitedCaller.actions.version({ id: saved.action, version: 1 }))
+        .id,
+    ).toBe(saved.version.id);
+    await Promise.resolve(
+      expect(
+        limitedCaller.actions.version({ id: saved.action }),
+      ).rejects.toThrow("explicit granted action version"),
+    );
+    const testRun = await caller.actions.runTests({
+      id: saved.action,
       version: 1,
       suite_revision: 1,
       idempotency_key: "test",
     });
-    expect(((await testRun!.json()) as any).operation).toBe("test");
-    const webhookResponse = await call("webhooks", {
+    expect(testRun.operation).toBe("test");
+    const hook = await caller.webhooks.create({
       name: "Incoming",
       action: saved.action,
     });
-    const hook = (await webhookResponse!.json()) as any;
-    const { handleWebhookIngress } = await import("../automations/ingress");
-    const ingress = () =>
-      handleWebhookIngress({
-        ...ctx,
-        user: null,
-        role: null,
-        request: new Request(`http://localhost${hook.webhook.endpoint}`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-webhook-secret": hook.secret,
-            "x-webhook-delivery": "delivery-1",
-          },
-          body: JSON.stringify({ inputs: {} }),
-        }),
+    const ingress = (inputs: Record<string, number> = {}) =>
+      f.request(hook.webhook.endpoint, "POST", { inputs }, undefined, {
+        "x-webhook-secret": hook.secret,
+        "x-webhook-delivery": "delivery-1",
       });
     const first = await ingress();
-    expect(first!.status).toBe(202);
-    const receipt = (await first!.json()) as any;
+    expect(first.status).toBe(202);
+    const receipt = z.object({ run: z.string() }).parse(await first.json());
     const second = await ingress();
-    expect(second!.status).toBe(200);
-    expect(((await second!.json()) as any).run).toBe(receipt.run);
-    const conflict = handleWebhookIngress({
-      ...ctx,
-      user: null,
-      role: null,
-      request: new Request(`http://localhost${hook.webhook.endpoint}`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-webhook-secret": hook.secret,
-          "x-webhook-delivery": "delivery-1",
-        },
-        body: JSON.stringify({ inputs: { value: 2 } }),
-      }),
-    });
-    await Promise.resolve(
-      expect(conflict).rejects.toThrow("different payload"),
+    expect(second.status).toBe(200);
+    expect(z.object({ run: z.string() }).parse(await second.json()).run).toBe(
+      receipt.run,
     );
-    store.db
+    expect((await ingress({ value: 2 })).status).toBe(409);
+    f.store.db
       .update(runs)
       .set({ status: "failed" })
       .where(eq(runs.id, receipt.run))
       .run();
-    const retry = await call(`runs/${receipt.run}/retry`, {
+    const retried = await caller.runs.retry({
+      id: receipt.run,
       idempotency_key: "retry",
     });
-    const retried = (await retry!.json()) as any;
     expect(retried.retry_of).toBe(receipt.run);
-    const retryAgain = await call(`runs/${receipt.run}/retry`, {
-      idempotency_key: "retry",
-    });
-    expect(((await retryAgain!.json()) as any).id).toBe(retried.id);
+    expect(
+      (await caller.runs.retry({ id: receipt.run, idempotency_key: "retry" }))
+        .id,
+    ).toBe(retried.id);
+    const original = f.store.db
+      .select()
+      .from(runs)
+      .where(eq(runs.id, receipt.run))
+      .get()!;
+    const retry = f.store.db
+      .select()
+      .from(runs)
+      .where(eq(runs.id, retried.id))
+      .get()!;
+    expect(retry.snapshot).toEqual(original.snapshot);
   } finally {
-    store.close();
-    rmSync(dir, { recursive: true, force: true });
+    f.close();
   }
 });

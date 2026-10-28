@@ -13,7 +13,7 @@ export function useSession(): SessionState {
     async function load(): Promise<void> {
       try {
         const session = await loadSession(controller.signal);
-        setState({ status: "ready", session });
+        if (!controller.signal.aborted) setState({ status: "ready", session });
       } catch {
         if (!controller.signal.aborted) setState({ status: "error" });
       }

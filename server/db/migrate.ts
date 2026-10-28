@@ -16,7 +16,9 @@ export function assertManagedDatabase(sqlite: Database): void {
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
     )
     .all();
-  if (tables.length === 0) return;
+  if (tables.length === 0) {
+    return;
+  }
   if (!tables.some((table) => table.name === "__drizzle_migrations")) {
     throw new Error(
       "Unmanaged database; refusing to open it. Use an empty data directory.",

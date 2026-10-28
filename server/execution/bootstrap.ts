@@ -8,22 +8,25 @@ import { digest } from "../shared/security";
 import { bearer, equalSecret } from "./authority";
 export function bootstrap(ctx: AppContext): Response {
   const configured = process.env.LOCAL_EXECUTOR_BOOTSTRAP_TOKEN;
-  if (!configured || !equalSecret(bearer(ctx), configured))
+  if (!configured || !equalSecret(bearer(ctx), configured)) {
     throw new HttpError(403, "Invalid local bootstrap credential.");
+  }
   const registrations = [];
-  for (const project of ctx.store.db
+  for (const project of ctx.db
     .select()
     .from(t.projects)
     .where(eq(t.projects.enabled, true))
     .all()) {
-    let worker = ctx.store.db
+    let worker = ctx.db
       .select()
       .from(t.executors)
       .where(eq(t.executors.projectId, project.id))
       .get();
-    if (worker && (!worker.locallyManaged || !worker.enabled)) continue;
-    if (!worker)
-      worker = ctx.store.db
+    if (worker && (!worker.locallyManaged || !worker.enabled)) {
+      continue;
+    }
+    if (!worker) {
+      worker = ctx.db
         .insert(t.executors)
         .values({
           ...base(project.workspaceId),
@@ -40,10 +43,11 @@ export function bootstrap(ctx: AppContext): Response {
         })
         .returning()
         .get()!;
+    }
     const token = createHmac("sha256", configured)
       .update(`${worker.id}:${worker.registrationNonce}`)
       .digest("hex");
-    ctx.store.db
+    ctx.db
       .update(t.executors)
       .set({ tokenHash: digest(token) })
       .where(eq(t.executors.id, worker.id))

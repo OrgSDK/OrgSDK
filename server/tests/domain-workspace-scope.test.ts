@@ -1,72 +1,34 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { openStore } from "../db";
 import { projects } from "../db/schema";
-import { users, workspaces } from "../db/schema/core";
-import { handleDomain } from "../domain/routes";
-import type { AppContext } from "../http/context";
-test("cross-workspace project is not visible", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "orgsdk-isolation-"));
-  const store = openStore(dir);
+import { workspaces } from "../db/schema/core";
+import { rpcFixture } from "./rpc-fixture";
+
+test("native project query cannot read a project from another workspace", async () => {
+  const f = rpcFixture();
   try {
-    const user = store.db
-      .insert(users)
-      .values({
-        username: "tester",
-        email: "test@example.com",
-        passwordHash: "x",
-      })
-      .returning()
-      .get();
-    const a = store.db
+    const foreign = f.store.db
       .insert(workspaces)
-      .values({
-        name: "A",
-        host: "a.local",
-        createdAt: new Date().toISOString(),
-      })
+      .values({ name: "B", host: "b.local", createdAt: f.time })
       .returning()
       .get();
-    const b = store.db
-      .insert(workspaces)
-      .values({
-        name: "B",
-        host: "b.local",
-        createdAt: new Date().toISOString(),
-      })
-      .returning()
-      .get();
-    const project = store.db
+    const project = f.store.db
       .insert(projects)
       .values({
+        ...f.project,
         id: crypto.randomUUID(),
-        workspaceId: b.id,
+        workspaceId: foreign.id,
         name: "Secret",
-        enabled: true,
-        readableTables: [],
-        writableTables: [],
-        readableDocuments: [],
-        writableDocuments: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       })
       .returning()
       .get();
-    const ctx: AppContext = {
-      request: new Request(`http://a.local/api/v1/projects/${project.id}/`),
-      store,
-      user,
-      workspace: a,
-      role: "owner",
-      token: null,
-      responseHeaders: new Headers(),
-      sessionId: null,
-    };
-    expect(handleDomain(ctx)).rejects.toThrow("Not found.");
+    await Promise.resolve(
+      expect(f.caller().projects.get({ id: project.id })).rejects.toThrow(
+        "Not found.",
+      ),
+    );
+    const response = await f.rpc("projects.get", { id: project.id });
+    expect(response.status).toBe(404);
   } finally {
-    store.close();
-    rmSync(dir, { recursive: true, force: true });
+    f.close();
   }
 });

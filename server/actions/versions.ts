@@ -1,39 +1,41 @@
 import { and, eq } from "drizzle-orm";
 import * as resourceTables from "../db/schema";
-import type { AppContext } from "../http/context";
-import { HttpError } from "../http/responses";
+import { type ServiceContext } from "../application";
+import { ServiceError } from "../shared/errors";
 import { actionVersionsRepository } from "../repositories/action-versions";
 import { actionsRepository } from "../repositories/actions";
-import { schema, sourceText } from "../shared/contracts";
+import { jsonValue, schema, sourceText } from "../shared/contracts";
 import { text } from "../shared/validation";
+import type { VersionInput } from "./schemas";
+import { findVersion } from "./version-queries";
 export function actionVersion(
-  ctx: AppContext,
+  ctx: ServiceContext,
   actionId: string,
   number?: number,
 ) {
   const action = actionsRepository(ctx).find(actionId);
-  const versions = actionVersionsRepository(ctx)
-    .list(eq(resourceTables.actionVersions.actionId, action.id))
-    .sort((a, b) => b.number - a.number);
-  const version =
-    number === undefined
-      ? versions[0]
-      : versions.find((x) => x.number === number);
-  if (!version) throw new HttpError(404, "Action version not found.");
+  const version = findVersion(ctx, action.id, number);
+  if (!version) {
+    throw new ServiceError("NOT_FOUND", "Action version not found.");
+  }
   return { action, version };
 }
 
 export function resolveActionForSave(
-  ctx: AppContext,
+  ctx: ServiceContext,
   projectId: string,
-  name: unknown,
+  name: string,
   id?: string,
 ) {
   const actionName = text(name, "name");
   if (id) {
-    const action = actionsRepository(ctx).find(id);
-    if (action.projectId !== projectId)
-      throw new HttpError(400, "Action belongs to another project.");
+    const action = actionsRepository(ctx).find(text(id, "action"));
+    if (action.projectId !== projectId) {
+      throw new ServiceError(
+        "BAD_REQUEST",
+        "Action belongs to another project.",
+      );
+    }
     return action;
   }
   const matches = actionsRepository(ctx).list(
@@ -42,11 +44,12 @@ export function resolveActionForSave(
       eq(resourceTables.actions.name, actionName),
     ),
   );
-  if (matches.length > 1)
-    throw new HttpError(
-      400,
+  if (matches.length > 1) {
+    throw new ServiceError(
+      "BAD_REQUEST",
       "Multiple actions have this name. Supply an exact action ID.",
     );
+  }
   return (
     matches[0] ??
     actionsRepository(ctx).create({
@@ -59,19 +62,16 @@ export function resolveActionForSave(
 }
 
 export function versionForSave(
-  ctx: AppContext,
-  action: any,
-  body: any,
+  ctx: ServiceContext,
+  action: typeof resourceTables.actions.$inferSelect,
+  body: VersionInput,
   promotedFrom: string | null = null,
 ) {
   const source = sourceText(body.source);
   const inputSchema = schema(body.input_schema);
   const outputSchema = schema(body.output_schema);
-  const sdkContract = body.sdk_contract ?? {};
-  const existing = actionVersionsRepository(ctx)
-    .list(eq(resourceTables.actionVersions.actionId, action.id))
-    .sort((a, b) => b.number - a.number);
-  const latest = existing[0];
+  const sdkContract = jsonValue(body.sdk_contract ?? {}, "SDK contract");
+  const latest = findVersion(ctx, action.id);
   if (
     latest &&
     latest.source === source &&
@@ -79,8 +79,9 @@ export function versionForSave(
     JSON.stringify(latest.outputSchema) === JSON.stringify(outputSchema) &&
     latest.promotedFrom === promotedFrom &&
     JSON.stringify(latest.sdkContract) === JSON.stringify(sdkContract)
-  )
+  ) {
     return latest;
+  }
   return actionVersionsRepository(ctx).create({
     actionId: action.id,
     number: (latest?.number ?? 0) + 1,

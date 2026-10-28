@@ -1,52 +1,36 @@
-import type { paths } from "./auth-schema";
-import { createApiClient, api } from "./client";
+import { TRPCClientError } from "@trpc/client";
+import { loadSession, type RouterOutputs } from "./trpc";
 
-export const auth = createApiClient<paths>();
-
-export async function bootstrapAccount(): Promise<void> {
-  const { response } = await api.GET("/api/v1/session/", { cache: "no-store" });
-  if (!response.ok)
-    throw new Error("Unable to load your session. Reload to try again.");
+export async function bootstrapAccount(
+  signal = new AbortController().signal,
+): Promise<void> {
+  await loadSession(signal);
 }
 
-export class ReauthenticationRequired extends Error {}
-
-export function authResult<T>({
-  data,
-  error,
-  response,
-}: {
-  data?: T;
-  error?: unknown;
-  response: Response;
-}): T {
-  if (data !== undefined && response.ok) return data;
-  if (response.status === 401)
-    throw new ReauthenticationRequired(
-      "Confirm your identity below, then retry your change.",
-    );
-  throw new Error(authError(error));
-}
-
-export function authError(value: unknown): string {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("errors" in value) ||
-    !Array.isArray(value.errors)
-  )
-    return "Unable to complete this request. Please try again.";
-  const messages = value.errors.map((error: unknown) =>
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof error.message === "string"
-      ? error.message
-      : "",
-  );
+export function requiresMfa(
+  session: RouterOutputs["auth"]["browserSession"],
+): boolean {
   return (
-    messages.filter(Boolean).join(" ") ||
-    "Unable to complete this request. Please try again."
+    !session.is_authenticated &&
+    session.flows.some((flow) => flow.id === "mfa_authenticate")
+  );
+}
+
+export class ReauthenticationRequired extends Error {
+  constructor() {
+    super("Confirm your identity below, then retry your change.");
+  }
+}
+
+export function isReauthenticationRequired(error: unknown): boolean {
+  if (error instanceof ReauthenticationRequired) return true;
+  const data: unknown =
+    error instanceof TRPCClientError ? error.data : undefined;
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "code" in data &&
+    data.code === "UNAUTHORIZED"
   );
 }
 

@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { type credentials, type plugins } from "../db/schema";
 import { memberships } from "../db/schema/core";
-import type { AppContext } from "../http/context";
-import { requireManager } from "../http/context";
-import { HttpError } from "../http/responses";
+import { type ServiceContext } from "../application";
+import { requireManager } from "../shared/authorization";
+import { ServiceError } from "../shared/errors";
 export const providers = {
   "google-oauth": {
     authorization: "https://accounts.google.com/o/oauth2/v2/auth",
@@ -51,23 +51,28 @@ export function provider(value: unknown): value is Provider {
 }
 
 export function field(value: unknown, max: number): string {
-  if (typeof value !== "string" || !value.trim() || value.length > max)
-    throw new HttpError(400, "Provide valid connection settings.");
+  if (typeof value !== "string" || !value.trim() || value.length > max) {
+    throw new ServiceError("BAD_REQUEST", "Provide valid connection settings.");
+  }
   return value.trim();
 }
 
-export function callbackOrigin(ctx: AppContext): string {
+export function callbackOrigin(ctx: ServiceContext): string {
   const value = process.env.ORGSDK_PUBLIC_ORIGIN;
-  if (!value)
-    throw new HttpError(
-      503,
+  if (!value) {
+    throw new ServiceError(
+      "PRECONDITION_FAILED",
       "Set ORGSDK_PUBLIC_ORIGIN to this workspace’s public origin before connecting OAuth.",
     );
+  }
   let url: URL;
   try {
     url = new URL(value);
   } catch {
-    throw new HttpError(503, "ORGSDK_PUBLIC_ORIGIN is invalid.");
+    throw new ServiceError(
+      "PRECONDITION_FAILED",
+      "ORGSDK_PUBLIC_ORIGIN is invalid.",
+    );
   }
   const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
   if (
@@ -78,17 +83,22 @@ export function callbackOrigin(ctx: AppContext): string {
     url.search ||
     url.hash ||
     url.hostname.toLowerCase() !== ctx.workspace?.host
-  )
-    throw new HttpError(
-      503,
+  ) {
+    throw new ServiceError(
+      "PRECONDITION_FAILED",
       "ORGSDK_PUBLIC_ORIGIN must match the registered workspace host and use HTTPS (or local HTTP).",
     );
+  }
   return url.origin;
 }
 
-export function authorize(ctx: AppContext) {
-  if (ctx.token || !ctx.sessionId)
-    throw new HttpError(403, "OAuth connections require a browser session.");
+export function authorize(ctx: ServiceContext) {
+  if (ctx.token || !ctx.sessionId) {
+    throw new ServiceError(
+      "FORBIDDEN",
+      "OAuth connections require a browser session.",
+    );
+  }
   return requireManager(ctx);
 }
 
@@ -112,11 +122,12 @@ export function checkedMetadata(plugin: typeof plugins.$inferSelect) {
         scope.length > 500 ||
         /[\s\x00-\x1f]/.test(scope),
     )
-  )
-    throw new HttpError(
-      400,
+  ) {
+    throw new ServiceError(
+      "BAD_REQUEST",
       "Choose an installed OAuth plugin with a valid pinned catalog release.",
     );
+  }
   return {
     provider: auth.provider as Provider,
     scopes: auth.scopes as string[],
@@ -124,11 +135,11 @@ export function checkedMetadata(plugin: typeof plugins.$inferSelect) {
 }
 
 export function isCurrentManager(
-  ctx: AppContext,
+  ctx: ServiceContext,
   workspaceId: number,
   userId: number,
 ) {
-  const member = ctx.store.db
+  const member = ctx.db
     .select()
     .from(memberships)
     .where(

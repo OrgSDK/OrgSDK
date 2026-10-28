@@ -1,42 +1,17 @@
 "use client";
+import type { Action, ActionVersion } from "../../api/types";
 import { useEffect, useState, type ReactNode } from "react";
-import { parseActionJSON } from "./action-json";
-import { api } from "../../api/client";
-import { result, errorMessage } from "../../api/result";
-import type { components } from "../../api/schema";
+import { parseActionJSON, parseActionCases } from "./action-json";
+import { TRPCClientError } from "@trpc/client";
+import { z } from "zod";
+import { trpc } from "../../api/trpc";
+import { errorMessage } from "../../api/result";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { useRunDetail } from "./use-run-detail";
 import { ActionCheckReport } from "./action-check-report";
 import { RunStatus } from "./run-display";
 
-type Case = components["schemas"]["TestCaseRequest"];
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function isCase(value: unknown): value is Case {
-  return (
-    isRecord(value) &&
-    typeof value.name === "string" &&
-    isRecord(value.inputs) &&
-    Object.hasOwn(value, "expected") &&
-    (value.forbidden_calls === undefined ||
-      (Array.isArray(value.forbidden_calls) &&
-        value.forbidden_calls.every(
-          (call: unknown) => typeof call === "string",
-        ))) &&
-    (value.mocks === undefined ||
-      (Array.isArray(value.mocks) &&
-        value.mocks.every(
-          (mock: unknown) =>
-            isRecord(mock) &&
-            typeof mock.tool === "string" &&
-            Array.isArray(mock.args) &&
-            typeof mock.times === "number" &&
-            (mock.error === undefined || typeof mock.error === "string"),
-        )))
-  );
-}
 function CheckResult({ id }: { id: string }): ReactNode {
   const query = useRunDetail(id);
   return (
@@ -61,6 +36,11 @@ function CheckResult({ id }: { id: string }): ReactNode {
     </div>
   );
 }
+function isMissingSuite(error: unknown): boolean {
+  const details: unknown =
+    error instanceof TRPCClientError ? error.data : undefined;
+  return z.object({ code: z.literal("NOT_FOUND") }).safeParse(details).success;
+}
 export function ActionChecks({
   project,
   action,
@@ -72,8 +52,8 @@ export function ActionChecks({
   onDirtyChange,
 }: {
   project: string;
-  action: components["schemas"]["Action"] | undefined;
-  version: components["schemas"]["Version"] | undefined;
+  action: Action | undefined;
+  version: ActionVersion | undefined;
   source: string;
   inputSchema: string;
   outputSchema: string;
@@ -94,22 +74,19 @@ export function ActionChecks({
     const controller = new AbortController();
     void (async () => {
       try {
-        const response = await api.GET("/api/v1/actions/{id}/tests/", {
-          params: {
-            path: { id: action.id },
-            query: { version: version.number },
-          },
-          signal: controller.signal,
-        });
-        if (controller.signal.aborted || response.response.status === 404)
-          return;
-        const suite = result(response);
+        const suite = await trpc.actions.tests.query(
+          { id: action.id, version: version.number },
+          { signal: controller.signal },
+        );
+        if (controller.signal.aborted) return;
         const text = JSON.stringify(suite.cases, null, 2);
         setCases(text);
         setSavedCases(text);
         setRevision(suite.revision);
       } catch (error_) {
-        if (!controller.signal.aborted) setError(errorMessage(error_));
+        if (!controller.signal.aborted && !isMissingSuite(error_)) {
+          setError(errorMessage(error_));
+        }
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -125,17 +102,13 @@ export function ActionChecks({
     setError("");
     try {
       if (operation === "validate") {
-        const run = result(
-          await api.POST("/api/v1/actions/validate-code/", {
-            body: {
-              project,
-              source,
-              input_schema: parseActionJSON(inputSchema),
-              output_schema: parseActionJSON(outputSchema),
-              idempotency_key: crypto.randomUUID(),
-            },
-          }),
-        );
+        const run = await trpc.actions.validateCode.mutate({
+          project,
+          source,
+          input_schema: parseActionJSON(inputSchema),
+          output_schema: parseActionJSON(outputSchema),
+          idempotency_key: crypto.randomUUID(),
+        });
         setRunId(run.id);
         return;
       }
@@ -144,17 +117,11 @@ export function ActionChecks({
           "Save the source version before editing or running its tests.",
         );
       if (operation === "save") {
-        const parsed: unknown = parseActionJSON(cases);
-        if (!Array.isArray(parsed) || !parsed.every(isCase))
-          throw new Error(
-            "Cases must be an array with name, inputs, expected, optional mocks (tool, args, times) and forbidden_calls.",
-          );
-        const suite = result(
-          await api.POST("/api/v1/actions/{id}/tests/", {
-            params: { path: { id: action.id } },
-            body: { version: version.number, cases: parsed },
-          }),
-        );
+        const suite = await trpc.actions.saveTests.mutate({
+          id: action.id,
+          version: version.number,
+          cases: parseActionCases(cases),
+        });
         setRevision(suite.revision);
         setSavedCases(cases);
         onDirtyChange(false);
@@ -162,16 +129,12 @@ export function ActionChecks({
       }
       if (revision === undefined || cases !== savedCases)
         throw new Error("Save the test suite before running it.");
-      const run = result(
-        await api.POST("/api/v1/actions/{id}/run-tests/", {
-          params: { path: { id: action.id } },
-          body: {
-            version: version.number,
-            suite_revision: revision,
-            idempotency_key: crypto.randomUUID(),
-          },
-        }),
-      );
+      const run = await trpc.actions.runTests.mutate({
+        id: action.id,
+        version: version.number,
+        suite_revision: revision,
+        idempotency_key: crypto.randomUUID(),
+      });
       setRunId(run.id);
     } catch (error_) {
       setError(errorMessage(error_));

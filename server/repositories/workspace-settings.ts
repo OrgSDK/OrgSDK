@@ -1,10 +1,11 @@
 import { and, eq, type SQL } from "drizzle-orm";
 import { workspaceSettings } from "../db/schema";
-import { requireWorkspace, type AppContext } from "../http/context";
+import { requireWorkspace } from "../shared/authorization";
+import { type ServiceContext } from "../application";
 
-export function workspaceSettingsRepository(context: AppContext) {
+export function workspaceSettingsRepository(context: ServiceContext) {
   const workspaceId = requireWorkspace(context).id;
-  const database = context.store.db;
+  const database = context.db;
   const scoped = (id?: string, filter?: SQL) =>
     and(
       eq(workspaceSettings.workspaceId, workspaceId),

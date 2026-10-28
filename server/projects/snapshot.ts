@@ -1,13 +1,12 @@
-import { and, eq } from "drizzle-orm";
-import * as resourceTables from "../db/schema";
-import type { AppContext } from "../http/context";
-import { pluginsRepository } from "../repositories/plugins";
+import type { JsonObject } from "../db/types";
+import { type ServiceContext } from "../application";
+import { pluginQueries } from "../plugins/queries";
 import { projectsRepository } from "../repositories/projects";
 import { object } from "../shared/contracts";
 import { digest } from "../shared/security";
 import { pluginNamespace } from "./plugin-namespace";
 export function projectSnapshot(
-  ctx: AppContext,
+  ctx: ServiceContext,
   projectId: string,
   operation = "code",
 ) {
@@ -20,24 +19,20 @@ export function projectSnapshot(
       write: project.writableDocuments,
     },
   };
-  const installed = pluginsRepository(ctx)
-    .list(
-      and(
-        eq(resourceTables.plugins.projectId, projectId),
-        eq(resourceTables.plugins.enabled, true),
-      ),
-    )
-    .sort((a, b) => a.slug.localeCompare(b.slug));
-  const plugins = installed.map((p) => ({
-    slug: p.slug,
-    version: p.version,
-    source: p.source,
-    digest: p.digest,
-    credential_id: p.credentialId,
-    credential_provider: p.releaseMetadata?.auth?.provider ?? null,
-    distribution: p.distribution,
-    configuration: p.configuration,
-    package_url: p.packageUrl,
+  const installed = pluginQueries(
+    ctx.db,
+    project.workspaceId,
+  ).listEnabledForProject(projectId);
+  const plugins = installed.map((plugin) => ({
+    slug: plugin.slug,
+    version: plugin.version,
+    source: plugin.source,
+    digest: plugin.digest,
+    credential_id: plugin.credentialId,
+    credential_provider: plugin.releaseMetadata?.auth?.provider ?? null,
+    distribution: plugin.distribution,
+    configuration: plugin.configuration,
+    package_url: plugin.packageUrl,
     contract_version: 1,
   }));
   const selected = {
@@ -53,46 +48,54 @@ export function projectSnapshot(
   const revision = digest(
     JSON.stringify({ sdk_revision: 3, plugins, resources }),
   );
-  const namespaces = installed.map((p) => pluginNamespace(p.slug));
-  const sdkPlugins = installed.map((p, i) => {
-    const namespace = namespaces[i];
+  const namespaces = installed.map((plugin) => pluginNamespace(plugin.slug));
+  const sdkPlugins = installed.map((plugin, pluginIndex) => {
+    const namespace = namespaces[pluginIndex];
     const available =
-      !!namespace && namespaces.filter((n) => n === namespace).length === 1;
+      !!namespace &&
+      namespaces.filter(
+        (candidateNamespace) => candidateNamespace === namespace,
+      ).length === 1;
     const tools =
-      p.distribution === "external" && Array.isArray(p.releaseMetadata?.tools)
-        ? p.releaseMetadata.tools
+      plugin.distribution === "external" &&
+      Array.isArray(plugin.releaseMetadata?.tools)
+        ? plugin.releaseMetadata.tools
         : null;
     return {
       namespace: available ? namespace : null,
       available,
-      slug: p.slug,
-      version: p.version,
-      digest: p.digest,
+      slug: plugin.slug,
+      version: plugin.version,
+      digest: plugin.digest,
       metadata_complete:
         !!available &&
         !!tools &&
         tools.every(
-          (tool: any) =>
+          (tool: unknown) =>
             object(tool) &&
             typeof tool.name === "string" &&
             /^[a-z][a-zA-Z0-9]*$/.test(tool.name) &&
             Array.isArray(tool.parameters) &&
             tool.parameters.every(
-              (x: any) =>
-                object(x) &&
-                typeof x.name === "string" &&
-                typeof x.type === "string",
+              (parameter: unknown) =>
+                object(parameter) &&
+                typeof parameter.name === "string" &&
+                typeof parameter.type === "string",
             ),
         ),
       tools:
         available && tools
           ? tools
               .filter(
-                (x: any) => object(x) && typeof x.name === "string" && x.name,
+                (value): value is JsonObject =>
+                  object(value) &&
+                  typeof value.name === "string" &&
+                  value.name.length > 0,
               )
-              .map((x: any) =>
-                Object.fromEntries(
-                  Object.entries({ ...x, calling: "named" }).filter(([key]) =>
+              .map((tool) => {
+                const contract: JsonObject = { ...tool, calling: "named" };
+                return Object.fromEntries(
+                  Object.entries(contract).filter(([key]) =>
                     [
                       "name",
                       "description",
@@ -102,8 +105,8 @@ export function projectSnapshot(
                       "calling",
                     ].includes(key),
                   ),
-                ),
-              )
+                );
+              })
           : null,
     };
   });

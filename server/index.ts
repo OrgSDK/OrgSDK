@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   existsSync,
   mkdirSync,
@@ -27,31 +28,46 @@ function serverLock(): () => void {
   const file = join(dataDir, "server.pid");
   if (existsSync(file)) {
     const pid = Number(readFileSync(file, "utf8"));
-    if (!Number.isInteger(pid) || pid < 1)
+    if (!Number.isInteger(pid) || pid < 1) {
       throw new Error("Invalid server lock; inspect the data directory.");
+    }
     let alive = false;
     try {
       process.kill(pid, 0);
       alive = true;
-    } catch (error: any) {
-      if (error.code !== "ESRCH") throw error;
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        !("code" in error) ||
+        error.code !== "ESRCH"
+      ) {
+        throw error;
+      }
     }
-    if (alive)
+    if (alive) {
       throw new Error("An OrgSDK server already owns this data directory.");
+    }
     unlinkSync(file);
   }
   writeFileSync(file, String(process.pid), { flag: "wx", mode: 0o600 });
   return () => {
-    if (existsSync(file) && readFileSync(file, "utf8") === String(process.pid))
+    if (
+      existsSync(file) &&
+      readFileSync(file, "utf8") === String(process.pid)
+    ) {
       unlinkSync(file);
+    }
   };
 }
 
 async function main() {
   if (command === "reset-password") {
-    if (!process.argv[3]) throw new Error("Usage: orgsdk reset-password EMAIL");
-    if (!existsSync(join(dataDir, databaseFilename)))
+    if (!process.argv[3]) {
+      throw new Error("Usage: orgsdk reset-password EMAIL");
+    }
+    if (!existsSync(join(dataDir, databaseFilename))) {
       throw new Error("No installation found in this data directory.");
+    }
     const store = openStore(dataDir);
     try {
       await resetPassword(store, process.argv[3]);
@@ -61,15 +77,33 @@ async function main() {
     return;
   }
   if (command === "healthcheck") {
-    const response = await fetch(`http://127.0.0.1:${port}/api/health/`, {
-      signal: AbortSignal.timeout(4000),
-    });
-    if (!response.ok || (await response.json()).status !== "ok")
+    const response = await fetch(
+      `http://127.0.0.1:${port}/trpc/system.health`,
+      {
+        signal: AbortSignal.timeout(4000),
+        ...(process.env.ORGSDK_PUBLIC_ORIGIN
+          ? {
+              headers: { Host: new URL(process.env.ORGSDK_PUBLIC_ORIGIN).host },
+            }
+          : {}),
+      },
+    );
+    if (
+      !response.ok ||
+      z
+        .object({
+          result: z.object({ data: z.object({ status: z.string() }) }),
+        })
+        .parse(await response.json()).result.data.status !== "ok"
+    ) {
       throw new Error("Health check failed.");
+    }
     return;
   }
   if (command === "backup") {
-    if (!process.argv[3]) throw new Error("Usage: orgsdk backup DESTINATION");
+    if (!process.argv[3]) {
+      throw new Error("Usage: orgsdk backup DESTINATION");
+    }
     backupDatabase(dataDir, resolve(process.argv[3]));
     console.log(
       "Verified SQLite snapshot created. Preserve encryption.key separately.",
@@ -77,7 +111,9 @@ async function main() {
     return;
   }
   if (command === "restore") {
-    if (!process.argv[3]) throw new Error("Usage: orgsdk restore SOURCE");
+    if (!process.argv[3]) {
+      throw new Error("Usage: orgsdk restore SOURCE");
+    }
     const unlock = serverLock();
     try {
       restoreDatabase(dataDir, resolve(process.argv[3]));
@@ -98,12 +134,14 @@ async function main() {
     }
     return;
   }
-  if (command !== "server")
+  if (command !== "server") {
     throw new Error(
       "Usage: orgsdk [server | migrate | healthcheck | backup DESTINATION | restore SOURCE | reset-password EMAIL]",
     );
-  if (!Number.isInteger(port) || port < 1 || port > 65535)
+  }
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error("PORT must be between 1 and 65535.");
+  }
   const unlock = serverLock();
   try {
     const store = openStore(dataDir);

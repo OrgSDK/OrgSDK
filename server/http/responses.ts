@@ -1,3 +1,4 @@
+import { z } from "zod";
 export class HttpError extends Error {
   constructor(
     readonly status: number,
@@ -16,17 +17,13 @@ export function json(
   return Response.json(value, { status, ...(headers ? { headers } : {}) });
 }
 
-export async function input(request: Request): Promise<Record<string, any>> {
+export async function input(
+  request: Request,
+): Promise<Record<string, unknown>> {
   try {
-    const value = await request.json();
-    if (!value || typeof value !== "object" || Array.isArray(value))
-      throw new Error();
-    return value;
+    const value: unknown = await request.json();
+    return z.record(z.string(), z.unknown()).parse(value);
   } catch {
     throw new HttpError(400, "Expected a JSON object.");
   }
-}
-
-export function page<T>(results: T[]) {
-  return { count: results.length, next: null, previous: null, results };
 }

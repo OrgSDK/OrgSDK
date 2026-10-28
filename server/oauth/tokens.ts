@@ -1,4 +1,5 @@
-import { HttpError } from "../http/responses";
+import { z } from "zod";
+import { ServiceError } from "../shared/errors";
 import { type Fetcher, type Provider, providers } from "./providers";
 export type Tokens = {
   access_token: string;
@@ -19,12 +20,14 @@ export async function tokenExchange(
     "Content-Type": "application/x-www-form-urlencoded",
     Accept: "application/json",
   });
-  if (providerName === "twitter-oauth")
+  if (providerName === "twitter-oauth") {
     headers.set(
       "Authorization",
       `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
     );
-  else fields.set("client_secret", clientSecret);
+  } else {
+    fields.set("client_secret", clientSecret);
+  }
   try {
     const response = await fetcher(providers[providerName].token, {
       method: "POST",
@@ -33,13 +36,17 @@ export async function tokenExchange(
       redirect: "error",
       signal: AbortSignal.timeout(20000),
     });
-    if (!response.ok || !response.body) throw new Error();
+    if (!response.ok || !response.body) {
+      throw new Error();
+    }
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
     let size = 0;
     while (true) {
       const item = await reader.read();
-      if (item.done) break;
+      if (item.done) {
+        break;
+      }
       size += item.value.length;
       if (size > 65536) {
         await reader.cancel();
@@ -47,7 +54,9 @@ export async function tokenExchange(
       }
       chunks.push(item.value);
     }
-    const value = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    const value = z
+      .record(z.string(), z.unknown())
+      .parse(JSON.parse(Buffer.concat(chunks).toString("utf8")));
     if (
       typeof value.access_token !== "string" ||
       !value.access_token ||
@@ -57,11 +66,13 @@ export async function tokenExchange(
           value.refresh_token.length > 32000)) ||
       (value.scope !== undefined &&
         (typeof value.scope !== "string" || value.scope.length > 10000))
-    )
+    ) {
       throw new Error();
+    }
     const seconds = Number(value.expires_in ?? 3600);
-    if (!Number.isFinite(seconds) || seconds < 0 || seconds > 315360000)
+    if (!Number.isFinite(seconds) || seconds < 0 || seconds > 315360000) {
       throw new Error();
+    }
     return {
       access_token: value.access_token,
       expires_in: seconds,
@@ -69,17 +80,21 @@ export async function tokenExchange(
       ...(value.scope ? { scope: value.scope } : {}),
     };
   } catch {
-    throw new HttpError(
-      400,
+    throw new ServiceError(
+      "BAD_REQUEST",
       "OAuth token exchange failed. Check the app settings and reconnect.",
     );
   }
 }
 
-export function applyTokens(payload: Record<string, any>, tokens: Tokens) {
+export function applyTokens(payload: Record<string, unknown>, tokens: Tokens) {
   payload.secret_accessToken = tokens.access_token;
   payload.expires_at = Date.now() / 1000 + (tokens.expires_in ?? 3600);
-  if (tokens.refresh_token) payload.secret_refreshToken = tokens.refresh_token;
-  if (tokens.scope) payload.scopes = tokens.scope.split(/\s+/).filter(Boolean);
+  if (tokens.refresh_token) {
+    payload.secret_refreshToken = tokens.refresh_token;
+  }
+  if (tokens.scope) {
+    payload.scopes = tokens.scope.split(/\s+/).filter(Boolean);
+  }
   return payload;
 }

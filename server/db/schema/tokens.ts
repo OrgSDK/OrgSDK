@@ -45,7 +45,7 @@ export const accessTokens = sqliteTable(
     errorCount: integer("error_count")
       .notNull()
       .default(sql`0`),
-    restRequestCount: integer("rest_request_count")
+    trpcRequestCount: integer("trpc_request_count")
       .notNull()
       .default(sql`0`),
     mcpRequestCount: integer("mcp_request_count")

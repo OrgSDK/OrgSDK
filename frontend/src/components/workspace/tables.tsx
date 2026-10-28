@@ -1,18 +1,19 @@
 "use client";
+import type { Table, TableRow } from "../../api/types";
 import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import type { components } from "../../api/schema";
-import { errorMessage, requireSuccess, result } from "../../api/result";
+import { trpc } from "../../api/trpc";
+import { errorMessage } from "../../api/result";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { useWorkspace } from "./workspace-context";
 import { useDiscardConfirmation } from "./discard-dialog";
 import { ResourceState } from "./resource-state";
+import { displayValue } from "./run-display";
 
-type Table = components["schemas"]["Table"];
-type Column = components["schemas"]["Column"];
-type Row = components["schemas"]["Row"];
+type Column = Table["columns"][number];
+const pageSize = 50;
+
 function isColumnType(value: string): value is Column["type"] {
   return ["text", "number", "boolean", "date"].includes(value);
 }
@@ -56,16 +57,15 @@ function DefinitionForm({
             const body = {
               name,
               columns,
-            } satisfies components["schemas"]["TableRequest"];
-            if (table)
-              result(
-                await api.PUT("/api/v1/tables/{id}/", {
-                  params: { path: { id: table.id } },
-                  body: { ...body, revision: table.revision },
-                }),
-              );
-            else {
-              result(await api.POST("/api/v1/tables/", { body }));
+            };
+            if (table) {
+              await trpc.tables.update.mutate({
+                id: table.id,
+                ...body,
+                revision: table.revision,
+              });
+            } else {
+              await trpc.tables.create.mutate(body);
               setName("");
               setColumns([firstColumn]);
             }
@@ -194,7 +194,7 @@ function RowForm({
   onCancel,
 }: {
   table: Table;
-  row?: Row;
+  row?: TableRow;
   onSaved: () => Promise<void>;
   onCancel: () => void;
 }): ReactNode {
@@ -206,7 +206,7 @@ function RowForm({
         column.key,
         row?.values[column.key] === undefined || row.values[column.key] === null
           ? ""
-          : String(row.values[column.key]),
+          : displayValue(row.values[column.key]),
       ]),
     ),
   );
@@ -244,21 +244,17 @@ function RowForm({
             const body = {
               table_revision: table.revision,
               values: typedValues,
-            } satisfies components["schemas"]["RowWriteRequest"];
-            if (row)
-              result(
-                await api.PUT("/api/v1/tables/{table_id}/rows/{row_id}/", {
-                  params: { path: { table_id: table.id, row_id: row.id } },
-                  body: { ...body, revision: row.revision },
-                }),
-              );
-            else
-              result(
-                await api.POST("/api/v1/tables/{table_id}/rows/", {
-                  params: { path: { table_id: table.id } },
-                  body,
-                }),
-              );
+            };
+            if (row) {
+              await trpc.tables.updateRow.mutate({
+                id: table.id,
+                rowId: row.id,
+                ...body,
+                revision: row.revision,
+              });
+            } else {
+              await trpc.tables.createRow.mutate({ id: table.id, ...body });
+            }
             setDirty(false);
             await onSaved();
           } catch (error_) {
@@ -338,22 +334,26 @@ function TableEditor({
   const { canManage, isDirty, setDirty } = useWorkspace();
   const canConfirm = useDiscardConfirmation();
   const [page, setPage] = useState(1);
-  const [editing, setEditing] = useState<Row | "new">();
+  const [editing, setEditing] = useState<TableRow | "new">();
   const [editingDefinition, setEditingDefinition] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const load = useCallback(
-    async (signal: AbortSignal) =>
-      result(
-        await api.GET("/api/v1/tables/{table_id}/rows/", {
-          signal,
-          params: { path: { table_id: table.id }, query: { page } },
-        }),
-      ),
+    async (signal: AbortSignal) => {
+      const data = await trpc.tables.listRows.query(
+        { id: table.id },
+        { signal },
+      );
+      return {
+        ...data,
+        results: data.results.slice((page - 1) * pageSize, page * pageSize),
+        next: data.count > page * pageSize,
+      };
+    },
     [table.id, page],
   );
   const query = useWorkspaceQuery(load);
-  async function removeRow(row: Row): Promise<void> {
+  async function removeRow(row: TableRow): Promise<void> {
     if (
       !(await canConfirm({
         title: "Delete this row?",
@@ -366,14 +366,11 @@ function TableEditor({
     setBusy(true);
     setError("");
     try {
-      requireSuccess(
-        await api.DELETE("/api/v1/tables/{table_id}/rows/{row_id}/", {
-          params: {
-            path: { table_id: table.id, row_id: row.id },
-            query: { revision: row.revision },
-          },
-        }),
-      );
+      await trpc.tables.deleteRow.mutate({
+        id: table.id,
+        rowId: row.id,
+        revision: row.revision,
+      });
       if (query.data?.results.length === 1 && page > 1) setPage(page - 1);
       else await query.refresh();
     } catch (error_) {
@@ -441,7 +438,7 @@ function TableEditor({
                     {row.values[column.key] === undefined ||
                     row.values[column.key] === null
                       ? "—"
-                      : String(row.values[column.key])}
+                      : displayValue(row.values[column.key])}
                   </td>
                 ))}
                 <td>
@@ -561,13 +558,14 @@ export function Tables(): ReactNode {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const load = useCallback(
-    async (signal: AbortSignal) =>
-      result(
-        await api.GET("/api/v1/tables/", {
-          signal,
-          params: { query: { page } },
-        }),
-      ),
+    async (signal: AbortSignal) => {
+      const data = await trpc.tables.list.query(undefined, { signal });
+      return {
+        ...data,
+        results: data.results.slice((page - 1) * pageSize, page * pageSize),
+        next: data.count > page * pageSize,
+      };
+    },
     [page],
   );
   const query = useWorkspaceQuery(load);
@@ -586,14 +584,10 @@ export function Tables(): ReactNode {
     setBusy(true);
     setError("");
     try {
-      requireSuccess(
-        await api.DELETE("/api/v1/tables/{id}/", {
-          params: {
-            path: { id: table.id },
-            query: { revision: table.revision },
-          },
-        }),
-      );
+      await trpc.tables.delete.mutate({
+        id: table.id,
+        revision: table.revision,
+      });
       setDirty(false);
       setSelected("");
       if (query.data?.results.length === 1 && page > 1) setPage(page - 1);

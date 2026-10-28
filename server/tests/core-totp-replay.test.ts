@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { call, req, setup, store } from "./core-fixture";
+import { createHmac } from "node:crypto";
+import { encrypt } from "../shared/security";
+import { client, sessionCookie, setup, store } from "./core-fixture";
 test("TOTP codes cannot be replayed across login challenges and failures are throttled", async () => {
   const s = store();
-  await call(s, req("/api/v1/setup/", "POST", setup));
-  const { encrypt } = await import("../shared/security");
-  const { createHmac } = await import("node:crypto");
+  await client(s).auth.setup(setup);
   s.sqlite
     .query("UPDATE users SET totp_secret=? WHERE id=1")
     .run(encrypt(s, "JBSWY3DPEHPK3PXP"));
@@ -18,72 +18,37 @@ test("TOTP codes cannot be replayed across login challenges and failures are thr
     (mac.readUInt32BE(offset) & 0x7fffffff) % 1000000,
   ).padStart(6, "0");
   async function challenge() {
-    const result = await call(
-      s,
-      req("/api/auth/browser/v1/auth/login", "POST", {
-        email: setup.email,
-        password: setup.password1,
-      }),
-    );
-    expect(result.response.status).toBe(401);
-    return result.ctx.responseHeaders
-      .getSetCookie()
-      .find((x) => x.startsWith("sessionid="))!
-      .split(";")[0]!;
-  }
-  const first = await challenge(),
-    second = await challenge();
-  expect(
-    (
-      await call(
-        s,
-        req(
-          "/api/auth/browser/v1/auth/2fa/authenticate",
-          "POST",
-          { code },
-          `${first}; csrftoken=test`,
-        ),
-      )
-    ).response.status,
-  ).toBe(200);
-  expect(
-    (
-      await call(
-        s,
-        req(
-          "/api/auth/browser/v1/auth/2fa/authenticate",
-          "POST",
-          { code },
-          `${second}; csrftoken=test`,
-        ),
-      )
-    ).response.status,
-  ).toBe(400);
-  for (let index = 0; index < 8; index++)
+    const caller = client(s);
     expect(
       (
-        await call(
-          s,
-          req(
-            "/api/auth/browser/v1/auth/2fa/authenticate",
-            "POST",
-            { code: "bad" },
-            `${second}; csrftoken=test`,
-          ),
-        )
-      ).response.status,
-    ).toBe(400);
+        await caller.auth.login({
+          email: setup.email,
+          password: setup.password1,
+        })
+      ).is_authenticated,
+    ).toBe(false);
+    return `${sessionCookie(caller.ctx)}; csrftoken=test`;
+  }
+  const first = await challenge();
+  const second = await challenge();
+  expect(
+    (await client(s, first).auth.mfaAuthenticate({ code })).is_authenticated,
+  ).toBe(true);
+  await Promise.resolve(
+    expect(client(s, second).auth.mfaAuthenticate({ code })).rejects.toThrow(
+      "Invalid authentication code",
+    ),
+  );
+  for (let index = 0; index < 8; index++) {
+    await Promise.resolve(
+      expect(
+        client(s, second).auth.mfaAuthenticate({ code: "bad" }),
+      ).rejects.toThrow("Invalid authentication code"),
+    );
+  }
   await Promise.resolve(
     expect(
-      call(
-        s,
-        req(
-          "/api/auth/browser/v1/auth/2fa/authenticate",
-          "POST",
-          { code: "bad" },
-          `${second}; csrftoken=test`,
-        ),
-      ),
+      client(s, second).auth.mfaAuthenticate({ code: "bad" }),
     ).rejects.toThrow("Too many attempts"),
   );
   s.close();

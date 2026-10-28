@@ -23,7 +23,9 @@ const contentTypes: Record<string, string> = {
 export async function staticResponse(
   request: Request,
 ): Promise<Response | null> {
-  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return null;
+  }
   let pathname: string;
   try {
     pathname = decodeURIComponent(new URL(request.url).pathname);
@@ -35,18 +37,22 @@ export async function staticResponse(
   }
   const relative = pathname.endsWith("/") ? `${pathname}index.html` : pathname;
   const path = resolve(root, `.${relative}`);
-  if (!path.startsWith(root + sep))
+  if (!path.startsWith(root + sep)) {
     return new Response("Invalid path", { status: 400 });
+  }
   let file = Bun.file(path);
   if (!(await file.exists()) && !pathname.split("/").at(-1)?.includes(".")) {
     file = Bun.file(resolve(path, "index.html"));
   }
-  if (!(await file.exists())) return null;
+  if (!(await file.exists())) {
+    return null;
+  }
   const extension = file.name?.split(".").pop()?.toLowerCase() ?? "";
   const headers = new Headers({
     "Content-Type": contentTypes[extension] ?? "application/octet-stream",
   });
-  if (pathname.startsWith("/_next/static/"))
+  if (pathname.startsWith("/_next/static/")) {
     headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  }
   return new Response(request.method === "HEAD" ? null : file, { headers });
 }

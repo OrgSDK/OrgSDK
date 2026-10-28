@@ -1,11 +1,15 @@
+import { z } from "zod";
 import { and, eq } from "drizzle-orm";
-import type { Store } from "../db";
+import type { AppDependencies } from "../application";
 import { credentials } from "../db/schema";
-import { HttpError } from "../http/responses";
+import { ServiceError } from "../shared/errors";
 import { decrypt, encrypt } from "../shared/security";
 import { type Credential, type Fetcher, provider } from "./providers";
 import { applyTokens, tokenExchange } from "./tokens";
-export const refreshes = new Map<string, Promise<Record<string, unknown>>>();
+const refreshesByDatabase = new WeakMap<
+  AppDependencies["db"],
+  Map<string, Promise<Record<string, unknown>>>
+>();
 
 export const secretVersions = new WeakMap<
   Record<string, unknown>,
@@ -26,7 +30,7 @@ export function recordSecretVersion(
 }
 
 export function assertExecutionSecretCurrent(
-  store: Store,
+  store: AppDependencies,
   credential: Credential,
   secret: Record<string, unknown>,
 ): void {
@@ -48,37 +52,50 @@ export function assertExecutionSecretCurrent(
     version.workspaceId !== current.workspaceId ||
     version.provider !== current.provider ||
     version.encryptedSecret !== current.encryptedSecret
-  )
-    throw new HttpError(
-      409,
+  ) {
+    throw new ServiceError(
+      "CONFLICT",
       "Credential changed during execution. Retry the run.",
     );
+  }
 }
 
 export async function executionSecret(
-  store: Store,
+  store: AppDependencies,
   credential: Credential,
   fetcher: Fetcher = fetch,
 ): Promise<Record<string, unknown>> {
-  if (!provider(credential.provider))
+  if (!provider(credential.provider)) {
     return recordSecretVersion(
-      JSON.parse(decrypt(store, credential.encryptedSecret)),
+      z
+        .record(z.string(), z.unknown())
+        .parse(JSON.parse(decrypt(store, credential.encryptedSecret))),
       credential,
     );
-  const key = `${store.dataDir}:${credential.id}`;
+  }
+  let refreshes = refreshesByDatabase.get(store.db);
+  if (!refreshes) {
+    refreshes = new Map();
+    refreshesByDatabase.set(store.db, refreshes);
+  }
+  const key = credential.id;
   const current = refreshes.get(key);
-  if (current) return current;
+  if (current) {
+    return current;
+  }
   const promise = resolveExecutionSecret(store, credential, fetcher);
   refreshes.set(key, promise);
   try {
     return await promise;
   } finally {
-    if (refreshes.get(key) === promise) refreshes.delete(key);
+    if (refreshes.get(key) === promise) {
+      refreshes.delete(key);
+    }
   }
 }
 
 export async function resolveExecutionSecret(
-  store: Store,
+  store: AppDependencies,
   initial: Credential,
   fetcher: Fetcher,
 ): Promise<Record<string, unknown>> {
@@ -92,9 +109,12 @@ export async function resolveExecutionSecret(
       ),
     )
     .get();
-  if (!credential || !provider(credential.provider))
-    throw new HttpError(400, "Reconnect this credential.");
-  const payload = JSON.parse(decrypt(store, credential.encryptedSecret));
+  if (!credential || !provider(credential.provider)) {
+    throw new ServiceError("BAD_REQUEST", "Reconnect this credential.");
+  }
+  const payload = z
+    .record(z.string(), z.unknown())
+    .parse(JSON.parse(decrypt(store, credential.encryptedSecret)));
   let revision = credential;
   if (
     payload.source !== "byo" ||
@@ -102,17 +122,22 @@ export async function resolveExecutionSecret(
     typeof payload.secret_clientSecret !== "string" ||
     typeof payload.expires_at !== "number" ||
     !Number.isFinite(payload.expires_at)
-  )
-    throw new HttpError(400, "Reconnect using your own OAuth application.");
+  ) {
+    throw new ServiceError(
+      "BAD_REQUEST",
+      "Reconnect using your own OAuth application.",
+    );
+  }
   if (payload.expires_at <= Date.now() / 1000 + 60) {
     if (
       typeof payload.secret_refreshToken !== "string" ||
       !payload.secret_refreshToken
-    )
-      throw new HttpError(
-        400,
+    ) {
+      throw new ServiceError(
+        "BAD_REQUEST",
         "Reconnect this credential: its access token has expired.",
       );
+    }
     const tokens = await tokenExchange(
       credential.provider,
       payload.secret_clientId,
@@ -138,18 +163,20 @@ export async function resolveExecutionSecret(
       )
       .returning()
       .get();
-    if (!result)
-      throw new HttpError(
-        409,
+    if (!result) {
+      throw new ServiceError(
+        "CONFLICT",
         "The credential changed during refresh. Retry the run.",
       );
+    }
     revision = result;
   }
   if (
     typeof payload.secret_accessToken !== "string" ||
     !payload.secret_accessToken
-  )
-    throw new HttpError(400, "Reconnect this credential.");
+  ) {
+    throw new ServiceError("BAD_REQUEST", "Reconnect this credential.");
+  }
   return recordSecretVersion(
     { secret_accessToken: payload.secret_accessToken, source: "byo" },
     revision,
