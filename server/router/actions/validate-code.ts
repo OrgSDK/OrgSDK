@@ -6,8 +6,6 @@ import { serializeRun } from "../../runs/views";
 export const validateCodeProcedure = scopedProcedure("actions:write")
   .input(validateCodeSchema)
   .mutation(({ ctx, input: body }) => {
-    return serializeRun(
-      ctx,
-      createRun(ctx, { ...body, operation: "validate" }),
-    );
+    const run = createRun(ctx, { ...body, operation: "validate" });
+    return serializeRun(run);
   });

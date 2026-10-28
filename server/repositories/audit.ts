@@ -1,4 +1,3 @@
-import type { AppDatabase } from "../db/database";
 import { auditRecords } from "../db/schema";
 import { type ServiceContext } from "../application";
 import { requireWorkspace } from "../shared/authorization";
@@ -9,25 +8,15 @@ export function recordAudit(
   id: string,
   operation: string,
 ): void {
-  appendAudit(context.db, {
-    workspaceId: requireWorkspace(context).id,
-    actorId: context.user?.id ?? null,
-    action: kind + "." + operation,
-    resource: id,
-  });
-}
-
-export function appendAudit(
-  database: AppDatabase,
-  entry: {
-    workspaceId: number;
-    actorId: number | null;
-    action: string;
-    resource: string;
-  },
-): void {
-  database
+  const workspaceId = requireWorkspace(context).id;
+  context.db
     .insert(auditRecords)
-    .values({ ...base(entry.workspaceId), ...entry, data: {} })
+    .values({
+      ...base(workspaceId),
+      actorId: context.user?.id ?? null,
+      action: kind + "." + operation,
+      resource: id,
+      data: {},
+    })
     .run();
 }

@@ -1,3 +1,6 @@
+import { and, eq } from "drizzle-orm";
+import { documents } from "../../db/schema";
+import { recordAudit } from "../../repositories/audit";
 import { tx } from "../../domain/permissions";
 import { documentsRepository } from "../../repositories/documents";
 import { documentIdSchema } from "../../documents/schemas";
@@ -19,7 +22,19 @@ export const deleteProcedure = browserWorkspaceProcedure
           ),
         });
       }
-      documentsRepository(ctx).remove(input.id);
+      const deleted = ctx.db
+        .delete(documents)
+        .where(
+          and(
+            eq(documents.workspaceId, ctx.workspace.id),
+            eq(documents.id, input.id),
+          ),
+        )
+        .returning({ id: documents.id })
+        .get();
+      if (deleted) {
+        recordAudit(ctx, "document", input.id, "deleted");
+      }
       return { deleted: true };
     });
   });

@@ -5,12 +5,13 @@ import { ServiceError } from "../../shared/errors";
 import { now } from "../../shared/records";
 import { digest } from "../../shared/security";
 import {
-  invitationByToken,
   membershipForUser,
   createMembership,
   updateInvitation,
 } from "../../workspaces/queries";
 import { invitationTokenSchema } from "../../workspaces/schemas";
+import { and, eq } from "drizzle-orm";
+import { invitations } from "../../db/schema/core";
 export const acceptInvitationProcedure = authenticatedBrowserProcedure
   .input(invitationTokenSchema)
   .mutation(({ ctx, input }) => {
@@ -21,7 +22,16 @@ export const acceptInvitationProcedure = authenticatedBrowserProcedure
       assertCurrentUser(ctx, user);
 
       const invite = ctx.workspace
-        ? invitationByToken(db, ctx.workspace.id, digest(token))
+        ? db
+            .select()
+            .from(invitations)
+            .where(
+              and(
+                eq(invitations.workspaceId, ctx.workspace.id),
+                eq(invitations.tokenDigest, digest(token)),
+              ),
+            )
+            .get()
         : undefined;
       if (
         !invite ||

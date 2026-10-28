@@ -5,5 +5,6 @@ import { pluginView } from "../../plugins/views";
 export const getProcedure = browserWorkspaceProcedure
   .input(pluginIdSchema)
   .query(({ ctx, input }) => {
-    return pluginView(pluginsRepository(ctx).find(input.id));
+    const plugin = pluginsRepository(ctx).find(input.id);
+    return pluginView(plugin);
   });

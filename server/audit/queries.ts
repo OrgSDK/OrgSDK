@@ -1,7 +1,6 @@
-import { and, desc, eq, gte, lt } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { AppDatabase } from "../db/database";
-import { auditRecords, memberships, users } from "../db/schema";
-import type { AuditFilters } from "./schemas";
+import { memberships, users } from "../db/schema";
 
 export function auditQueries(database: AppDatabase, workspaceId: number) {
   return {
@@ -25,33 +24,6 @@ export function auditQueries(database: AppDatabase, workspaceId: number) {
           ),
         )
         .get();
-    },
-    list(filters: AuditFilters) {
-      return database
-        .select()
-        .from(auditRecords)
-        .where(
-          and(
-            eq(auditRecords.workspaceId, workspaceId),
-            filters.actor === undefined
-              ? undefined
-              : eq(auditRecords.actorId, filters.actor),
-            filters.kind === undefined
-              ? undefined
-              : eq(auditRecords.action, filters.kind),
-            filters.object_id === undefined
-              ? undefined
-              : eq(auditRecords.resource, filters.object_id),
-            filters.since === undefined
-              ? undefined
-              : gte(auditRecords.createdAt, filters.since),
-            filters.before === undefined
-              ? undefined
-              : lt(auditRecords.createdAt, filters.before),
-          ),
-        )
-        .orderBy(desc(auditRecords.createdAt))
-        .all();
     },
   };
 }

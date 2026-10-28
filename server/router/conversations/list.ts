@@ -1,7 +1,13 @@
+import { eq } from "drizzle-orm";
+import { conversations } from "../../db/schema";
 import { browserWorkspaceProcedure } from "../procedures";
 import { page } from "../../shared/pagination";
-import { conversationsRepository } from "../../repositories/conversations";
 import { conversationView } from "../../projects/conversations";
 export const listProcedure = browserWorkspaceProcedure.query(({ ctx }) => {
-  return page(conversationsRepository(ctx).list().map(conversationView));
+  const records = ctx.db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.workspaceId, ctx.workspace.id))
+    .all();
+  return page(records.map((record) => conversationView(record)));
 });

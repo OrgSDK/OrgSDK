@@ -4,7 +4,7 @@ import { executors } from "../db/schema";
 import { requireWorkspace } from "../shared/authorization";
 import { type ServiceContext } from "../application";
 import { ServiceError } from "../shared/errors";
-import { base, now } from "../shared/records";
+import { now } from "../shared/records";
 import { recordAudit } from "./audit";
 
 export function executorsRepository(context: ServiceContext) {
@@ -27,19 +27,6 @@ export function executorsRepository(context: ServiceContext) {
         .from(executors)
         .where(scoped(undefined, filter))
         .all();
-    },
-    create(data: Create) {
-      return inTransaction(context, (context) => {
-        const database = context.db;
-
-        const row = database
-          .insert(executors)
-          .values({ ...data, ...base(workspaceId) })
-          .returning()
-          .get();
-        recordAudit(context, "executor", row.id, "created");
-        return row;
-      });
     },
     update(id: string, data: Partial<Create>) {
       return inTransaction(context, (context) => {

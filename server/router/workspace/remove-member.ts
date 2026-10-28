@@ -1,7 +1,8 @@
 import { browserWorkspaceProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { ServiceError } from "../../shared/errors";
-import { removeMembership } from "../../workspaces/queries";
+import { and, eq } from "drizzle-orm";
+import { memberships } from "../../db/schema/core";
 import { memberPair, requireMutableMember } from "../../workspaces/permissions";
 import { membershipIdSchema } from "../../workspaces/schemas";
 export const removeMemberProcedure = browserWorkspaceProcedure
@@ -21,7 +22,15 @@ export const removeMemberProcedure = browserWorkspaceProcedure
           "Only the owner can manage admins.",
         );
       }
-      removeMembership(ctx.db, target.workspaceId, id);
+      ctx.db
+        .delete(memberships)
+        .where(
+          and(
+            eq(memberships.workspaceId, target.workspaceId),
+            eq(memberships.id, id),
+          ),
+        )
+        .run();
     });
     return { removed: true };
   });

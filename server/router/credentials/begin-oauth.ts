@@ -1,6 +1,7 @@
+import { and, eq, lt } from "drizzle-orm";
+import { oauthAttempts, plugins } from "../../db/schema";
 import { createHash } from "node:crypto";
 import { inTransaction } from "../../db/transaction";
-import { oauthQueries } from "../../oauth/queries";
 import { oauthConnectSchema } from "../../oauth/schemas";
 import {
   type Payload,
@@ -22,7 +23,13 @@ export const beginOAuthProcedure = browserSessionManagerProcedure
     const name = field(input.name, 100);
     const clientId = field(input.client_id, 500);
     const clientSecret = field(input.client_secret, 2000);
-    const plugin = oauthQueries(ctx.db, workspace.id).installedPlugin(pluginId);
+    const plugin = ctx.db
+      .select()
+      .from(plugins)
+      .where(
+        and(eq(plugins.id, pluginId), eq(plugins.workspaceId, workspace.id)),
+      )
+      .get();
     if (!plugin) {
       throw new ServiceError(
         "BAD_REQUEST",
@@ -52,16 +59,27 @@ export const beginOAuthProcedure = browserSessionManagerProcedure
           "Only workspace owners and admins can manage connections.",
         );
       }
-      const queries = oauthQueries(ctx.db, workspace.id);
-      queries.removeExpiredAttempts();
-      queries.createAttempt({
-        stateDigest: digest(state),
-        userId: user.id,
-        pluginId,
-        sessionId: ctx.sessionId,
-        encryptedPayload: encrypt(ctx, JSON.stringify(payload)),
-        expiresAt: Date.now() + 600000,
-      });
+      ctx.db
+        .delete(oauthAttempts)
+        .where(
+          and(
+            eq(oauthAttempts.workspaceId, workspace.id),
+            lt(oauthAttempts.expiresAt, Date.now()),
+          ),
+        )
+        .run();
+      ctx.db
+        .insert(oauthAttempts)
+        .values({
+          workspaceId: workspace.id,
+          stateDigest: digest(state),
+          userId: user.id,
+          pluginId,
+          sessionId: ctx.sessionId,
+          encryptedPayload: encrypt(ctx, JSON.stringify(payload)),
+          expiresAt: Date.now() + 600000,
+        })
+        .run();
     });
     const authorization = new URL(providers[auth.provider].authorization);
     const query = authorization.searchParams;

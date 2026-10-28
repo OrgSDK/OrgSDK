@@ -4,7 +4,7 @@ import { projects } from "../db/schema";
 import { requireWorkspace } from "../shared/authorization";
 import { type ServiceContext } from "../application";
 import { ServiceError } from "../shared/errors";
-import { base, now } from "../shared/records";
+import { now } from "../shared/records";
 import { recordAudit } from "./audit";
 
 export function projectsRepository(context: ServiceContext) {
@@ -35,19 +35,6 @@ export function projectsRepository(context: ServiceContext) {
         .where(scoped(undefined, filter))
         .all();
     },
-    create(data: Create) {
-      return inTransaction(context, (context) => {
-        const database = context.db;
-
-        const row = database
-          .insert(projects)
-          .values({ ...data, ...base(workspaceId) })
-          .returning()
-          .get();
-        recordAudit(context, "project", row.id, "created");
-        return row;
-      });
-    },
     update(id: string, data: Partial<Create>) {
       return inTransaction(context, (context) => {
         const database = context.db;
@@ -63,20 +50,6 @@ export function projectsRepository(context: ServiceContext) {
         }
         recordAudit(context, "project", id, "updated");
         return row;
-      });
-    },
-    remove(id: string): void {
-      inTransaction(context, (context) => {
-        const database = context.db;
-
-        const deleted = database
-          .delete(projects)
-          .where(scoped(id))
-          .returning({ id: projects.id })
-          .get();
-        if (deleted) {
-          recordAudit(context, "project", id, "deleted");
-        }
       });
     },
   };

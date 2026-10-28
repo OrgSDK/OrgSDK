@@ -15,5 +15,3 @@ export const pluginChangesSchema = pluginCreateSchema
   .omit({ slug: true })
   .partial()
   .extend({ id: z.uuid(), refresh_bundle: z.boolean().optional() });
-
-export type UpdatePlugin = Omit<z.output<typeof pluginChangesSchema>, "id">;

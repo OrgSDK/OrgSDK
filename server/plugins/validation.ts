@@ -1,5 +1,3 @@
-import type { plugins } from "../db/schema";
-import type { UpdatePlugin } from "./schemas";
 import type { ServiceContext } from "../application";
 import { credentialQueries } from "../credentials/queries";
 import type { PluginMetadata } from "../db/types";
@@ -54,27 +52,6 @@ export function assertPluginReferences(
     throw new ServiceError(
       "BAD_REQUEST",
       "Credential provider does not match.",
-    );
-  }
-}
-
-export function assertPluginIdentity(
-  plugin: typeof plugins.$inferSelect,
-  input: UpdatePlugin,
-) {
-  if (input.project && input.project !== plugin.projectId) {
-    throw new ServiceError("BAD_REQUEST", "Reinstall plugins to move them.");
-  }
-  if (input.distribution && input.distribution !== plugin.distribution) {
-    throw new ServiceError(
-      "BAD_REQUEST",
-      "Remove the plugin before changing its distribution.",
-    );
-  }
-  if (plugin.distribution === "external" && input.source !== undefined) {
-    throw new ServiceError(
-      "BAD_REQUEST",
-      "External plugin source is managed by its release.",
     );
   }
 }

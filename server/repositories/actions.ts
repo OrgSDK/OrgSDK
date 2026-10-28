@@ -4,7 +4,7 @@ import { actions } from "../db/schema";
 import { requireWorkspace } from "../shared/authorization";
 import { type ServiceContext } from "../application";
 import { ServiceError } from "../shared/errors";
-import { base, now } from "../shared/records";
+import { base } from "../shared/records";
 import { recordAudit } from "./audit";
 
 export function actionsRepository(context: ServiceContext) {
@@ -45,23 +45,6 @@ export function actionsRepository(context: ServiceContext) {
           .returning()
           .get();
         recordAudit(context, "action", row.id, "created");
-        return row;
-      });
-    },
-    update(id: string, data: Partial<Create>) {
-      return inTransaction(context, (context) => {
-        const database = context.db;
-
-        const row = database
-          .update(actions)
-          .set({ ...data, updatedAt: now() })
-          .where(scoped(id))
-          .returning()
-          .all()[0];
-        if (!row) {
-          throw new ServiceError("NOT_FOUND", "Not found.");
-        }
-        recordAudit(context, "action", id, "updated");
         return row;
       });
     },

@@ -1,7 +1,8 @@
 import { authorizeRunRead } from "../../domain/permissions";
+import { and, asc, eq, gt } from "drizzle-orm";
+import { accessTokens, memberships, runEvents } from "../../db/schema";
+import { identityRepository } from "../../repositories/identity";
 import { runsRepository } from "../../repositories/runs";
-import { eventsAfter } from "../../repositories/run-stream";
-import { runStreamIdentity } from "../../runs/queries";
 import { streamRunSchema } from "../../runs/schemas";
 import { scopedProcedure } from "../procedures";
 
@@ -12,35 +13,66 @@ export const streamProcedure = scopedProcedure("runs:read")
     authorizeRunRead(ctx, run, null);
     let after = input.after;
     while (!signal?.aborted) {
-      const identity = runStreamIdentity(ctx, run.workspaceId);
-      if (!identity.membership) {
+      const membership = ctx.db
+        .select()
+        .from(memberships)
+        .where(
+          and(
+            eq(memberships.workspaceId, ctx.workspace.id),
+            eq(memberships.userId, ctx.userId),
+          ),
+        )
+        .get();
+      if (!membership) {
         return;
       }
       let currentContext = ctx;
       if (ctx.token) {
-        if (!identity.token || identity.token.revoked) {
+        const token = ctx.db
+          .select()
+          .from(accessTokens)
+          .where(
+            and(
+              eq(accessTokens.id, ctx.token.id),
+              eq(accessTokens.workspaceId, ctx.workspace.id),
+            ),
+          )
+          .get();
+        if (!token || token.revoked) {
           return;
         }
-        currentContext = { ...ctx, token: identity.token };
+        currentContext = { ...ctx, token };
         try {
           authorizeRunRead(currentContext, run);
         } catch {
           return;
         }
-      } else if (
-        !identity.session ||
-        identity.session.userId !== ctx.userId ||
-        identity.session.expiresAt <= Date.now()
-      ) {
-        return;
+      } else {
+        const session = ctx.sessionId
+          ? identityRepository(ctx.db).session(ctx.sessionId)
+          : undefined;
+        if (
+          !session ||
+          session.userId !== ctx.userId ||
+          session.expiresAt <= Date.now()
+        ) {
+          return;
+        }
       }
       const current = runsRepository(currentContext).find(input.id);
-      const batch = eventsAfter(
-        currentContext,
-        run.workspaceId,
-        input.id,
-        after,
-      );
+      const batch = currentContext.db
+        .select()
+        .from(runEvents)
+        .where(
+          and(
+            eq(runEvents.workspaceId, ctx.workspace.id),
+            eq(runEvents.runId, input.id),
+            gt(runEvents.sequence, after),
+          ),
+        )
+        .orderBy(asc(runEvents.sequence))
+        .limit(100)
+        .all();
       for (const event of batch) {
         after = event.sequence;
         yield {

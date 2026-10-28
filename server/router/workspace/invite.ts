@@ -7,15 +7,11 @@ import { smtpConfigured } from "../../mail/outbox";
 import { enqueueMail } from "../../repositories/mail-outbox";
 import { now } from "../../shared/records";
 import { digest, encrypt } from "../../shared/security";
-import {
-  hasMemberEmail,
-  pendingInvitationsByEmail,
-  membershipForUser,
-  updateInvitation,
-  createInvitation,
-} from "../../workspaces/queries";
+import { membershipForUser, updateInvitation } from "../../workspaces/queries";
 import { serializeInvite } from "../../workspaces/views";
 import { invitationSchema } from "../../workspaces/schemas";
+import { and, eq, isNull, sql } from "drizzle-orm";
+import { invitations, memberships, users } from "../../db/schema/core";
 export const inviteProcedure = browserManagerProcedure
   .input(invitationSchema)
   .mutation(({ ctx, input }) => {
@@ -54,13 +50,35 @@ export const inviteProcedure = browserManagerProcedure
           "Only the owner can invite admins.",
         );
       }
-      if (hasMemberEmail(db, workspace.id, email)) {
+      const existingMember = db
+        .select({ id: memberships.id })
+        .from(memberships)
+        .innerJoin(users, eq(users.id, memberships.userId))
+        .where(
+          and(
+            eq(memberships.workspaceId, workspace.id),
+            sql`lower(${users.email}) = ${email}`,
+          ),
+        )
+        .get();
+      if (existingMember) {
         throw new ServiceError(
           "BAD_REQUEST",
           "This email already belongs to a workspace member.",
         );
       }
-      const prior = pendingInvitationsByEmail(db, workspace.id, email);
+      const prior = db
+        .select({ id: invitations.id, expiresAt: invitations.expiresAt })
+        .from(invitations)
+        .where(
+          and(
+            eq(invitations.workspaceId, workspace.id),
+            sql`lower(${invitations.email}) = ${email}`,
+            isNull(invitations.acceptedAt),
+            isNull(invitations.revokedAt),
+          ),
+        )
+        .all();
       for (const invite of prior) {
         if (invite.expiresAt > timestamp) {
           throw new ServiceError(
@@ -72,13 +90,17 @@ export const inviteProcedure = browserManagerProcedure
           revokedAt: timestamp,
         });
       }
-      const invite = createInvitation(db, {
-        workspaceId: workspace.id,
-        email,
-        role,
-        tokenDigest: digest(token),
-        expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
-      });
+      const invite = db
+        .insert(invitations)
+        .values({
+          workspaceId: workspace.id,
+          email,
+          role,
+          tokenDigest: digest(token),
+          expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+        })
+        .returning()
+        .get();
       enqueueMail(ctx, {
         id: "invitation:" + invite.id,
         recipient: email,

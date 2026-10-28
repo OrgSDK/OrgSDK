@@ -1,8 +1,12 @@
 import { browserManagerProcedure } from "../procedures";
 import { pluginChangesSchema } from "../../plugins/schemas";
 import { isDeepStrictEqual } from "node:util";
+import { and, eq } from "drizzle-orm";
 import { inTransaction } from "../../db/transaction";
+import { plugins } from "../../db/schema";
 import { pluginsRepository } from "../../repositories/plugins";
+import { recordAudit } from "../../repositories/audit";
+import { now } from "../../shared/records";
 import {
   jsonValue,
   sourceText,
@@ -19,7 +23,6 @@ import { catalogRelease } from "../../plugins/catalog";
 import {
   assertCurrentPluginManager,
   assertPluginReferences,
-  assertPluginIdentity,
 } from "../../plugins/validation";
 import { pluginView } from "../../plugins/views";
 
@@ -28,7 +31,27 @@ export const updateProcedure = browserManagerProcedure
   .mutation(async ({ ctx: context, input }) => {
     const { id, ...changes } = input;
     const originalPlugin = pluginsRepository(context).find(id);
-    assertPluginIdentity(originalPlugin, changes);
+    if (changes.project && changes.project !== originalPlugin.projectId) {
+      throw new ServiceError("BAD_REQUEST", "Reinstall plugins to move them.");
+    }
+    if (
+      changes.distribution &&
+      changes.distribution !== originalPlugin.distribution
+    ) {
+      throw new ServiceError(
+        "BAD_REQUEST",
+        "Remove the plugin before changing its distribution.",
+      );
+    }
+    if (
+      originalPlugin.distribution === "external" &&
+      changes.source !== undefined
+    ) {
+      throw new ServiceError(
+        "BAD_REQUEST",
+        "External plugin source is managed by its release.",
+      );
+    }
     const version = text(changes.version ?? originalPlugin.version, "version");
     const needsCatalogRelease =
       originalPlugin.distribution === "external" &&
@@ -79,8 +102,9 @@ export const updateProcedure = browserManagerProcedure
           configuration,
         );
       }
-      return pluginView(
-        pluginsRepository(transaction).update(id, {
+      const updatedPlugin = transaction.db
+        .update(plugins)
+        .set({
           version,
           source,
           configuration,
@@ -99,7 +123,20 @@ export const updateProcedure = browserManagerProcedure
               ? (metadata.package_url ?? plugin.packageUrl)
               : plugin.packageUrl,
           releaseMetadata: metadata,
-        }),
-      );
+          updatedAt: now(),
+        })
+        .where(
+          and(
+            eq(plugins.workspaceId, context.workspace.id),
+            eq(plugins.id, id),
+          ),
+        )
+        .returning()
+        .get();
+      if (!updatedPlugin) {
+        throw new ServiceError("NOT_FOUND", "Not found.");
+      }
+      recordAudit(transaction, "plugin", id, "updated");
+      return pluginView(updatedPlugin);
     });
   });

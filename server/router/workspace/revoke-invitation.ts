@@ -4,12 +4,10 @@ import { assertCurrentUser } from "../../auth/sessions";
 import { ServiceError } from "../../shared/errors";
 import { revokeUnsentMail } from "../../repositories/mail-outbox";
 import { now } from "../../shared/records";
-import {
-  membershipForUser,
-  invitationById,
-  updateInvitation,
-} from "../../workspaces/queries";
+import { membershipForUser, updateInvitation } from "../../workspaces/queries";
 import { membershipIdSchema } from "../../workspaces/schemas";
+import { and, eq } from "drizzle-orm";
+import { invitations } from "../../db/schema/core";
 export const revokeInvitationProcedure = browserManagerProcedure
   .input(membershipIdSchema)
   .mutation(({ ctx, input }) => {
@@ -25,7 +23,16 @@ export const revokeInvitationProcedure = browserManagerProcedure
           "Only workspace owners and admins can manage invitations.",
         );
       }
-      const invitation = invitationById(ctx.db, workspace.id, id);
+      const invitation = ctx.db
+        .select()
+        .from(invitations)
+        .where(
+          and(
+            eq(invitations.workspaceId, workspace.id),
+            eq(invitations.id, id),
+          ),
+        )
+        .get();
       if (!invitation) {
         throw new ServiceError("NOT_FOUND", "Invitation not found.");
       }

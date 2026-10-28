@@ -1,8 +1,11 @@
 import { browserManagerProcedure } from "../procedures";
+import { and, eq } from "drizzle-orm";
 import { pluginCreateSchema } from "../../plugins/schemas";
 import { inTransaction } from "../../db/transaction";
 import type { PluginMetadata } from "../../db/types";
-import { pluginsRepository } from "../../repositories/plugins";
+import { plugins } from "../../db/schema";
+import { recordAudit } from "../../repositories/audit";
+import { base } from "../../shared/records";
 import {
   jsonValue,
   sourceText,
@@ -16,7 +19,6 @@ import {
   text,
 } from "../../shared/validation";
 import { catalogRelease } from "../../plugins/catalog";
-import { pluginQueries } from "../../plugins/queries";
 import {
   assertCurrentPluginManager,
   assertPluginReferences,
@@ -77,17 +79,30 @@ export const createProcedure = browserManagerProcedure
         distribution,
         metadata,
       );
-      if (
-        pluginQueries(transaction.db, context.workspace.id).isInstalled(
-          projectId,
-          slug,
+      const installedPlugin = transaction.db
+        .select({ id: plugins.id })
+        .from(plugins)
+        .where(
+          and(
+            eq(plugins.workspaceId, context.workspace.id),
+            eq(plugins.projectId, projectId),
+            eq(plugins.slug, slug),
+          ),
         )
-      ) {
+        .limit(1)
+        .get();
+      if (installedPlugin) {
         throw new ServiceError(
           "BAD_REQUEST",
           "Invalid or already installed plugin.",
         );
       }
-      return pluginView(pluginsRepository(transaction).create(values));
+      const plugin = transaction.db
+        .insert(plugins)
+        .values({ ...values, ...base(context.workspace.id) })
+        .returning()
+        .get();
+      recordAudit(transaction, "plugin", plugin.id, "created");
+      return pluginView(plugin);
     });
   });

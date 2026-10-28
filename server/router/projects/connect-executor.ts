@@ -1,3 +1,6 @@
+import { executors } from "../../db/schema";
+import { base } from "../../shared/records";
+import { recordAudit } from "../../repositories/audit";
 import { browserManagerProcedure } from "../procedures";
 import { projectExecutorSchema } from "../../projects/schemas";
 import { createHmac, randomUUID } from "node:crypto";
@@ -14,8 +17,10 @@ export const connectExecutorProcedure = browserManagerProcedure
   .mutation(({ ctx, input }) => {
     const { id, locally_managed: locallyManaged } = input;
     projectsRepository(ctx).find(id);
-    const bootstrap = process.env.LOCAL_EXECUTOR_BOOTSTRAP_TOKEN;
-    if (locallyManaged && !bootstrap) {
+    const bootstrapSecret = locallyManaged
+      ? process.env.LOCAL_EXECUTOR_BOOTSTRAP_TOKEN
+      : undefined;
+    if (locallyManaged && !bootstrapSecret) {
       throw new ServiceError(
         "BAD_REQUEST",
         "Local executor management is not configured.",
@@ -42,21 +47,27 @@ export const connectExecutorProcedure = browserManagerProcedure
           pool,
         });
       } else {
-        worker = executorsRepository(ctx).create({
-          projectId: id,
-          name: `project-${id}`,
-          pool,
-          tokenHash: digest(secret),
-          registrationNonce: nonce,
-          locallyManaged,
-          enabled: true,
-          protocolVersion: 1,
-          capabilities: [],
-          lastSeenAt: null,
-        });
+        worker = ctx.db
+          .insert(executors)
+          .values({
+            ...base(ctx.workspace.id),
+            projectId: id,
+            name: `project-${id}`,
+            pool,
+            tokenHash: digest(secret),
+            registrationNonce: nonce,
+            locallyManaged,
+            enabled: true,
+            protocolVersion: 1,
+            capabilities: [],
+            lastSeenAt: null,
+          })
+          .returning()
+          .get();
+        recordAudit(ctx, "executor", worker.id, "created");
       }
-      const token = locallyManaged
-        ? createHmac("sha256", bootstrap!)
+      const token = bootstrapSecret
+        ? createHmac("sha256", bootstrapSecret)
             .update(`${worker.id}:${nonce}`)
             .digest("hex")
         : secret;

@@ -4,4 +4,7 @@ import { serializeRun } from "../../runs/views";
 import { protectedProcedure } from "../procedures";
 export const createProcedure = protectedProcedure
   .input(createRunSchema)
-  .mutation(({ ctx, input }) => serializeRun(ctx, createRun(ctx, input)));
+  .mutation(({ ctx, input }) => {
+    const run = createRun(ctx, input);
+    return serializeRun(run);
+  });

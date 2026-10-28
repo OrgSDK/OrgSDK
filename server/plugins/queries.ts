@@ -18,22 +18,6 @@ export function pluginQueries(database: AppDatabase, workspaceId: number) {
         .orderBy(asc(plugins.slug))
         .all();
     },
-    isInstalled(projectId: string, slug: string) {
-      return (
-        database
-          .select({ id: plugins.id })
-          .from(plugins)
-          .where(
-            and(
-              eq(plugins.workspaceId, workspaceId),
-              eq(plugins.projectId, projectId),
-              eq(plugins.slug, slug),
-            ),
-          )
-          .limit(1)
-          .get() !== undefined
-      );
-    },
     hasManagerAccess(userId: number) {
       return (
         database

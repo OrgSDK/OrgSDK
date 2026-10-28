@@ -10,14 +10,12 @@ export const runTestsProcedure = scopedProcedure("actions:test")
   .mutation(({ ctx, input: body }) => {
     return tx(ctx, (ctx) => {
       const action = actionsRepository(ctx).find(body.id);
-      return serializeRun(
-        ctx,
-        createRun(ctx, {
-          ...body,
-          project: action.projectId,
-          action: action.id,
-          operation: "test",
-        }),
-      );
+      const run = createRun(ctx, {
+        ...body,
+        project: action.projectId,
+        action: action.id,
+        operation: "test",
+      });
+      return serializeRun(run);
     });
   });

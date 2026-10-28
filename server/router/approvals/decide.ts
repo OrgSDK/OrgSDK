@@ -25,7 +25,7 @@ export const decideProcedure = browserManagerProcedure
         }
         return approvalsRepository(ctx).update(input.id, {
           status: input.decision,
-          decidedBy: ctx.user!.id,
+          decidedBy: ctx.user.id,
         });
       }),
     );

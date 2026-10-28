@@ -49,12 +49,6 @@ export function canonicalJson(value: unknown): string {
   return JSON.stringify(value);
 }
 
-export function assertFields(body: Record<string, unknown>, allowed: string[]) {
-  if (Object.keys(body).some((key) => !allowed.includes(key))) {
-    throw new ServiceError("BAD_REQUEST", "Unexpected fields in request.");
-  }
-}
-
 export function checkRevision(row: { revision: number }, revision: unknown) {
   if (
     typeof revision !== "number" ||

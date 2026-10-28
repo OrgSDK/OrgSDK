@@ -11,15 +11,15 @@ export function rotateSession(
   ctx: IdentityContext,
   userId: number | null,
   pendingUserId: number | null = null,
-  guard?: () => void,
-  mutation?: () => void,
+  guard?: (context: IdentityContext) => void,
+  mutation?: (context: IdentityContext) => void,
 ) {
   const secret = randomSecret();
   const id = digest(secret);
   const time = Date.now();
   inTransaction(ctx, (ctx) => {
-    guard?.();
-    mutation?.();
+    guard?.(ctx);
+    mutation?.(ctx);
     if (ctx.sessionId) {
       ctx.db.delete(sessions).where(eq(sessions.id, ctx.sessionId)).run();
     }
@@ -75,20 +75,25 @@ export function assertCurrentUser(
     );
   }
   if (withSession) {
-    const session = ctx.sessionId
-      ? identityRepository(ctx.db).session(ctx.sessionId)
-      : undefined;
-    if (
-      !session ||
-      session.userId !== user.id ||
-      session.expiresAt <= Date.now()
-    ) {
-      throw new ServiceError(
-        "UNAUTHORIZED",
-        "Your session has expired. Sign in again.",
-      );
-    }
+    requireCurrentSession(ctx, user.id);
   }
+}
+
+function requireCurrentSession(ctx: ServiceContext, userId: number) {
+  const session = ctx.sessionId
+    ? identityRepository(ctx.db).session(ctx.sessionId)
+    : undefined;
+  if (
+    !session ||
+    session.userId !== userId ||
+    session.expiresAt <= Date.now()
+  ) {
+    throw new ServiceError(
+      "UNAUTHORIZED",
+      "Your session has expired. Sign in again.",
+    );
+  }
+  return session;
 }
 
 export function markFresh(
@@ -96,11 +101,12 @@ export function markFresh(
   user: typeof users.$inferSelect,
 ) {
   inTransaction(ctx, (ctx) => {
-    assertCurrentUser(ctx, user);
+    assertCurrentUser(ctx, user, false);
+    const session = requireCurrentSession(ctx, user.id);
     ctx.db
       .update(sessions)
       .set({ reauthenticatedAt: Date.now() })
-      .where(eq(sessions.id, ctx.sessionId!))
+      .where(eq(sessions.id, session.id))
       .run();
   });
 }

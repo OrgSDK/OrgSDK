@@ -1,4 +1,6 @@
-import { accessTokensRepository } from "../../repositories/access-tokens";
+import { accessTokens } from "../../db/schema";
+import { base } from "../../shared/records";
+import { recordAudit } from "../../repositories/audit";
 import { inTransaction } from "../../db/transaction";
 import { tokenCreateSchema } from "../../tokens/schemas";
 import { projectsRepository } from "../../repositories/projects";
@@ -17,25 +19,31 @@ export const createProcedure = browserManagerProcedure
         actionVersionsRepository(ctx).find(versionId);
       }
       const token = randomSecret();
-      const record = accessTokensRepository(ctx).create({
-        actorId: ctx.user.id,
-        name: input.name,
-        digest: digest(token),
-        scopes: input.scopes,
-        projects: input.projects,
-        actionVersions: input.action_versions,
-        revoked: false,
-        firstUsedAt: null,
-        lastUsedAt: null,
-        requestCount: 0,
-        successCount: 0,
-        errorCount: 0,
-        trpcRequestCount: 0,
-        mcpRequestCount: 0,
-        lastTransport: "",
-        lastOutcome: "",
-        lastStatusCode: null,
-      });
+      const record = ctx.db
+        .insert(accessTokens)
+        .values({
+          ...base(ctx.workspace.id),
+          actorId: ctx.user.id,
+          name: input.name,
+          digest: digest(token),
+          scopes: input.scopes,
+          projects: input.projects,
+          actionVersions: input.action_versions,
+          revoked: false,
+          firstUsedAt: null,
+          lastUsedAt: null,
+          requestCount: 0,
+          successCount: 0,
+          errorCount: 0,
+          trpcRequestCount: 0,
+          mcpRequestCount: 0,
+          lastTransport: "",
+          lastOutcome: "",
+          lastStatusCode: null,
+        })
+        .returning()
+        .get();
+      recordAudit(ctx, "token", record.id, "created");
       return { id: record.id, token };
     });
   });

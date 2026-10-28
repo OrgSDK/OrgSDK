@@ -1,6 +1,8 @@
+import { tableRows } from "../../db/schema";
+import { base } from "../../shared/records";
+import { recordAudit } from "../../repositories/audit";
 import { tx } from "../../domain/permissions";
 import { workspaceTablesRepository } from "../../repositories/workspace-tables";
-import { tableRowsRepository } from "../../repositories/table-rows";
 import { rowView } from "../../tables/views";
 import { createRowSchema } from "../../tables/schemas";
 import { checkRevision } from "../../shared/validation";
@@ -15,11 +17,18 @@ export const createRowProcedure = browserWorkspaceProcedure
         const table = workspaceTablesRepository(ctx).find(input.id);
         checkRevision(table, input.table_revision);
         validateValues(table.columns, input.values);
-        return tableRowsRepository(ctx).create({
-          tableId: input.id,
-          values: input.values,
-          revision: 1,
-        });
+        const row = ctx.db
+          .insert(tableRows)
+          .values({
+            ...base(ctx.workspace.id),
+            tableId: input.id,
+            values: input.values,
+            revision: 1,
+          })
+          .returning()
+          .get();
+        recordAudit(ctx, "row", row.id, "created");
+        return row;
       }),
     );
   });

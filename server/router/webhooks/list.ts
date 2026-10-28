@@ -1,14 +1,14 @@
+import { eq } from "drizzle-orm";
+import { webhooks } from "../../db/schema";
 import { browserWorkspaceProcedure } from "../procedures";
 import { page } from "../../shared/pagination";
-import { webhooksRepository } from "../../repositories/webhooks";
 import { webhookView } from "../../automations/webhook-view";
 
-export const listProcedure = browserWorkspaceProcedure.query(
-  ({ ctx: context }) => {
-    return page(
-      webhooksRepository(context)
-        .list()
-        .map((webhook) => webhookView(context, webhook)),
-    );
-  },
-);
+export const listProcedure = browserWorkspaceProcedure.query(({ ctx }) => {
+  const records = ctx.db
+    .select()
+    .from(webhooks)
+    .where(eq(webhooks.workspaceId, ctx.workspace.id))
+    .all();
+  return page(records.map((record) => webhookView(ctx, record)));
+});

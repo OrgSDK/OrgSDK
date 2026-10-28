@@ -15,4 +15,3 @@ export const auditFiltersSchema = z
       Date.parse(input.since) < Date.parse(input.before),
     "Invalid date range.",
   );
-export type AuditFilters = z.infer<typeof auditFiltersSchema>;

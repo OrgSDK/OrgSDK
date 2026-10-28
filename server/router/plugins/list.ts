@@ -3,5 +3,7 @@ import { page } from "../../shared/pagination";
 import { pluginsRepository } from "../../repositories/plugins";
 import { pluginView } from "../../plugins/views";
 export const listProcedure = browserWorkspaceProcedure.query(({ ctx }) => {
-  return page(pluginsRepository(ctx).list().map(pluginView));
+  const plugins = pluginsRepository(ctx).list();
+  const results = plugins.map(pluginView);
+  return page(results);
 });

@@ -1,6 +1,7 @@
 import { authorizeRunRead } from "../../domain/permissions";
 import { runsRepository } from "../../repositories/runs";
-import { runEventsFor } from "../../runs/queries";
+import { and, asc, eq } from "drizzle-orm";
+import { runEvents } from "../../db/schema";
 import { runIdSchema } from "../../runs/schemas";
 import { scopedProcedure } from "../procedures";
 
@@ -9,7 +10,18 @@ export const eventsProcedure = scopedProcedure("runs:read")
   .query(({ ctx, input }) => {
     const run = runsRepository(ctx).find(input.id);
     authorizeRunRead(ctx, run, null);
-    return runEventsFor(ctx, input.id).map((event) => ({
+    const events = ctx.db
+      .select()
+      .from(runEvents)
+      .where(
+        and(
+          eq(runEvents.workspaceId, ctx.workspace.id),
+          eq(runEvents.runId, input.id),
+        ),
+      )
+      .orderBy(asc(runEvents.sequence))
+      .all();
+    return events.map((event) => ({
       sequence: event.sequence,
       kind: event.kind,
       data: event.data,

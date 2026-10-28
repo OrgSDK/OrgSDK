@@ -1,7 +1,7 @@
 import { browserOwnerProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { ServiceError } from "../../shared/errors";
-import { setMembershipRole, memberRow } from "../../workspaces/queries";
+import { setMembershipRole, memberQuery } from "../../workspaces/queries";
 import { memberPair, requireMutableMember } from "../../workspaces/permissions";
 import { memberUpdateSchema } from "../../workspaces/schemas";
 export const updateMemberProcedure = browserOwnerProcedure
@@ -16,7 +16,7 @@ export const updateMemberProcedure = browserOwnerProcedure
         throw new ServiceError("FORBIDDEN", "Only the owner can change roles.");
       }
       setMembershipRole(ctx.db, target.workspaceId, id, role);
-      const updated = memberRow(ctx.db, target.workspaceId, id);
+      const updated = memberQuery(ctx.db, target.workspaceId, id).get();
       if (!updated) {
         throw new ServiceError("NOT_FOUND", "Member not found.");
       }

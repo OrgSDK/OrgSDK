@@ -2,7 +2,9 @@ import { browserManagerProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { assertCurrentUser } from "../../auth/sessions";
 import { ServiceError } from "../../shared/errors";
-import { membershipForUser, renameWorkspace } from "../../workspaces/queries";
+import { membershipForUser } from "../../workspaces/queries";
+import { eq } from "drizzle-orm";
+import { workspaces } from "../../db/schema/core";
 import { workspaceNameSchema } from "../../workspaces/schemas";
 export const updateProcedure = browserManagerProcedure
   .input(workspaceNameSchema)
@@ -19,7 +21,12 @@ export const updateProcedure = browserManagerProcedure
           "Only workspace owners and admins can manage this workspace.",
         );
       }
-      const updated = renameWorkspace(ctx.db, workspace.id, name.trim());
+      const updated = ctx.db
+        .update(workspaces)
+        .set({ name: name.trim() })
+        .where(eq(workspaces.id, workspace.id))
+        .returning()
+        .get();
       return { id: updated.id, name: updated.name };
     });
   });

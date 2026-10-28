@@ -5,11 +5,8 @@ import { ServiceError } from "../../shared/errors";
 import { identityRepository } from "../../repositories/identity";
 import { now } from "../../shared/records";
 import { createAccount } from "../../auth/queries";
-import {
-  insertInitialProject,
-  insertExecutionSettings,
-} from "../../auth/setup-queries";
-import { createWorkspace, createMembership } from "../../workspaces/queries";
+import { projects, workspaces, workspaceSettings } from "../../db/schema";
+import { createMembership } from "../../workspaces/queries";
 import { setupSchema } from "../../auth/schemas";
 export const setupProcedure = browserProcedure
   .input(setupSchema)
@@ -42,37 +39,45 @@ export const setupProcedure = browserProcedure
         email,
         passwordHash: hash,
       });
-      const workspace = createWorkspace(db, {
-        name: workspaceName,
-        host,
-        createdAt: timestamp,
-      });
+      const workspace = db
+        .insert(workspaces)
+        .values({
+          name: workspaceName,
+          host,
+          createdAt: timestamp,
+        })
+        .returning()
+        .get();
       createMembership(db, {
         workspaceId: workspace.id,
         userId: user.id,
         role: "owner",
       });
-      insertInitialProject(db, {
-        id: randomUUID(),
-        workspaceId: workspace.id,
-        name: projectName || "My project",
-        enabled: true,
-        readableTables: [],
-        writableTables: [],
-        readableDocuments: [],
-        writableDocuments: [],
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      });
-      insertExecutionSettings(db, {
-        id: randomUUID(),
-        workspaceId: workspace.id,
-        executionPool: "shared",
-        enabled: true,
-        maxConcurrentRuns: 4,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      });
+      db.insert(projects)
+        .values({
+          id: randomUUID(),
+          workspaceId: workspace.id,
+          name: projectName || "My project",
+          enabled: true,
+          readableTables: [],
+          writableTables: [],
+          readableDocuments: [],
+          writableDocuments: [],
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        })
+        .run();
+      db.insert(workspaceSettings)
+        .values({
+          id: randomUUID(),
+          workspaceId: workspace.id,
+          executionPool: "shared",
+          enabled: true,
+          maxConcurrentRuns: 4,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        })
+        .run();
     });
 
     return { setup_required: false, login_url: "/accounts/login/" };

@@ -40,8 +40,9 @@ alternative application APIs. Their management operations are tRPC procedures.
   forwarding service used only by that procedure.
 - Extract shared schemas, authorization, validation, public views and reusable
   operations outside `router/` when they have a concrete responsibility. Keep
-  Drizzle query mechanics in feature query modules or repositories. Shared
-  operations accept typed inputs and explicit dependencies or `ServiceContext`;
+  endpoint-only Drizzle queries inside their procedure callbacks; extract query
+  mechanics into feature modules or repositories when they are actually reused.
+  Shared operations accept typed inputs and explicit dependencies or `ServiceContext`;
   they return data and raise `ServiceError` codes independently of tRPC. A small
   procedure that composes these modules needs no additional service layer.
 - Derive client input/output types from `AppRouter`. Create uses a typed object;
@@ -86,9 +87,9 @@ alternative application APIs. Their management operations are tRPC procedures.
 
 A procedure such as `router/webhooks/list.ts` selects `browserWorkspaceProcedure`
 and directly loads and serializes its data. Endpoint-specific orchestration stays
-in that callback. Query mechanics, shared rules, crypto and serializers remain in
-their feature modules. A separate service forwarding to the same one callback adds
-no boundary and must not be introduced.
+in that callback, including its endpoint-only Drizzle queries. Reused queries,
+shared rules, crypto and serializers remain in their feature modules. A separate
+service forwarding to the same one callback adds no boundary and must not be introduced.
 
 ## Quality and verification
 

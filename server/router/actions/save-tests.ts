@@ -1,7 +1,9 @@
 import { saveTestsSchema } from "../../actions/schemas";
+import { actionTestSuites } from "../../db/schema";
 import { scopedProcedure } from "../procedures";
 import { authoringGrant, tx } from "../../domain/permissions";
-import { actionTestSuitesRepository } from "../../repositories/action-test-suites";
+import { recordAudit } from "../../repositories/audit";
+import { base } from "../../shared/records";
 import { actionsRepository } from "../../repositories/actions";
 import { validateCases } from "../../shared/contracts";
 import { digest } from "../../shared/security";
@@ -22,13 +24,18 @@ export const saveTestsProcedure = scopedProcedure("actions:write")
       if (latest?.digest === hash) {
         return suiteView(latest);
       }
-      return suiteView(
-        actionTestSuitesRepository(ctx).create({
+      const suite = ctx.db
+        .insert(actionTestSuites)
+        .values({
+          ...base(ctx.workspace.id),
           versionId: version.id,
           number: (latest?.number ?? 0) + 1,
           cases,
           digest: hash,
-        }),
-      );
+        })
+        .returning()
+        .get();
+      recordAudit(ctx, "action.tests", suite.id, "created");
+      return suiteView(suite);
     });
   });

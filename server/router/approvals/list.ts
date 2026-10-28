@@ -1,8 +1,14 @@
 import { browserWorkspaceProcedure } from "../procedures";
 import { page } from "../../shared/pagination";
-import { approvalsRepository } from "../../repositories/approvals";
+import { eq } from "drizzle-orm";
+import { approvals } from "../../db/schema";
 import { approvalView } from "../../runs/approvals";
 
 export const listProcedure = browserWorkspaceProcedure.query(({ ctx }) => {
-  return page(approvalsRepository(ctx).list().map(approvalView));
+  const workspaceApprovals = ctx.db
+    .select()
+    .from(approvals)
+    .where(eq(approvals.workspaceId, ctx.workspace.id))
+    .all();
+  return page(workspaceApprovals.map(approvalView));
 });

@@ -8,7 +8,9 @@ import {
 } from "../../auth/sessions";
 import { throttle } from "../../auth/throttle";
 import { authState } from "../../auth/views";
-import { updateAccount, revokeAccountSessions } from "../../auth/queries";
+import { updateAccount } from "../../auth/queries";
+import { eq, or } from "drizzle-orm";
+import { sessions } from "../../db/schema/core";
 import { passwordChangeSchema } from "../../auth/schemas";
 export const changePasswordProcedure = freshBrowserProcedure
   .input(passwordChangeSchema)
@@ -27,13 +29,21 @@ export const changePasswordProcedure = freshBrowserProcedure
       ctx,
       user.id,
       null,
-      () => {
+      (ctx) => {
         assertCurrentUser(ctx, user);
         requireFresh(ctx);
       },
-      () => {
+      (ctx) => {
         updateAccount(ctx.db, user.id, { passwordHash });
-        revokeAccountSessions(ctx.db, user.id);
+        ctx.db
+          .delete(sessions)
+          .where(
+            or(
+              eq(sessions.userId, user.id),
+              eq(sessions.pendingUserId, user.id),
+            ),
+          )
+          .run();
       },
     );
     return authState(ctx);

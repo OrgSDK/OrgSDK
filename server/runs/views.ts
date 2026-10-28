@@ -1,9 +1,5 @@
 import type { runs } from "../db/schema";
-import { type ServiceContext } from "../application";
-export function serializeRun(
-  _ctx: ServiceContext,
-  row: typeof runs.$inferSelect,
-) {
+export function serializeRun(row: typeof runs.$inferSelect) {
   return {
     id: row.id,
     project: row.projectId,

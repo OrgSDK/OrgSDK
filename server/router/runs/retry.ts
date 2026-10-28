@@ -4,7 +4,6 @@ import { findIdempotentRun } from "../../runs/queries";
 import {
   authorizeRunRead,
   authorizeVersion,
-  isClient,
   projectGrant,
   scope,
   tx,
@@ -53,7 +52,7 @@ export const retryProcedure = protectedProcedure
       } else {
         projectGrant(ctx, run.projectId);
       }
-      const namespace = isClient(ctx) ? ctx.token!.id : "";
+      const namespace = ctx.token?.id ?? "";
       const existing = findIdempotentRun(ctx, namespace, key);
       if (existing) {
         if (existing.retryOf !== run.id) {
@@ -62,11 +61,11 @@ export const retryProcedure = protectedProcedure
             "Idempotency key already used for a different request.",
           );
         }
-        return serializeRun(ctx, existing);
+        return serializeRun(existing);
       }
       const retry = runsRepository(ctx).create({
         projectId: run.projectId,
-        actorId: ctx.user!.id,
+        actorId: ctx.user.id,
         tokenId: ctx.token?.id ?? null,
         actionVersionId: run.actionVersionId,
         operation: run.operation,
@@ -86,6 +85,6 @@ export const retryProcedure = protectedProcedure
         deadline: null,
         capabilityHash: "",
       });
-      return serializeRun(ctx, retry);
+      return serializeRun(retry);
     }),
   );

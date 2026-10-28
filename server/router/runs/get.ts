@@ -9,5 +9,5 @@ export const getProcedure = scopedProcedure("runs:read")
   .query(({ ctx, input }) => {
     const run = runsRepository(ctx).find(input.id);
     authorizeRunRead(ctx, run, null);
-    return serializeRun(ctx, run);
+    return serializeRun(run);
   });

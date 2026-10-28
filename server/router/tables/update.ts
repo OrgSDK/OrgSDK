@@ -1,3 +1,8 @@
+import { and, eq } from "drizzle-orm";
+import { workspaceTables } from "../../db/schema";
+import { now } from "../../shared/records";
+import { recordAudit } from "../../repositories/audit";
+import { ServiceError } from "../../shared/errors";
 import { tableQueries } from "../../tables/queries";
 import { tx } from "../../domain/permissions";
 import { workspaceTablesRepository } from "../../repositories/workspace-tables";
@@ -20,14 +25,30 @@ export const updateProcedure = browserManagerProcedure
         )) {
           validateValues(columns, row.values);
         }
-        return workspaceTablesRepository(ctx).update(input.id, {
-          name:
-            input.name === undefined
-              ? current.name
-              : text(input.name, "name", 120),
-          columns,
-          revision: current.revision + 1,
-        });
+        const table = ctx.db
+          .update(workspaceTables)
+          .set({
+            name:
+              input.name === undefined
+                ? current.name
+                : text(input.name, "name", 120),
+            columns,
+            revision: current.revision + 1,
+            updatedAt: now(),
+          })
+          .where(
+            and(
+              eq(workspaceTables.workspaceId, ctx.workspace.id),
+              eq(workspaceTables.id, input.id),
+            ),
+          )
+          .returning()
+          .get();
+        if (!table) {
+          throw new ServiceError("NOT_FOUND", "Not found.");
+        }
+        recordAudit(ctx, "table", table.id, "updated");
+        return table;
       }),
     );
   });

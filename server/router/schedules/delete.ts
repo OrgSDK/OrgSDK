@@ -1,3 +1,6 @@
+import { and, eq } from "drizzle-orm";
+import { schedules } from "../../db/schema";
+import { recordAudit } from "../../repositories/audit";
 import { browserWorkspaceProcedure } from "../procedures";
 import { z } from "zod";
 import { inTransaction } from "../../db/transaction";
@@ -10,6 +13,18 @@ export const deleteProcedure = browserWorkspaceProcedure
 
     return inTransaction(context, (context) => {
       schedulesRepository(context).find(id);
-      schedulesRepository(context).remove(id);
+      const deleted = context.db
+        .delete(schedules)
+        .where(
+          and(
+            eq(schedules.workspaceId, context.workspace.id),
+            eq(schedules.id, id),
+          ),
+        )
+        .returning({ id: schedules.id })
+        .get();
+      if (deleted) {
+        recordAudit(context, "schedule", id, "deleted");
+      }
     });
   });

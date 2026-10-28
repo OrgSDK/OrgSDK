@@ -203,16 +203,9 @@ export default defineConfig([
           ],
           patterns: [
             {
-              group: [
-                "drizzle-orm",
-                "drizzle-orm/**",
-                "**/db/schema",
-                "**/db/schema/**",
-                "bun:sqlite",
-                "hono",
-              ],
+              group: ["bun:sqlite", "hono"],
               message:
-                "Procedure callbacks own endpoint logic; put Drizzle query mechanics in query modules or repositories.",
+                "Use native tRPC procedures and the injected Drizzle database.",
             },
           ],
         },
