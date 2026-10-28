@@ -2,7 +2,7 @@ import { promoteRunSchema } from "../../runs/schemas";
 import { scopedProcedure } from "../procedures";
 import { resolveActionForSave, versionForSave } from "../../actions/versions";
 import { serializeVersion } from "../../actions/views";
-import { authoringGrant, authorizeRunRead, tx } from "../../domain/permissions";
+import { projectGrant, authorizeRunRead, tx } from "../../domain/permissions";
 import { ServiceError } from "../../shared/errors";
 import { runsRepository } from "../../repositories/runs";
 import { jsonValue, sourceText } from "../../shared/contracts";
@@ -13,7 +13,7 @@ export const promoteProcedure = scopedProcedure(["runs:read", "actions:write"])
     tx(ctx, (ctx) => {
       const run = runsRepository(ctx).find(input.id);
       authorizeRunRead(ctx, run, null);
-      authoringGrant(ctx, run.projectId);
+      projectGrant(ctx, run.projectId);
       if (run.operation !== "code") {
         throw new ServiceError(
           "BAD_REQUEST",

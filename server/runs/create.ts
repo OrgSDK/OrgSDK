@@ -1,11 +1,9 @@
 import { findIdempotentRun } from "./queries";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
 import { actionVersion } from "../actions/versions";
-import * as resourceTables from "../db/schema";
+import type * as resourceTables from "../db/schema";
 import {
   authorizeVersion,
-  isClient,
   projectGrant,
   scope,
   tx,
@@ -14,10 +12,10 @@ import {
 import { type ServiceContext } from "../application";
 import { ServiceError } from "../shared/errors";
 import { projectSnapshot } from "../projects/snapshot";
-import { actionTestSuitesRepository } from "../repositories/action-test-suites";
+import { findTestSuite } from "../actions/version-queries";
 import { projectsRepository } from "../repositories/projects";
 import { runsRepository } from "../repositories/runs";
-import { workspaceSettingsRepository } from "../repositories/workspace-settings";
+import { workspaceSettingsForWorkspace } from "../repositories/workspace-settings";
 import {
   jsonValue,
   object,
@@ -33,7 +31,7 @@ export function createRun(ctx: ServiceContext, body: CreateRunInput) {
 }
 
 function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
-  workspace(ctx);
+  const workspaceId = workspace(ctx);
   const project = projectsRepository(ctx).find(text(body.project, "project"));
   const operation = choice(
     body.operation,
@@ -45,7 +43,7 @@ function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
   if (!project.enabled) {
     throw new ServiceError("FORBIDDEN", "Project is disabled.");
   }
-  const setting = workspaceSettingsRepository(ctx).list()[0];
+  const setting = workspaceSettingsForWorkspace(ctx.db, workspaceId);
   if (setting && !setting.enabled) {
     throw new ServiceError("FORBIDDEN", "Workspace execution is disabled.");
   }
@@ -80,13 +78,7 @@ function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
           "Tests require a version and suite revision.",
         );
       }
-      suite =
-        actionTestSuitesRepository(ctx).list(
-          and(
-            eq(resourceTables.actionTestSuites.versionId, version.id),
-            eq(resourceTables.actionTestSuites.number, body.suite_revision),
-          ),
-        )[0] ?? null;
+      suite = findTestSuite(ctx, version.id, body.suite_revision) ?? null;
       if (!suite) {
         throw new ServiceError("NOT_FOUND", "Test suite not found.");
       }
@@ -163,7 +155,7 @@ function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
       },
     });
   }
-  const namespace = isClient(ctx) ? ctx.token!.id : "";
+  const namespace = ctx.token?.id ?? "";
   return tx(ctx, (ctx) => {
     const existing = findIdempotentRun(ctx, namespace, key);
     if (existing) {

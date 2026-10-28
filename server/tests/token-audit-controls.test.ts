@@ -79,6 +79,17 @@ test("native tokens enforce modern scopes, workspace grants, and one-time secret
         "requires a browser session",
       ),
     );
+    await Promise.resolve(
+      expect(
+        f.foreignCaller.tokens.revoke({ id: created.id }),
+      ).rejects.toMatchObject({ code: "NOT_FOUND" }),
+    );
+    expect((await caller.tokens.get({ id: created.id })).revoked).toBe(false);
+    await Promise.resolve(
+      expect(
+        caller.tokens.revoke({ id: crypto.randomUUID() }),
+      ).rejects.toMatchObject({ code: "NOT_FOUND" }),
+    );
     await caller.tokens.revoke({ id: created.id });
     expect((await caller.tokens.get({ id: created.id })).revoked).toBe(true);
     expect(

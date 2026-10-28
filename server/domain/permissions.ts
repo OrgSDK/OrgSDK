@@ -8,10 +8,6 @@ export function workspace(ctx: ServiceContext) {
   return requireWorkspace(ctx).id;
 }
 
-export function isClient(ctx: ServiceContext) {
-  return ctx.token !== null;
-}
-
 export function scope(ctx: ServiceContext, required: string) {
   if (
     ctx.token &&
@@ -36,7 +32,7 @@ export function authorizeVersion(
   version: typeof actionVersions.$inferSelect,
   explicit: boolean,
 ) {
-  if (!ctx.token || !isClient(ctx)) {
+  if (!ctx.token) {
     return;
   }
   if (ctx.token.projects.includes(action.projectId)) {
@@ -51,12 +47,6 @@ export function authorizeVersion(
   );
 }
 
-export function authoringGrant(ctx: ServiceContext, id: string) {
-  if (isClient(ctx)) {
-    projectGrant(ctx, id);
-  }
-}
-
 export function authorizeRunRead(
   ctx: ServiceContext,
   run: typeof runs.$inferSelect,
@@ -66,7 +56,6 @@ export function authorizeRunRead(
     scope(ctx, requestedScope);
   }
   if (
-    isClient(ctx) &&
     ctx.token &&
     (run.tokenId !== ctx.token.id ||
       !(

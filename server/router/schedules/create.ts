@@ -4,9 +4,9 @@ import { recordAudit } from "../../repositories/audit";
 import { browserWorkspaceProcedure } from "../procedures";
 import { scheduleCreateSchema } from "../../automations/schedule-schemas";
 import { inTransaction } from "../../db/transaction";
-import { actionVersion } from "../../actions/versions";
-import { ServiceError } from "../../shared/errors";
+import { requireVersion } from "../../actions/version-queries";
 import { actionsRepository } from "../../repositories/actions";
+import { ServiceError } from "../../shared/errors";
 import { jsonValue, validateContract } from "../../shared/contracts";
 import { nextCron } from "../../automations/cron";
 import { scheduleView } from "../../automations/schedule-view";
@@ -19,7 +19,7 @@ export const createProcedure = browserWorkspaceProcedure
       if (!action.enabled) {
         throw new ServiceError("BAD_REQUEST", "Action is disabled.");
       }
-      const version = actionVersion(context, action.id).version;
+      const version = requireVersion(context, action.id);
       const inputs = jsonValue(input.inputs ?? {}, "Inputs");
       validateContract(version.inputSchema, inputs);
       const nextRunAt = nextCron(input.cron);

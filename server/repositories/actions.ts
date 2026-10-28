@@ -1,5 +1,5 @@
 import { inTransaction } from "../db/transaction";
-import { and, eq, type SQL } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { actions } from "../db/schema";
 import { requireWorkspace } from "../shared/authorization";
 import { type ServiceContext } from "../application";
@@ -14,12 +14,8 @@ export function actionsRepository(context: ServiceContext) {
   >;
   const workspaceId = requireWorkspace(context).id;
   const database = context.db;
-  const scoped = (id?: string, filter?: SQL) =>
-    and(
-      eq(actions.workspaceId, workspaceId),
-      id === undefined ? undefined : eq(actions.id, id),
-      filter,
-    );
+  const scoped = (id: string) =>
+    and(eq(actions.workspaceId, workspaceId), eq(actions.id, id));
   return {
     find(id: string) {
       const row = database.select().from(actions).where(scoped(id)).get();
@@ -27,13 +23,6 @@ export function actionsRepository(context: ServiceContext) {
         throw new ServiceError("NOT_FOUND", "Not found.");
       }
       return row;
-    },
-    list(filter?: SQL) {
-      return database
-        .select()
-        .from(actions)
-        .where(scoped(undefined, filter))
-        .all();
     },
     create(data: Create) {
       return inTransaction(context, (context) => {

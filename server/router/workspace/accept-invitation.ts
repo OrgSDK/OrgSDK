@@ -20,24 +20,21 @@ export const acceptInvitationProcedure = authenticatedBrowserProcedure
     return inTransaction(ctx, (ctx) => {
       const db = ctx.db;
       assertCurrentUser(ctx, user);
-
-      const invite = ctx.workspace
-        ? db
-            .select()
-            .from(invitations)
-            .where(
-              and(
-                eq(invitations.workspaceId, ctx.workspace.id),
-                eq(invitations.tokenDigest, digest(token)),
-              ),
-            )
-            .get()
-        : undefined;
-      if (
-        !invite ||
-        !ctx.workspace ||
-        invite.workspaceId !== ctx.workspace.id
-      ) {
+      const workspace = ctx.workspace;
+      if (!workspace) {
+        throw new ServiceError("NOT_FOUND", "Invitation not found.");
+      }
+      const invite = db
+        .select()
+        .from(invitations)
+        .where(
+          and(
+            eq(invitations.workspaceId, workspace.id),
+            eq(invitations.tokenDigest, digest(token)),
+          ),
+        )
+        .get();
+      if (!invite) {
         throw new ServiceError("NOT_FOUND", "Invitation not found.");
       }
       if (invite.email.toLowerCase() !== user.email.toLowerCase()) {
@@ -71,6 +68,6 @@ export const acceptInvitationProcedure = authenticatedBrowserProcedure
           acceptedAt: now(),
         });
       }
-      return { id: ctx.workspace.id, name: ctx.workspace.name };
+      return { id: workspace.id, name: workspace.name };
     });
   });

@@ -12,7 +12,6 @@ export const rotateProcedure = browserManagerProcedure
     const id = input.id;
 
     return inTransaction(context, (context) => {
-      webhooksRepository(context).find(id);
       const secret = randomSecret();
       const webhook = webhooksRepository(context).update(id, {
         secretHash: digest(secret),

@@ -54,7 +54,18 @@ test("native schedules validate contracts and cron without partial mutations", a
         "Not found",
       ),
     );
+    await Promise.resolve(
+      expect(
+        f.foreignCaller.schedules.delete({ id: saved.id }),
+      ).rejects.toMatchObject({ code: "NOT_FOUND" }),
+    );
+    expect(await caller.schedules.get({ id: saved.id })).toBeDefined();
     await caller.schedules.delete({ id: saved.id });
+    await Promise.resolve(
+      expect(caller.schedules.delete({ id: saved.id })).rejects.toMatchObject({
+        code: "NOT_FOUND",
+      }),
+    );
     expect(
       f.store.db
         .select()

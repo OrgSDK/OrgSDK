@@ -8,19 +8,19 @@ export const credentialPublicFields = {
   provider: credentials.provider,
 };
 
-export function credentialQueries(database: AppDatabase, workspaceId: number) {
-  return {
-    findById(credentialId: string) {
-      return database
-        .select(credentialPublicFields)
-        .from(credentials)
-        .where(
-          and(
-            eq(credentials.workspaceId, workspaceId),
-            eq(credentials.id, credentialId),
-          ),
-        )
-        .get();
-    },
-  };
+export function findCredential(
+  database: AppDatabase,
+  workspaceId: number,
+  credentialId: string,
+) {
+  return database
+    .select(credentialPublicFields)
+    .from(credentials)
+    .where(
+      and(
+        eq(credentials.workspaceId, workspaceId),
+        eq(credentials.id, credentialId),
+      ),
+    )
+    .get();
 }

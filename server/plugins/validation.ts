@@ -1,5 +1,5 @@
 import type { ServiceContext } from "../application";
-import { credentialQueries } from "../credentials/queries";
+import { findCredential } from "../credentials/queries";
 import type { PluginMetadata } from "../db/types";
 import { projectsRepository } from "../repositories/projects";
 import { requireUser, requireWorkspace } from "../shared/authorization";
@@ -38,10 +38,11 @@ export function assertPluginReferences(
   if (credentialId === null) {
     return;
   }
-  const credential = credentialQueries(
+  const credential = findCredential(
     context.db,
     requireWorkspace(context).id,
-  ).findById(credentialId);
+    credentialId,
+  );
   if (!credential) {
     throw new ServiceError("NOT_FOUND", "Credential not found.");
   }

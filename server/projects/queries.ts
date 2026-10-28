@@ -1,13 +1,6 @@
 import { and, eq, inArray, or } from "drizzle-orm";
 import type { AppDatabase } from "../db/database";
-import {
-  actions,
-  actionVersions,
-  approvals,
-  executors,
-  projects,
-  runs,
-} from "../db/schema";
+import { actions, actionVersions, projects } from "../db/schema";
 
 type ProjectGrants = { projects: string[]; actionVersions: string[] };
 
@@ -39,47 +32,4 @@ export function projectVisibility(
     inArray(projects.id, grants.projects),
     inArray(projects.id, grantedActionProjects),
   );
-}
-
-export function projectQueries(database: AppDatabase, workspaceId: number) {
-  return {
-    executorForProject(projectId: string) {
-      return database
-        .select()
-        .from(executors)
-        .where(
-          and(
-            eq(executors.workspaceId, workspaceId),
-            eq(executors.projectId, projectId),
-          ),
-        )
-        .get();
-    },
-    activeRunsForExecutor(executorId: string) {
-      return database
-        .select()
-        .from(runs)
-        .where(
-          and(
-            eq(runs.workspaceId, workspaceId),
-            eq(runs.executorId, executorId),
-            inArray(runs.status, ["running", "waiting_approval"]),
-          ),
-        )
-        .all();
-    },
-    pendingApprovalsForRun(runId: string) {
-      return database
-        .select()
-        .from(approvals)
-        .where(
-          and(
-            eq(approvals.workspaceId, workspaceId),
-            eq(approvals.runId, runId),
-            eq(approvals.status, "pending"),
-          ),
-        )
-        .all();
-    },
-  };
 }

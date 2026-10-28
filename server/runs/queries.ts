@@ -1,14 +1,22 @@
 import { and, eq } from "drizzle-orm";
 import { runs } from "../db/schema";
 import { type ServiceContext } from "../application";
-import { runsRepository } from "../repositories/runs";
+import { workspace } from "../domain/permissions";
 
 export function findIdempotentRun(
   ctx: ServiceContext,
   namespace: string,
   key: string,
 ) {
-  return runsRepository(ctx).list(
-    and(eq(runs.idempotencyNamespace, namespace), eq(runs.idempotencyKey, key)),
-  )[0];
+  return ctx.db
+    .select()
+    .from(runs)
+    .where(
+      and(
+        eq(runs.workspaceId, workspace(ctx)),
+        eq(runs.idempotencyNamespace, namespace),
+        eq(runs.idempotencyKey, key),
+      ),
+    )
+    .get();
 }

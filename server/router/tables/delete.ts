@@ -1,10 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import { workspaceTables } from "../../db/schema";
 import { recordAudit } from "../../repositories/audit";
-import { tableQueries } from "../../tables/queries";
+import { rowsForTable } from "../../tables/queries";
 import { tx } from "../../domain/permissions";
-import { workspaceTablesRepository } from "../../repositories/workspace-tables";
-import { tableRowsRepository } from "../../repositories/table-rows";
+import { findWorkspaceTable } from "../../repositories/workspace-tables";
+import { removeTableRow } from "../../repositories/table-rows";
 import { deleteTableSchema } from "../../tables/schemas";
 import { checkRevision } from "../../shared/validation";
 import { projectsRepository } from "../../repositories/projects";
@@ -15,13 +15,11 @@ export const deleteProcedure = browserManagerProcedure
   .mutation(({ ctx, input }) => {
     return tx(ctx, (ctx) => {
       checkRevision(
-        workspaceTablesRepository(ctx).find(input.id),
+        findWorkspaceTable(ctx.db, ctx.workspace.id, input.id),
         input.revision,
       );
-      for (const row of tableQueries(ctx.db, ctx.workspace.id).rowsForTable(
-        input.id,
-      )) {
-        tableRowsRepository(ctx).remove(row.id);
+      for (const row of rowsForTable(ctx.db, ctx.workspace.id, input.id)) {
+        removeTableRow(ctx, row.id);
       }
       for (const project of projectsRepository(ctx).list()) {
         projectsRepository(ctx).update(project.id, {

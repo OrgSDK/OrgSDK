@@ -1,6 +1,6 @@
 import { tx } from "../../domain/permissions";
-import { workspaceTablesRepository } from "../../repositories/workspace-tables";
-import { tableRowsRepository } from "../../repositories/table-rows";
+import { findWorkspaceTable } from "../../repositories/workspace-tables";
+import { removeTableRow } from "../../repositories/table-rows";
 import { deleteRowSchema } from "../../tables/schemas";
 import { checkRevision } from "../../shared/validation";
 import { rowInTable } from "../../tables/access";
@@ -10,9 +10,12 @@ export const deleteRowProcedure = browserWorkspaceProcedure
   .input(deleteRowSchema)
   .mutation(({ ctx, input }) => {
     return tx(ctx, (ctx) => {
-      workspaceTablesRepository(ctx).find(input.id);
-      checkRevision(rowInTable(ctx, input.id, input.rowId), input.revision);
-      tableRowsRepository(ctx).remove(input.rowId);
+      findWorkspaceTable(ctx.db, ctx.workspace.id, input.id);
+      checkRevision(
+        rowInTable(ctx.db, ctx.workspace.id, input.id, input.rowId),
+        input.revision,
+      );
+      removeTableRow(ctx, input.rowId);
       return { deleted: true };
     });
   });

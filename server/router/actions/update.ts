@@ -4,7 +4,7 @@ import { actions } from "../../db/schema";
 import { recordAudit } from "../../repositories/audit";
 import { now } from "../../shared/records";
 import { scopedProcedure } from "../procedures";
-import { authoringGrant, tx } from "../../domain/permissions";
+import { projectGrant, tx } from "../../domain/permissions";
 import { ServiceError } from "../../shared/errors";
 import { actionsRepository } from "../../repositories/actions";
 import {
@@ -19,7 +19,7 @@ export const updateProcedure = scopedProcedure("actions:write")
   .mutation(({ ctx, input: body }) => {
     return tx(ctx, (ctx) => {
       const action = actionsRepository(ctx).find(body.id);
-      authoringGrant(ctx, action.projectId);
+      projectGrant(ctx, action.projectId);
       if (body.project && body.project !== action.projectId) {
         throw new ServiceError("BAD_REQUEST", "Action cannot move projects.");
       }

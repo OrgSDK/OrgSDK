@@ -8,9 +8,8 @@ import { tx } from "../../domain/permissions";
 import { ServiceError } from "../../shared/errors";
 import { executorsRepository } from "../../repositories/executors";
 import { projectsRepository } from "../../repositories/projects";
-import { workspaceSettingsRepository } from "../../repositories/workspace-settings";
+import { workspaceSettingsForWorkspace } from "../../repositories/workspace-settings";
 import { digest, randomSecret } from "../../shared/security";
-import { projectQueries } from "../../projects/queries";
 import { revokeExecutor } from "../../projects/executor";
 export const connectExecutorProcedure = browserManagerProcedure
   .input(projectExecutorSchema)
@@ -27,14 +26,12 @@ export const connectExecutorProcedure = browserManagerProcedure
       );
     }
     return tx(ctx, (ctx) => {
-      let worker = projectQueries(ctx.db, ctx.workspace.id).executorForProject(
-        id,
-      );
-      revokeExecutor(ctx, id);
+      let worker = revokeExecutor(ctx, id);
       const nonce = randomUUID();
       const secret = randomSecret();
       const pool =
-        workspaceSettingsRepository(ctx).list()[0]?.executionPool ?? "shared";
+        workspaceSettingsForWorkspace(ctx.db, ctx.workspace.id)
+          ?.executionPool ?? "shared";
       if (worker) {
         worker = executorsRepository(ctx).update(worker.id, {
           enabled: true,

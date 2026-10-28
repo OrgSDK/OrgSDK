@@ -105,6 +105,13 @@ boundaries and validate it. Do not suppress rules or add unchecked assertions.
 checks additionally include the separate frontend and executor projects. Do not
 use personal installation data in tests.
 
+If VS Code reports unsafe assignments of "error typed" values after files or
+exports move, compare with `bun run check`. When that check passes, run
+**ESLint: Restart ESLint Server** to refresh the editor's cross-file type cache.
+TypeScript-ESLint documents this [stale editor diagnostics issue](https://typescript-eslint.io/troubleshooting/typed-linting/#editor-eslint-reports-become-out-of-date-after-file-changes).
+If the diagnostic persists, inspect its underlying TypeScript/import error;
+keep the unsafe-type rules enabled.
+
 ## Database ownership
 
 Drizzle models in `db/schema/` are the schema source of truth, including defaults,

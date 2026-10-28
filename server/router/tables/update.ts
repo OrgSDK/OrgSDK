@@ -3,9 +3,9 @@ import { workspaceTables } from "../../db/schema";
 import { now } from "../../shared/records";
 import { recordAudit } from "../../repositories/audit";
 import { ServiceError } from "../../shared/errors";
-import { tableQueries } from "../../tables/queries";
+import { rowsForTable } from "../../tables/queries";
 import { tx } from "../../domain/permissions";
-import { workspaceTablesRepository } from "../../repositories/workspace-tables";
+import { findWorkspaceTable } from "../../repositories/workspace-tables";
 import { standard } from "../../tables/views";
 import { updateTableSchema } from "../../tables/schemas";
 import { checkRevision, text } from "../../shared/validation";
@@ -17,12 +17,10 @@ export const updateProcedure = browserManagerProcedure
   .mutation(({ ctx, input }) => {
     return standard(
       tx(ctx, (ctx) => {
-        const current = workspaceTablesRepository(ctx).find(input.id);
+        const current = findWorkspaceTable(ctx.db, ctx.workspace.id, input.id);
         checkRevision(current, input.revision);
         const columns = validateColumns(input.columns ?? current.columns);
-        for (const row of tableQueries(ctx.db, ctx.workspace.id).rowsForTable(
-          input.id,
-        )) {
+        for (const row of rowsForTable(ctx.db, ctx.workspace.id, input.id)) {
           validateValues(columns, row.values);
         }
         const table = ctx.db

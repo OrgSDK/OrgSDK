@@ -1,8 +1,9 @@
 import type { projects } from "../db/schema";
 import { type ServiceContext } from "../application";
 import { ServiceError } from "../shared/errors";
-import { documentsRepository } from "../repositories/documents";
-import { workspaceTablesRepository } from "../repositories/workspace-tables";
+import { findDocument } from "../repositories/documents";
+import { findWorkspaceTable } from "../repositories/workspace-tables";
+import { requireWorkspace } from "../shared/authorization";
 import { booleanValue, stringList, text } from "../shared/validation";
 export function projectValues(
   ctx: ServiceContext,
@@ -26,16 +27,17 @@ export function projectValues(
   if (typeof values.enabled !== "boolean") {
     throw new ServiceError("BAD_REQUEST", "Enabled must be boolean.");
   }
-  for (const [field, key, table] of [
-    ["readableTables", "readable_tables", workspaceTablesRepository(ctx)],
-    ["writableTables", "writable_tables", workspaceTablesRepository(ctx)],
-    ["readableDocuments", "readable_documents", documentsRepository(ctx)],
-    ["writableDocuments", "writable_documents", documentsRepository(ctx)],
+  const workspaceId = requireWorkspace(ctx).id;
+  for (const [field, key, findResource] of [
+    ["readableTables", "readable_tables", findWorkspaceTable],
+    ["writableTables", "writable_tables", findWorkspaceTable],
+    ["readableDocuments", "readable_documents", findDocument],
+    ["writableDocuments", "writable_documents", findDocument],
   ] as const) {
     if (body[key] !== undefined) {
       const grants = stringList(body[key], key);
       for (const resourceId of grants) {
-        table.find(resourceId);
+        findResource(ctx.db, workspaceId, resourceId);
       }
       values[field] = grants;
     }

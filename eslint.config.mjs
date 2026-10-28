@@ -180,6 +180,8 @@ export default defineConfig([
       "server/router/identity-context.ts",
     ],
     rules: {
+      "@typescript-eslint/no-non-null-assertion": "error",
+      "@typescript-eslint/no-unsafe-type-assertion": "error",
       "no-restricted-imports": [
         "error",
         {

@@ -1,5 +1,5 @@
 import type { ServiceContext } from "../application";
-import { authoringGrant } from "../domain/permissions";
+import { projectGrant } from "../domain/permissions";
 import { projectsRepository } from "../repositories/projects";
 import { text } from "../shared/validation";
 
@@ -9,6 +9,6 @@ export function authoringProject(
 ) {
   const projectId = text(body.project, "project");
   projectsRepository(ctx).find(projectId);
-  authoringGrant(ctx, projectId);
+  projectGrant(ctx, projectId);
   return projectId;
 }

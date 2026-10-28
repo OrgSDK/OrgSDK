@@ -4,7 +4,7 @@ import { recordAudit } from "../../repositories/audit";
 import { browserWorkspaceProcedure } from "../procedures";
 import { z } from "zod";
 import { inTransaction } from "../../db/transaction";
-import { schedulesRepository } from "../../repositories/schedules";
+import { ServiceError } from "../../shared/errors";
 
 export const deleteProcedure = browserWorkspaceProcedure
   .input(z.object({ id: z.uuid() }).strict())
@@ -12,7 +12,6 @@ export const deleteProcedure = browserWorkspaceProcedure
     const id = input.id;
 
     return inTransaction(context, (context) => {
-      schedulesRepository(context).find(id);
       const deleted = context.db
         .delete(schedules)
         .where(
@@ -23,8 +22,9 @@ export const deleteProcedure = browserWorkspaceProcedure
         )
         .returning({ id: schedules.id })
         .get();
-      if (deleted) {
-        recordAudit(context, "schedule", id, "deleted");
+      if (!deleted) {
+        throw new ServiceError("NOT_FOUND", "Not found.");
       }
+      recordAudit(context, "schedule", deleted.id, "deleted");
     });
   });

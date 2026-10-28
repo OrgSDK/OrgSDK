@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import * as resourceTables from "../db/schema";
-import { isClient } from "../domain/permissions";
 import { type ServiceContext } from "../application";
 import { executorsRepository } from "../repositories/executors";
 import { pluginsRepository } from "../repositories/plugins";
@@ -26,7 +25,7 @@ export function serializeProject(
       protocol_version: executor?.protocolVersion ?? null,
     },
   };
-  if (isClient(ctx)) {
+  if (ctx.token) {
     return minimal;
   }
   return {

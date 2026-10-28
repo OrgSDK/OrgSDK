@@ -4,7 +4,7 @@ import { now } from "../../shared/records";
 import { recordAudit } from "../../repositories/audit";
 import { ServiceError } from "../../shared/errors";
 import { tx } from "../../domain/permissions";
-import { documentsRepository } from "../../repositories/documents";
+import { findDocument } from "../../repositories/documents";
 import { documentView } from "../../documents/views";
 import { updateDocumentSchema } from "../../documents/schemas";
 import { text } from "../../shared/validation";
@@ -14,7 +14,7 @@ export const updateProcedure = browserWorkspaceProcedure
   .input(updateDocumentSchema)
   .mutation(({ ctx, input }) => {
     return tx(ctx, (ctx) => {
-      const current = documentsRepository(ctx).find(input.id);
+      const current = findDocument(ctx.db, ctx.workspace.id, input.id);
       const document = ctx.db
         .update(documents)
         .set({

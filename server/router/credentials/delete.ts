@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { credentialQueries } from "../../credentials/queries";
+import { findCredential } from "../../credentials/queries";
 import { credentials, plugins } from "../../db/schema";
 import { inTransaction } from "../../db/transaction";
 import { recordAudit } from "../../repositories/audit";
@@ -11,8 +11,7 @@ export const deleteProcedure = browserManagerProcedure
   .input(credentialIdSchema)
   .mutation(({ ctx, input }) => {
     inTransaction(ctx, (transaction) => {
-      const queries = credentialQueries(transaction.db, ctx.workspace.id);
-      if (!queries.findById(input.id)) {
+      if (!findCredential(transaction.db, ctx.workspace.id, input.id)) {
         throw new ServiceError("NOT_FOUND", "Credential not found.");
       }
       const dependentPlugin = transaction.db

@@ -2,6 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import type { ServiceContext } from "../application";
 import { actionTestSuites, actionVersions } from "../db/schema";
 import { workspace } from "../domain/permissions";
+import { ServiceError } from "../shared/errors";
 
 export function findVersion(
   context: ServiceContext,
@@ -21,6 +22,18 @@ export function findVersion(
     .orderBy(desc(actionVersions.number))
     .limit(1)
     .get();
+}
+
+export function requireVersion(
+  context: ServiceContext,
+  actionId: string,
+  number?: number,
+) {
+  const version = findVersion(context, actionId, number);
+  if (!version) {
+    throw new ServiceError("NOT_FOUND", "Action version not found.");
+  }
+  return version;
 }
 
 export function findTestSuite(

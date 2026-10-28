@@ -4,7 +4,7 @@ import { now } from "../../shared/records";
 import { recordAudit } from "../../repositories/audit";
 import { ServiceError } from "../../shared/errors";
 import { tx } from "../../domain/permissions";
-import { workspaceTablesRepository } from "../../repositories/workspace-tables";
+import { findWorkspaceTable } from "../../repositories/workspace-tables";
 import { rowView } from "../../tables/views";
 import { updateRowSchema } from "../../tables/schemas";
 import { checkRevision } from "../../shared/validation";
@@ -17,9 +17,9 @@ export const updateRowProcedure = browserWorkspaceProcedure
   .mutation(({ ctx, input }) => {
     return rowView(
       tx(ctx, (ctx) => {
-        const table = workspaceTablesRepository(ctx).find(input.id);
+        const table = findWorkspaceTable(ctx.db, ctx.workspace.id, input.id);
         checkRevision(table, input.table_revision);
-        const row = rowInTable(ctx, input.id, input.rowId);
+        const row = rowInTable(ctx.db, ctx.workspace.id, input.id, input.rowId);
         checkRevision(row, input.revision);
         validateValues(table.columns, input.values);
         const updatedRow = ctx.db
