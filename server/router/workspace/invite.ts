@@ -1,12 +1,7 @@
-import { browserProcedure } from "../procedures";
+import { browserManagerProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { randomUUID } from "node:crypto";
 import { assertCurrentUser } from "../../auth/sessions";
-import {
-  requireIdentity,
-  requireIdentityManager,
-  requireIdentityWorkspace,
-} from "../../auth/context";
 import { ServiceError } from "../../shared/errors";
 import { smtpConfigured } from "../../mail/outbox";
 import { enqueueMail } from "../../repositories/mail-outbox";
@@ -21,12 +16,11 @@ import {
 } from "../../workspaces/queries";
 import { serializeInvite } from "../../workspaces/views";
 import { invitationSchema } from "../../workspaces/schemas";
-export const inviteProcedure = browserProcedure
+export const inviteProcedure = browserManagerProcedure
   .input(invitationSchema)
   .mutation(({ ctx, input }) => {
-    const user = requireIdentity(ctx);
-    const workspace = requireIdentityWorkspace(ctx);
-    requireIdentityManager(ctx);
+    const user = ctx.user;
+    const workspace = ctx.workspace;
     if (!smtpConfigured()) {
       throw new ServiceError(
         "PRECONDITION_FAILED",

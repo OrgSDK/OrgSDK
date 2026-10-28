@@ -1,13 +1,12 @@
-import { requireCredentialAccess } from "../../credentials/access";
 import { credentialQueries } from "../../credentials/queries";
 import { credentialIdSchema } from "../../credentials/schemas";
 import { ServiceError } from "../../shared/errors";
-import { protectedProcedure } from "../procedures";
+import { browserWorkspaceProcedure } from "../procedures";
 
-export const getProcedure = protectedProcedure
+export const getProcedure = browserWorkspaceProcedure
   .input(credentialIdSchema)
   .query(({ ctx, input }) => {
-    const workspaceId = requireCredentialAccess(ctx);
+    const workspaceId = ctx.workspace.id;
     const credential = credentialQueries(ctx.db, workspaceId).findById(
       input.id,
     );

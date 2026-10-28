@@ -1,11 +1,11 @@
 import { runTestsSchema } from "../../actions/schemas";
-import { protectedProcedure } from "../procedures";
+import { scopedProcedure } from "../procedures";
 import { tx } from "../../domain/permissions";
 import { actionsRepository } from "../../repositories/actions";
 import { createRun } from "../../runs/create";
 import { serializeRun } from "../../runs/views";
 
-export const runTestsProcedure = protectedProcedure
+export const runTestsProcedure = scopedProcedure("actions:test")
   .input(runTestsSchema)
   .mutation(({ ctx, input: body }) => {
     return tx(ctx, (ctx) => {

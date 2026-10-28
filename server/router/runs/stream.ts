@@ -3,13 +3,13 @@ import { runsRepository } from "../../repositories/runs";
 import { eventsAfter } from "../../repositories/run-stream";
 import { runStreamIdentity } from "../../runs/queries";
 import { streamRunSchema } from "../../runs/schemas";
-import { protectedProcedure } from "../procedures";
+import { scopedProcedure } from "../procedures";
 
-export const streamProcedure = protectedProcedure
+export const streamProcedure = scopedProcedure("runs:read")
   .input(streamRunSchema)
   .subscription(async function* ({ ctx, input, signal }) {
     const run = runsRepository(ctx).find(input.id);
-    authorizeRunRead(ctx, run);
+    authorizeRunRead(ctx, run, null);
     let after = input.after;
     while (!signal?.aborted) {
       const identity = runStreamIdentity(ctx, run.workspaceId);

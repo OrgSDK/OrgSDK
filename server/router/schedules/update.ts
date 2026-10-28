@@ -1,8 +1,7 @@
-import { protectedProcedure } from "../procedures";
+import { browserWorkspaceProcedure } from "../procedures";
 import { scheduleUpdateSchema } from "../../automations/schedule-schemas";
 import { inTransaction } from "../../db/transaction";
 import { actionVersion } from "../../actions/versions";
-import { browser } from "../../domain/permissions";
 import { ServiceError } from "../../shared/errors";
 import { actionsRepository } from "../../repositories/actions";
 import { schedulesRepository } from "../../repositories/schedules";
@@ -10,11 +9,10 @@ import { jsonValue, validateContract } from "../../shared/contracts";
 import { nextCron } from "../../automations/cron";
 import { scheduleView } from "../../automations/schedule-view";
 
-export const updateProcedure = protectedProcedure
+export const updateProcedure = browserWorkspaceProcedure
   .input(scheduleUpdateSchema)
   .mutation(({ ctx: context, input }) => {
     return inTransaction(context, (context) => {
-      browser(context);
       const previous = schedulesRepository(context).find(input.id);
       const action = actionsRepository(context).find(
         input.action ?? previous.actionId,

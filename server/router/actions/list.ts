@@ -1,10 +1,10 @@
 import { visibleActions } from "../../actions/queries";
 import { serializeAction } from "../../actions/views";
-import { scope } from "../../domain/permissions";
 import { page } from "../../shared/pagination";
-import { protectedProcedure } from "../procedures";
+import { scopedProcedure } from "../procedures";
 
-export const listProcedure = protectedProcedure.query(({ ctx }) => {
-  scope(ctx, "catalog:read");
-  return page(visibleActions(ctx).map(serializeAction));
-});
+export const listProcedure = scopedProcedure("catalog:read").query(
+  ({ ctx }) => {
+    return page(visibleActions(ctx).map(serializeAction));
+  },
+);

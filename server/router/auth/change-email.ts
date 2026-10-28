@@ -1,16 +1,14 @@
-import { browserProcedure } from "../procedures";
+import { freshBrowserProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { ServiceError } from "../../shared/errors";
-import { requireIdentity } from "../../auth/context";
 import { assertCurrentUser, requireFresh } from "../../auth/sessions";
 import { updateAccount } from "../../auth/queries";
 import { emailChangeSchema } from "../../auth/schemas";
-export const changeEmailProcedure = browserProcedure
+export const changeEmailProcedure = freshBrowserProcedure
   .input(emailChangeSchema)
   .mutation(({ ctx, input }) => {
     const nextEmail = input.email;
-    const user = requireIdentity(ctx);
-    requireFresh(ctx);
+    const user = ctx.user;
     const email = nextEmail.trim().toLowerCase();
     try {
       inTransaction(ctx, (ctx) => {

@@ -1,5 +1,5 @@
 import { createActionSchema } from "../../actions/schemas";
-import { protectedProcedure } from "../procedures";
+import { scopedProcedure } from "../procedures";
 import { tx } from "../../domain/permissions";
 import { actionsRepository } from "../../repositories/actions";
 import {
@@ -10,7 +10,7 @@ import {
 import { serializeAction } from "../../actions/views";
 import { authoringProject } from "../../actions/authoring";
 
-export const createProcedure = protectedProcedure
+export const createProcedure = scopedProcedure("actions:write")
   .input(createActionSchema)
   .mutation(({ ctx, input: body }) => {
     return tx(ctx, (ctx) => {

@@ -1,13 +1,13 @@
-import { browserProcedure } from "../procedures";
+import { freshBrowserProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { randomBytes } from "node:crypto";
 import { digest } from "../../shared/security";
 import { assertCurrentUser, requireFresh } from "../../auth/sessions";
 import { updateAccount } from "../../auth/queries";
 import { requireEnabledTotp } from "../../auth/totp";
-export const generateRecoveryCodesProcedure = browserProcedure.mutation(
+export const generateRecoveryCodesProcedure = freshBrowserProcedure.mutation(
   ({ ctx }) => {
-    const user = requireEnabledTotp(ctx);
+    const user = requireEnabledTotp(ctx.user);
     return inTransaction(ctx, (ctx) => {
       assertCurrentUser(ctx, user);
       requireFresh(ctx);

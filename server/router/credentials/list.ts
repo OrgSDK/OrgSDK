@@ -1,9 +1,8 @@
-import { requireCredentialAccess } from "../../credentials/access";
 import { credentialQueries } from "../../credentials/queries";
 import { page } from "../../shared/pagination";
-import { protectedProcedure } from "../procedures";
+import { browserWorkspaceProcedure } from "../procedures";
 
-export const listProcedure = protectedProcedure.query(({ ctx }) => {
-  const workspaceId = requireCredentialAccess(ctx);
+export const listProcedure = browserWorkspaceProcedure.query(({ ctx }) => {
+  const workspaceId = ctx.workspace.id;
   return page(credentialQueries(ctx.db, workspaceId).list());
 });

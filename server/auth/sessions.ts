@@ -2,7 +2,8 @@ import { inTransaction } from "../db/transaction";
 import { eq } from "drizzle-orm";
 import { sessions, type users } from "../db/schema/core";
 import { type ServiceContext } from "../application";
-import { type IdentityContext, requireIdentity } from "./context";
+import type { IdentityContext } from "./context";
+import { requireUser } from "../shared/authorization";
 import { ServiceError } from "../shared/errors";
 import { identityRepository } from "../repositories/identity";
 import { digest, randomSecret } from "../shared/security";
@@ -39,7 +40,7 @@ export function rotateSession(
 }
 
 export function requireFresh(ctx: ServiceContext) {
-  requireIdentity(ctx);
+  requireUser(ctx);
   const session = ctx.sessionId
     ? identityRepository(ctx.db).session(ctx.sessionId)
     : undefined;

@@ -1,6 +1,5 @@
-import { browserProcedure } from "../procedures";
+import { authenticatedBrowserProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
-import { requireIdentity } from "../../auth/context";
 import { assertCurrentUser } from "../../auth/sessions";
 import { ServiceError } from "../../shared/errors";
 import { now } from "../../shared/records";
@@ -12,11 +11,11 @@ import {
   updateInvitation,
 } from "../../workspaces/queries";
 import { invitationTokenSchema } from "../../workspaces/schemas";
-export const acceptInvitationProcedure = browserProcedure
+export const acceptInvitationProcedure = authenticatedBrowserProcedure
   .input(invitationTokenSchema)
   .mutation(({ ctx, input }) => {
     const token = input.token;
-    const user = requireIdentity(ctx);
+    const user = ctx.user;
     return inTransaction(ctx, (ctx) => {
       const db = ctx.db;
       assertCurrentUser(ctx, user);

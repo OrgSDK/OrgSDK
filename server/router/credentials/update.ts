@@ -1,15 +1,14 @@
-import { requireCredentialAccess } from "../../credentials/access";
 import { credentialQueries } from "../../credentials/queries";
 import { inTransaction } from "../../db/transaction";
 import { recordAudit } from "../../repositories/audit";
 import { credentialChangesSchema } from "../../credentials/schemas";
 import { ServiceError } from "../../shared/errors";
-import { protectedProcedure } from "../procedures";
+import { browserManagerProcedure } from "../procedures";
 
-export const updateProcedure = protectedProcedure
+export const updateProcedure = browserManagerProcedure
   .input(credentialChangesSchema)
   .mutation(({ ctx, input }) => {
-    const workspaceId = requireCredentialAccess(ctx, true);
+    const workspaceId = ctx.workspace.id;
     const changes = {
       ...(input.name === undefined ? {} : { name: input.name }),
       ...(input.provider === undefined ? {} : { provider: input.provider }),

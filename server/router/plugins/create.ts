@@ -1,10 +1,8 @@
-import { protectedProcedure } from "../procedures";
+import { browserManagerProcedure } from "../procedures";
 import { pluginCreateSchema } from "../../plugins/schemas";
 import { inTransaction } from "../../db/transaction";
 import type { PluginMetadata } from "../../db/types";
-import { browser } from "../../domain/permissions";
 import { pluginsRepository } from "../../repositories/plugins";
-import { requireWorkspace } from "../../shared/authorization";
 import {
   jsonValue,
   sourceText,
@@ -25,10 +23,9 @@ import {
 } from "../../plugins/validation";
 import { pluginView } from "../../plugins/views";
 
-export const createProcedure = protectedProcedure
+export const createProcedure = browserManagerProcedure
   .input(pluginCreateSchema)
   .mutation(async ({ ctx: context, input }) => {
-    browser(context, true);
     const projectId = text(input.project, "project");
     const slug = text(input.slug, "slug", 50);
     if (!/^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$/.test(slug)) {
@@ -81,10 +78,10 @@ export const createProcedure = protectedProcedure
         metadata,
       );
       if (
-        pluginQueries(
-          transaction.db,
-          requireWorkspace(transaction).id,
-        ).isInstalled(projectId, slug)
+        pluginQueries(transaction.db, context.workspace.id).isInstalled(
+          projectId,
+          slug,
+        )
       ) {
         throw new ServiceError(
           "BAD_REQUEST",

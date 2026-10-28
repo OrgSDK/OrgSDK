@@ -49,7 +49,7 @@ test("native membership mutations enforce owner, admin, and self-removal rules",
         id: membership.id,
         role: "admin",
       }),
-    ).rejects.toThrow("Only the owner can change roles"),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" }),
   );
   await Promise.resolve(
     expect(
@@ -67,7 +67,7 @@ test("native membership mutations enforce owner, admin, and self-removal rules",
   await Promise.resolve(
     expect(
       client(s, memberCookie).workspace.transferOwnership({ membership_id: 1 }),
-    ).rejects.toThrow("Only the owner"),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" }),
   );
   expect(
     await client(s, owner.cookie).workspace.transferOwnership({

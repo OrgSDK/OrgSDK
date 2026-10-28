@@ -1,5 +1,4 @@
 import type { projects } from "../db/schema";
-import { browser } from "../domain/permissions";
 import { type ServiceContext } from "../application";
 import { ServiceError } from "../shared/errors";
 import { documentsRepository } from "../repositories/documents";
@@ -34,13 +33,6 @@ export function projectValues(
     ["writableDocuments", "writable_documents", documentsRepository(ctx)],
   ] as const) {
     if (body[key] !== undefined) {
-      browser(ctx, true);
-      if (ctx.token) {
-        throw new ServiceError(
-          "FORBIDDEN",
-          "Resource grants require a workspace manager browser session.",
-        );
-      }
       const grants = stringList(body[key], key);
       for (const resourceId of grants) {
         table.find(resourceId);

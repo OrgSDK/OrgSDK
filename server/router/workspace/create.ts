@@ -1,8 +1,6 @@
-import { browserProcedure } from "../procedures";
-import { requireIdentityWorkspace } from "../../auth/context";
+import { browserWorkspaceProcedure } from "../procedures";
 import { ServiceError } from "../../shared/errors";
-export const createProcedure = browserProcedure.mutation(({ ctx }) => {
-  requireIdentityWorkspace(ctx);
+export const createProcedure = browserWorkspaceProcedure.mutation(() => {
   throw new ServiceError(
     "FORBIDDEN",
     "Workspace provisioning is operator-managed.",

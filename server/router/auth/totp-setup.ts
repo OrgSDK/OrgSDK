@@ -1,14 +1,12 @@
-import { browserProcedure } from "../procedures";
+import { freshBrowserProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { randomBytes } from "node:crypto";
 import { encrypt } from "../../shared/security";
-import { requireIdentity } from "../../auth/context";
 import { assertCurrentUser, requireFresh } from "../../auth/sessions";
 import { base32 } from "../../auth/totp";
 import { updateAccount } from "../../auth/queries";
-export const totpSetupProcedure = browserProcedure.mutation(({ ctx }) => {
-  const user = requireIdentity(ctx);
-  requireFresh(ctx);
+export const totpSetupProcedure = freshBrowserProcedure.mutation(({ ctx }) => {
+  const user = ctx.user;
   return inTransaction(ctx, (ctx) => {
     assertCurrentUser(ctx, user);
     requireFresh(ctx);

@@ -1,19 +1,17 @@
-import { protectedProcedure } from "../procedures";
+import { browserManagerProcedure } from "../procedures";
 import { webhookCreateSchema } from "../../automations/webhook-schemas";
 import { inTransaction } from "../../db/transaction";
 import { actionVersion } from "../../actions/versions";
-import { browser } from "../../domain/permissions";
 import { ServiceError } from "../../shared/errors";
 import { webhooksRepository } from "../../repositories/webhooks";
 import { now } from "../../shared/records";
 import { digest, randomSecret } from "../../shared/security";
 import { webhookView } from "../../automations/webhook-view";
 
-export const createProcedure = protectedProcedure
+export const createProcedure = browserManagerProcedure
   .input(webhookCreateSchema)
   .mutation(({ ctx: context, input }) => {
     return inTransaction(context, (context) => {
-      browser(context, true);
       const { action, version } = actionVersion(context, input.action);
       if (!action.enabled) {
         throw new ServiceError(

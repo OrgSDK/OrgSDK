@@ -1,14 +1,12 @@
-import { browser } from "../../domain/permissions";
 import { documentsRepository } from "../../repositories/documents";
 import { documentView } from "../../documents/views";
 import { createDocumentSchema } from "../../documents/schemas";
 import { text } from "../../shared/validation";
-import { protectedProcedure } from "../procedures";
+import { browserWorkspaceProcedure } from "../procedures";
 
-export const createProcedure = protectedProcedure
+export const createProcedure = browserWorkspaceProcedure
   .input(createDocumentSchema)
   .mutation(({ ctx, input }) => {
-    browser(ctx);
     return documentView(
       documentsRepository(ctx).create({
         ...input,

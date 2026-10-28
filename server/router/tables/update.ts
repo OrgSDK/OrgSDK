@@ -1,22 +1,21 @@
 import { tableQueries } from "../../tables/queries";
-import { browser, tx, workspace } from "../../domain/permissions";
+import { tx } from "../../domain/permissions";
 import { workspaceTablesRepository } from "../../repositories/workspace-tables";
 import { standard } from "../../tables/views";
 import { updateTableSchema } from "../../tables/schemas";
 import { checkRevision, text } from "../../shared/validation";
 import { validateColumns, validateValues } from "../../shared/contracts";
-import { protectedProcedure } from "../procedures";
+import { browserManagerProcedure } from "../procedures";
 
-export const updateProcedure = protectedProcedure
+export const updateProcedure = browserManagerProcedure
   .input(updateTableSchema)
   .mutation(({ ctx, input }) => {
-    browser(ctx, true);
     return standard(
       tx(ctx, (ctx) => {
         const current = workspaceTablesRepository(ctx).find(input.id);
         checkRevision(current, input.revision);
         const columns = validateColumns(input.columns ?? current.columns);
-        for (const row of tableQueries(ctx.db, workspace(ctx)).rowsForTable(
+        for (const row of tableQueries(ctx.db, ctx.workspace.id).rowsForTable(
           input.id,
         )) {
           validateValues(columns, row.values);

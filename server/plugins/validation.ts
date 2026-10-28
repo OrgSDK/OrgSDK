@@ -3,14 +3,12 @@ import type { UpdatePlugin } from "./schemas";
 import type { ServiceContext } from "../application";
 import { credentialQueries } from "../credentials/queries";
 import type { PluginMetadata } from "../db/types";
-import { browser } from "../domain/permissions";
 import { projectsRepository } from "../repositories/projects";
 import { requireUser, requireWorkspace } from "../shared/authorization";
 import { ServiceError } from "../shared/errors";
 import { pluginQueries } from "./queries";
 
 export function assertCurrentPluginManager(context: ServiceContext) {
-  browser(context, true);
   const workspace = requireWorkspace(context);
   const user = requireUser(context);
   const queries = pluginQueries(context.db, workspace.id);

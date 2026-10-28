@@ -1,6 +1,6 @@
 import { updateActionSchema } from "../../actions/schemas";
-import { protectedProcedure } from "../procedures";
-import { authoringGrant, scope, tx } from "../../domain/permissions";
+import { scopedProcedure } from "../procedures";
+import { authoringGrant, tx } from "../../domain/permissions";
 import { ServiceError } from "../../shared/errors";
 import { actionsRepository } from "../../repositories/actions";
 import {
@@ -10,10 +10,9 @@ import {
 } from "../../shared/validation";
 import { serializeAction } from "../../actions/views";
 
-export const updateProcedure = protectedProcedure
+export const updateProcedure = scopedProcedure("actions:write")
   .input(updateActionSchema)
   .mutation(({ ctx, input: body }) => {
-    scope(ctx, "actions:write");
     return tx(ctx, (ctx) => {
       const action = actionsRepository(ctx).find(body.id);
       authoringGrant(ctx, action.projectId);

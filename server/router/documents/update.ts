@@ -1,14 +1,13 @@
-import { browser, tx } from "../../domain/permissions";
+import { tx } from "../../domain/permissions";
 import { documentsRepository } from "../../repositories/documents";
 import { documentView } from "../../documents/views";
 import { updateDocumentSchema } from "../../documents/schemas";
 import { text } from "../../shared/validation";
-import { protectedProcedure } from "../procedures";
+import { browserWorkspaceProcedure } from "../procedures";
 
-export const updateProcedure = protectedProcedure
+export const updateProcedure = browserWorkspaceProcedure
   .input(updateDocumentSchema)
   .mutation(({ ctx, input }) => {
-    browser(ctx);
     return tx(ctx, (ctx) => {
       const current = documentsRepository(ctx).find(input.id);
       return documentView(

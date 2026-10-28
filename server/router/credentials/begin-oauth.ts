@@ -4,7 +4,6 @@ import { oauthQueries } from "../../oauth/queries";
 import { oauthConnectSchema } from "../../oauth/schemas";
 import {
   type Payload,
-  authorize,
   callbackOrigin,
   checkedMetadata,
   field,
@@ -13,12 +12,12 @@ import {
 } from "../../oauth/providers";
 import { ServiceError } from "../../shared/errors";
 import { digest, encrypt, randomSecret } from "../../shared/security";
-import { protectedProcedure } from "../procedures";
-export const beginOAuthProcedure = protectedProcedure
+import { browserSessionManagerProcedure } from "../procedures";
+export const beginOAuthProcedure = browserSessionManagerProcedure
   .input(oauthConnectSchema)
   .mutation(({ ctx, input }) => {
-    const workspace = authorize(ctx);
-    const user = ctx.user!;
+    const workspace = ctx.workspace;
+    const user = ctx.user;
     const pluginId = field(input.plugin, 100);
     const name = field(input.name, 100);
     const clientId = field(input.client_id, 500);
@@ -59,7 +58,7 @@ export const beginOAuthProcedure = protectedProcedure
         stateDigest: digest(state),
         userId: user.id,
         pluginId,
-        sessionId: ctx.sessionId!,
+        sessionId: ctx.sessionId,
         encryptedPayload: encrypt(ctx, JSON.stringify(payload)),
         expiresAt: Date.now() + 600000,
       });

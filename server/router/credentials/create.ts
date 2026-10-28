@@ -1,14 +1,13 @@
-import { requireCredentialAccess } from "../../credentials/access";
 import { credentialQueries } from "../../credentials/queries";
 import { inTransaction } from "../../db/transaction";
 import { recordAudit } from "../../repositories/audit";
 import { credentialCreateSchema } from "../../credentials/schemas";
-import { protectedProcedure } from "../procedures";
+import { browserManagerProcedure } from "../procedures";
 
-export const createProcedure = protectedProcedure
+export const createProcedure = browserManagerProcedure
   .input(credentialCreateSchema)
   .mutation(({ ctx, input }) => {
-    const workspaceId = requireCredentialAccess(ctx, true);
+    const workspaceId = ctx.workspace.id;
     const encryptedSecret = ctx.secrets.encrypt(JSON.stringify(input.secret));
     return inTransaction(ctx, (ctx) => {
       const credential = credentialQueries(ctx.db, workspaceId).create({

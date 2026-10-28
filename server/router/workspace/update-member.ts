@@ -1,10 +1,10 @@
-import { browserProcedure } from "../procedures";
+import { browserOwnerProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { ServiceError } from "../../shared/errors";
 import { setMembershipRole, memberRow } from "../../workspaces/queries";
 import { memberPair, requireMutableMember } from "../../workspaces/permissions";
 import { memberUpdateSchema } from "../../workspaces/schemas";
-export const updateMemberProcedure = browserProcedure
+export const updateMemberProcedure = browserOwnerProcedure
   .input(memberUpdateSchema)
   .mutation(({ ctx, input }) => {
     const id = input.id;

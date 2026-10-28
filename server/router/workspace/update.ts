@@ -1,16 +1,15 @@
-import { browserProcedure } from "../procedures";
+import { browserManagerProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { assertCurrentUser } from "../../auth/sessions";
-import { requireIdentityManager } from "../../auth/context";
 import { ServiceError } from "../../shared/errors";
 import { membershipForUser, renameWorkspace } from "../../workspaces/queries";
 import { workspaceNameSchema } from "../../workspaces/schemas";
-export const updateProcedure = browserProcedure
+export const updateProcedure = browserManagerProcedure
   .input(workspaceNameSchema)
   .mutation(({ ctx, input }) => {
     const name = input.name;
-    const workspace = requireIdentityManager(ctx);
-    const user = ctx.user!;
+    const workspace = ctx.workspace;
+    const user = ctx.user;
     return inTransaction(ctx, (ctx) => {
       assertCurrentUser(ctx, user);
       const actor = membershipForUser(ctx.db, workspace.id, user.id);

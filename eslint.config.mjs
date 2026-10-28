@@ -183,6 +183,24 @@ export default defineConfig([
       "no-restricted-imports": [
         "error",
         {
+          paths: [
+            {
+              name: "../../domain/permissions",
+              importNames: ["browser", "workspace"],
+              message:
+                "Declare browser and workspace access in tRPC middleware; use its injected context.",
+            },
+            {
+              name: "../../shared/authorization",
+              importNames: [
+                "requireUser",
+                "requireWorkspace",
+                "requireManager",
+              ],
+              message:
+                "Declare identity, membership and role policies with the shared tRPC procedures.",
+            },
+          ],
           patterns: [
             {
               group: [
@@ -197,6 +215,20 @@ export default defineConfig([
                 "Procedure callbacks own endpoint logic; put Drizzle query mechanics in query modules or repositories.",
             },
           ],
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression[callee.name='browser']",
+          message:
+            "Use browserWorkspaceProcedure or browserManagerProcedure instead of repeating browser checks.",
+        },
+        {
+          selector:
+            "CallExpression[callee.name='scope'][arguments.1.type='Literal']",
+          message:
+            "Declare static client scopes with scopedProcedure; keep only operation-dependent checks in callbacks.",
         },
       ],
     },

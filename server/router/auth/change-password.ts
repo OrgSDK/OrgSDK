@@ -1,7 +1,6 @@
-import { browserProcedure } from "../procedures";
+import { freshBrowserProcedure } from "../procedures";
 import { identityContext } from "../identity-context";
 import { ServiceError } from "../../shared/errors";
-import { requireIdentity } from "../../auth/context";
 import {
   assertCurrentUser,
   requireFresh,
@@ -11,13 +10,12 @@ import { throttle } from "../../auth/throttle";
 import { authState } from "../../auth/views";
 import { updateAccount, revokeAccountSessions } from "../../auth/queries";
 import { passwordChangeSchema } from "../../auth/schemas";
-export const changePasswordProcedure = browserProcedure
+export const changePasswordProcedure = freshBrowserProcedure
   .input(passwordChangeSchema)
   .mutation(async ({ ctx: requestContext, input }) => {
     const ctx = identityContext(requestContext);
 
-    const user = requireIdentity(ctx);
-    requireFresh(ctx);
+    const user = requestContext.user;
     throttle(ctx, `password:${user.id}`);
     if (
       !(await Bun.password.verify(input.current_password, user.passwordHash))

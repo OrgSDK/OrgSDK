@@ -1,10 +1,10 @@
-import { browserProcedure } from "../procedures";
+import { browserWorkspaceProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { ServiceError } from "../../shared/errors";
 import { removeMembership } from "../../workspaces/queries";
 import { memberPair, requireMutableMember } from "../../workspaces/permissions";
 import { membershipIdSchema } from "../../workspaces/schemas";
-export const removeMemberProcedure = browserProcedure
+export const removeMemberProcedure = browserWorkspaceProcedure
   .input(membershipIdSchema)
   .mutation(({ ctx, input }) => {
     const id = input.id;

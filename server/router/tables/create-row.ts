@@ -1,16 +1,15 @@
-import { browser, tx } from "../../domain/permissions";
+import { tx } from "../../domain/permissions";
 import { workspaceTablesRepository } from "../../repositories/workspace-tables";
 import { tableRowsRepository } from "../../repositories/table-rows";
 import { rowView } from "../../tables/views";
 import { createRowSchema } from "../../tables/schemas";
 import { checkRevision } from "../../shared/validation";
 import { validateValues } from "../../shared/contracts";
-import { protectedProcedure } from "../procedures";
+import { browserWorkspaceProcedure } from "../procedures";
 
-export const createRowProcedure = protectedProcedure
+export const createRowProcedure = browserWorkspaceProcedure
   .input(createRowSchema)
   .mutation(({ ctx, input }) => {
-    browser(ctx);
     return rowView(
       tx(ctx, (ctx) => {
         const table = workspaceTablesRepository(ctx).find(input.id);

@@ -1,12 +1,16 @@
 import type { ServiceContext } from "../application";
-import { requireIdentity, requireIdentityWorkspace } from "../auth/context";
 import { assertCurrentUser } from "../auth/sessions";
 import type { memberships } from "../db/schema/core";
 import { ServiceError } from "../shared/errors";
 import { membershipById, membershipForUser } from "./queries";
-export function memberPair(ctx: ServiceContext, id: number) {
-  const user = requireIdentity(ctx);
-  const workspace = requireIdentityWorkspace(ctx);
+export function memberPair(
+  ctx: ServiceContext & {
+    user: NonNullable<ServiceContext["user"]>;
+    workspace: NonNullable<ServiceContext["workspace"]>;
+  },
+  id: number,
+) {
+  const { user, workspace } = ctx;
   assertCurrentUser(ctx, user);
   const actor = membershipForUser(ctx.db, workspace.id, user.id);
   const target = membershipById(ctx.db, workspace.id, id);

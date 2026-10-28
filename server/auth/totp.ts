@@ -1,6 +1,4 @@
 import { z } from "zod";
-import { requireIdentity } from "./context";
-import { requireFresh } from "./sessions";
 import { ServiceError } from "../shared/errors";
 import { inTransaction } from "../db/transaction";
 import { eq } from "drizzle-orm";
@@ -99,9 +97,7 @@ export function consumeCode(
   });
 }
 
-export function requireEnabledTotp(ctx: ServiceContext) {
-  const user = requireIdentity(ctx);
-  requireFresh(ctx);
+export function requireEnabledTotp(user: typeof users.$inferSelect) {
   if (!user.totpSecret) {
     throw new ServiceError(
       "BAD_REQUEST",

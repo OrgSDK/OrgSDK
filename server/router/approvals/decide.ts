@@ -1,15 +1,14 @@
 import { decideApprovalSchema } from "../../runs/approvals";
-import { protectedProcedure } from "../procedures";
-import { browser, tx } from "../../domain/permissions";
+import { browserManagerProcedure } from "../procedures";
+import { tx } from "../../domain/permissions";
 import { ServiceError } from "../../shared/errors";
 import { approvalsRepository } from "../../repositories/approvals";
 import { runsRepository } from "../../repositories/runs";
 import { approvalView } from "../../runs/approvals";
 
-export const decideProcedure = protectedProcedure
+export const decideProcedure = browserManagerProcedure
   .input(decideApprovalSchema)
   .mutation(({ ctx, input }) => {
-    browser(ctx, true);
     return approvalView(
       tx(ctx, (ctx) => {
         const approval = approvalsRepository(ctx).find(input.id);

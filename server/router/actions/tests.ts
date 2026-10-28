@@ -1,15 +1,14 @@
 import { actionTestsSchema } from "../../actions/schemas";
-import { protectedProcedure } from "../procedures";
-import { authorizeVersion, scope } from "../../domain/permissions";
+import { scopedProcedure } from "../procedures";
+import { authorizeVersion } from "../../domain/permissions";
 import { ServiceError } from "../../shared/errors";
 import { actionVersion } from "../../actions/versions";
 import { suiteView } from "../../actions/views";
 import { findTestSuite } from "../../actions/version-queries";
 
-export const testsProcedure = protectedProcedure
+export const testsProcedure = scopedProcedure("catalog:read")
   .input(actionTestsSchema)
   .query(({ ctx, input }) => {
-    scope(ctx, "catalog:read");
     const { action, version } = actionVersion(ctx, input.id, input.version);
     authorizeVersion(ctx, action, version, true);
     const selected = findTestSuite(ctx, version.id, input.suite_revision);

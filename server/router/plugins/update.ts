@@ -1,8 +1,7 @@
-import { protectedProcedure } from "../procedures";
+import { browserManagerProcedure } from "../procedures";
 import { pluginChangesSchema } from "../../plugins/schemas";
 import { isDeepStrictEqual } from "node:util";
 import { inTransaction } from "../../db/transaction";
-import { browser } from "../../domain/permissions";
 import { pluginsRepository } from "../../repositories/plugins";
 import {
   jsonValue,
@@ -24,11 +23,10 @@ import {
 } from "../../plugins/validation";
 import { pluginView } from "../../plugins/views";
 
-export const updateProcedure = protectedProcedure
+export const updateProcedure = browserManagerProcedure
   .input(pluginChangesSchema)
   .mutation(async ({ ctx: context, input }) => {
     const { id, ...changes } = input;
-    browser(context, true);
     const originalPlugin = pluginsRepository(context).find(id);
     assertPluginIdentity(originalPlugin, changes);
     const version = text(changes.version ?? originalPlugin.version, "version");

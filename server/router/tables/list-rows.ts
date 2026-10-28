@@ -1,17 +1,17 @@
 import { tableQueries } from "../../tables/queries";
-import { browser, workspace } from "../../domain/permissions";
 import { workspaceTablesRepository } from "../../repositories/workspace-tables";
 import { rowView } from "../../tables/views";
 import { tableIdSchema } from "../../tables/schemas";
 import { page } from "../../shared/pagination";
-import { protectedProcedure } from "../procedures";
+import { browserWorkspaceProcedure } from "../procedures";
 
-export const listRowsProcedure = protectedProcedure
+export const listRowsProcedure = browserWorkspaceProcedure
   .input(tableIdSchema)
   .query(({ ctx, input }) => {
-    browser(ctx);
     workspaceTablesRepository(ctx).find(input.id);
     return page(
-      tableQueries(ctx.db, workspace(ctx)).rowsForTable(input.id).map(rowView),
+      tableQueries(ctx.db, ctx.workspace.id)
+        .rowsForTable(input.id)
+        .map(rowView),
     );
   });

@@ -1,6 +1,6 @@
 import { saveTestsSchema } from "../../actions/schemas";
-import { protectedProcedure } from "../procedures";
-import { authoringGrant, scope, tx } from "../../domain/permissions";
+import { scopedProcedure } from "../procedures";
+import { authoringGrant, tx } from "../../domain/permissions";
 import { actionTestSuitesRepository } from "../../repositories/action-test-suites";
 import { actionsRepository } from "../../repositories/actions";
 import { validateCases } from "../../shared/contracts";
@@ -9,10 +9,9 @@ import { actionVersion } from "../../actions/versions";
 import { suiteView } from "../../actions/views";
 import { findTestSuite } from "../../actions/version-queries";
 
-export const saveTestsProcedure = protectedProcedure
+export const saveTestsProcedure = scopedProcedure("actions:write")
   .input(saveTestsSchema)
   .mutation(({ ctx, input }) => {
-    scope(ctx, "actions:write");
     return tx(ctx, (ctx) => {
       const action = actionsRepository(ctx).find(input.id);
       authoringGrant(ctx, action.projectId);

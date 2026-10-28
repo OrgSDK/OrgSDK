@@ -1,6 +1,6 @@
 import type { actions, actionVersions, runs } from "../db/schema";
 import { type ServiceContext } from "../application";
-import { requireManager, requireWorkspace } from "../shared/authorization";
+import { requireWorkspace } from "../shared/authorization";
 import { ServiceError } from "../shared/errors";
 export { inTransaction as tx } from "../db/transaction";
 
@@ -22,20 +22,6 @@ export function scope(ctx: ServiceContext, required: string) {
       "Client scope does not permit this operation.",
     );
   }
-}
-
-export function browser(ctx: ServiceContext, manager = false) {
-  if (ctx.token) {
-    throw new ServiceError(
-      "FORBIDDEN",
-      "This operation requires a browser session.",
-    );
-  }
-  if (manager) {
-    requireManager(ctx);
-    return;
-  }
-  requireWorkspace(ctx);
 }
 
 export function projectGrant(ctx: ServiceContext, id: string) {

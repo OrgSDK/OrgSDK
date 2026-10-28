@@ -52,10 +52,13 @@ alternative application APIs. Their management operations are tRPC procedures.
   token and encryption capability. The native database and Store never enter it.
   `ServiceContext` excludes HTTP objects. Auth's cookie adapter remains in
   `router/identity-context.ts`.
-- Shared procedure middleware enforces authenticated membership, browser-only
-  account operations and mutation CSRF. Permission decisions use the tRPC procedure
-  type, including batched requests. Procedures and shared operations enforce resource scope and
-  grants. Login state changes cannot authorize sibling calls in the same batch.
+- Declare request-wide access with the shared procedure builders below. They
+  inject the narrowed identity/workspace context; callbacks do not repeat browser,
+  membership, role or static scope checks. Mutation CSRF remains common to every
+  procedure, including batches. Login state changes cannot authorize sibling calls
+  in the same batch. Resource grants and conditional operation scopes remain with
+  their business rules; transactions, asynchronous operations and subscriptions
+  recheck authoritative state when it can change during a request.
 - Use Drizzle for application reads/writes. Push scope, filters, ordering and limits
   into SQL. Select public fields explicitly; encrypted secrets and token digests
   cannot appear in serialized responses. Tokens accept explicit client scopes.
@@ -65,6 +68,27 @@ alternative application APIs. Their management operations are tRPC procedures.
   then recheck authoritative state before writing.
 - Use native tRPC subscriptions for run events, with sequence cursors, completion
   and continuing authority checks. Do not add a parallel REST event endpoint.
+
+## Middleware policies
+
+| Procedure                        | Access                                                                                                             |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `publicProcedure`                | Public requests, with mutation CSRF enforcement.                                                                   |
+| `browserProcedure`               | Browser transport, including anonymous setup and login.                                                            |
+| `authenticatedBrowserProcedure`  | Signed-in browser identity; workspace membership is optional.                                                      |
+| `freshBrowserProcedure`          | Signed-in browser with recent identity confirmation.                                                               |
+| `protectedProcedure`             | Authenticated workspace member, browser or scoped client.                                                          |
+| `browserWorkspaceProcedure`      | Browser identity with workspace membership.                                                                        |
+| `browserManagerProcedure`        | Browser workspace owner or admin.                                                                                  |
+| `browserOwnerProcedure`          | Browser workspace owner.                                                                                           |
+| `browserSessionManagerProcedure` | Browser manager with a session bound to OAuth state.                                                               |
+| `scopedProcedure(scope)`         | Workspace member with the required client scope, or array of scopes. Browser members retain their resource access. |
+
+A procedure such as `router/webhooks/list.ts` selects `browserWorkspaceProcedure`
+and directly loads and serializes its data. Endpoint-specific orchestration stays
+in that callback. Query mechanics, shared rules, crypto and serializers remain in
+their feature modules. A separate service forwarding to the same one callback adds
+no boundary and must not be introduced.
 
 ## Quality and verification
 

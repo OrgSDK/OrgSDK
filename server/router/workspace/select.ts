@@ -1,11 +1,9 @@
-import { browserProcedure } from "../procedures";
-import { requireIdentityWorkspace } from "../../auth/context";
+import { browserWorkspaceProcedure } from "../procedures";
 import { ServiceError } from "../../shared/errors";
 import { membershipIdSchema } from "../../workspaces/schemas";
-export const selectProcedure = browserProcedure
+export const selectProcedure = browserWorkspaceProcedure
   .input(membershipIdSchema)
-  .mutation(({ ctx }) => {
-    requireIdentityWorkspace(ctx);
+  .mutation(() => {
     throw new ServiceError(
       "FORBIDDEN",
       "Use the workspace domain to select a workspace.",

@@ -1,11 +1,9 @@
-import { protectedProcedure } from "../procedures";
-import { browser } from "../../domain/permissions";
+import { browserWorkspaceProcedure } from "../procedures";
 import { pluginsRepository } from "../../repositories/plugins";
 import { pluginIdSchema } from "../../plugins/schemas";
 import { pluginView } from "../../plugins/views";
-export const getProcedure = protectedProcedure
+export const getProcedure = browserWorkspaceProcedure
   .input(pluginIdSchema)
   .query(({ ctx, input }) => {
-    browser(ctx);
     return pluginView(pluginsRepository(ctx).find(input.id));
   });

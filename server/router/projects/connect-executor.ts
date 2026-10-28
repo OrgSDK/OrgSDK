@@ -1,20 +1,18 @@
-import { protectedProcedure } from "../procedures";
+import { browserManagerProcedure } from "../procedures";
 import { projectExecutorSchema } from "../../projects/schemas";
 import { createHmac, randomUUID } from "node:crypto";
-import { browser, tx } from "../../domain/permissions";
+import { tx } from "../../domain/permissions";
 import { ServiceError } from "../../shared/errors";
-import { requireWorkspace } from "../../shared/authorization";
 import { executorsRepository } from "../../repositories/executors";
 import { projectsRepository } from "../../repositories/projects";
 import { workspaceSettingsRepository } from "../../repositories/workspace-settings";
 import { digest, randomSecret } from "../../shared/security";
 import { projectQueries } from "../../projects/queries";
 import { revokeExecutor } from "../../projects/executor";
-export const connectExecutorProcedure = protectedProcedure
+export const connectExecutorProcedure = browserManagerProcedure
   .input(projectExecutorSchema)
   .mutation(({ ctx, input }) => {
     const { id, locally_managed: locallyManaged } = input;
-    browser(ctx, true);
     projectsRepository(ctx).find(id);
     const bootstrap = process.env.LOCAL_EXECUTOR_BOOTSTRAP_TOKEN;
     if (locallyManaged && !bootstrap) {
@@ -24,10 +22,9 @@ export const connectExecutorProcedure = protectedProcedure
       );
     }
     return tx(ctx, (ctx) => {
-      let worker = projectQueries(
-        ctx.db,
-        requireWorkspace(ctx).id,
-      ).executorForProject(id);
+      let worker = projectQueries(ctx.db, ctx.workspace.id).executorForProject(
+        id,
+      );
       revokeExecutor(ctx, id);
       const nonce = randomUUID();
       const secret = randomSecret();

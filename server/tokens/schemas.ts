@@ -8,6 +8,8 @@ const clientScopes = z.enum([
   "runs:read",
   "runs:cancel",
 ]);
+export type ClientScope = z.infer<typeof clientScopes>;
+
 export const tokenCreateSchema = z
   .object({
     name: z.string().trim().min(1).max(100),

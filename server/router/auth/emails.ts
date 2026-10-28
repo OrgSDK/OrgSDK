@@ -1,6 +1,7 @@
-import { browserProcedure } from "../procedures";
-import { requireIdentity } from "../../auth/context";
-export const emailsProcedure = browserProcedure.query(({ ctx }) => {
-  const user = requireIdentity(ctx);
-  return [{ email: user.email, primary: true, verified: false }];
-});
+import { authenticatedBrowserProcedure } from "../procedures";
+export const emailsProcedure = authenticatedBrowserProcedure.query(
+  ({ ctx }) => {
+    const user = ctx.user;
+    return [{ email: user.email, primary: true, verified: false }];
+  },
+);

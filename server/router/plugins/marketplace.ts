@@ -1,12 +1,9 @@
-import { protectedProcedure } from "../procedures";
-import { browser } from "../../domain/permissions";
+import { browserWorkspaceProcedure } from "../procedures";
 import { ServiceError } from "../../shared/errors";
 import { fetchCatalogJson } from "../../plugins/catalog";
 import { marketplaceSchema } from "../../plugins/catalog-schemas";
-export const marketplaceProcedure = protectedProcedure.query(
-  async ({ ctx }) => {
-    browser(ctx);
-
+export const marketplaceProcedure = browserWorkspaceProcedure.query(
+  async () => {
     const url =
       process.env.PLUGIN_MARKETPLACE_URL ??
       "https://orgsdk.ai/plugins/catalog.json";

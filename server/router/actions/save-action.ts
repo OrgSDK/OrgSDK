@@ -1,11 +1,11 @@
 import { saveActionSchema } from "../../actions/schemas";
-import { protectedProcedure } from "../procedures";
+import { scopedProcedure } from "../procedures";
 import { tx } from "../../domain/permissions";
 import { resolveActionForSave, versionForSave } from "../../actions/versions";
 import { serializeVersion } from "../../actions/views";
 import { authoringProject } from "../../actions/authoring";
 
-export const saveActionProcedure = protectedProcedure
+export const saveActionProcedure = scopedProcedure("actions:write")
   .input(saveActionSchema)
   .mutation(({ ctx, input: body }) => {
     return tx(ctx, (ctx) => {

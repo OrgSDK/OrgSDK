@@ -1,17 +1,15 @@
-import { browser } from "../../domain/permissions";
 import { accessTokensRepository } from "../../repositories/access-tokens";
 import { inTransaction } from "../../db/transaction";
 import { tokenCreateSchema } from "../../tokens/schemas";
 import { projectsRepository } from "../../repositories/projects";
 import { actionVersionsRepository } from "../../repositories/action-versions";
 import { digest, randomSecret } from "../../shared/security";
-import { protectedProcedure } from "../procedures";
+import { browserManagerProcedure } from "../procedures";
 
-export const createProcedure = protectedProcedure
+export const createProcedure = browserManagerProcedure
   .input(tokenCreateSchema)
   .mutation(({ ctx, input }) => {
     return inTransaction(ctx, (ctx) => {
-      browser(ctx, true);
       for (const projectId of input.projects) {
         projectsRepository(ctx).find(projectId);
       }

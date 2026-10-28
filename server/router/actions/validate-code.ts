@@ -1,9 +1,9 @@
 import { validateCodeSchema } from "../../runs/schemas";
-import { protectedProcedure } from "../procedures";
+import { scopedProcedure } from "../procedures";
 import { createRun } from "../../runs/create";
 import { serializeRun } from "../../runs/views";
 
-export const validateCodeProcedure = protectedProcedure
+export const validateCodeProcedure = scopedProcedure("actions:write")
   .input(validateCodeSchema)
   .mutation(({ ctx, input: body }) => {
     return serializeRun(

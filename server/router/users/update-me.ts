@@ -1,14 +1,13 @@
-import { browserProcedure } from "../procedures";
+import { authenticatedBrowserProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
-import { requireIdentity } from "../../auth/context";
 import { assertCurrentUser } from "../../auth/sessions";
 import { publicUser } from "../../auth/views";
 import { updateAccount } from "../../auth/queries";
 import { profileSchema } from "../../auth/schemas";
-export const updateMeProcedure = browserProcedure
+export const updateMeProcedure = authenticatedBrowserProcedure
   .input(profileSchema)
   .mutation(({ ctx, input }) => {
-    const user = requireIdentity(ctx);
+    const user = ctx.user;
     return inTransaction(ctx, (ctx) => {
       assertCurrentUser(ctx, user);
       const updated = updateAccount(ctx.db, user.id, {

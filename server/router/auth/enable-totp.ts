@@ -1,20 +1,18 @@
-import { browserProcedure } from "../procedures";
+import { freshBrowserProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { ServiceError } from "../../shared/errors";
 import { identityRepository } from "../../repositories/identity";
 import { decrypt } from "../../shared/security";
-import { requireIdentity } from "../../auth/context";
 import { assertCurrentUser, requireFresh } from "../../auth/sessions";
 import { throttle } from "../../auth/throttle";
 import { totpCounter } from "../../auth/totp";
 import { updateAccount } from "../../auth/queries";
 import { codeSchema } from "../../auth/schemas";
-export const enableTotpProcedure = browserProcedure
+export const enableTotpProcedure = freshBrowserProcedure
   .input(codeSchema)
   .mutation(({ ctx, input }) => {
     const code = input.code;
-    const user = requireIdentity(ctx);
-    requireFresh(ctx);
+    const user = ctx.user;
     throttle(ctx, `totp-setup:${user.id}`);
     return inTransaction(ctx, (ctx) => {
       assertCurrentUser(ctx, user);

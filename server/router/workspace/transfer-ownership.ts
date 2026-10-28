@@ -1,10 +1,10 @@
-import { browserProcedure } from "../procedures";
+import { browserOwnerProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { ServiceError } from "../../shared/errors";
 import { setMembershipRole } from "../../workspaces/queries";
 import { memberPair } from "../../workspaces/permissions";
 import { ownershipSchema } from "../../workspaces/schemas";
-export const transferOwnershipProcedure = browserProcedure
+export const transferOwnershipProcedure = browserOwnerProcedure
   .input(ownershipSchema)
   .mutation(({ ctx, input }) => {
     const id = input.membership_id;

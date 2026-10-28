@@ -1,7 +1,6 @@
-import { browserProcedure } from "../procedures";
+import { browserManagerProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { assertCurrentUser } from "../../auth/sessions";
-import { requireIdentity, requireIdentityManager } from "../../auth/context";
 import { ServiceError } from "../../shared/errors";
 import { revokeUnsentMail } from "../../repositories/mail-outbox";
 import { now } from "../../shared/records";
@@ -11,12 +10,12 @@ import {
   updateInvitation,
 } from "../../workspaces/queries";
 import { membershipIdSchema } from "../../workspaces/schemas";
-export const revokeInvitationProcedure = browserProcedure
+export const revokeInvitationProcedure = browserManagerProcedure
   .input(membershipIdSchema)
   .mutation(({ ctx, input }) => {
     const id = input.id;
-    const user = requireIdentity(ctx);
-    const workspace = requireIdentityManager(ctx);
+    const user = ctx.user;
+    const workspace = ctx.workspace;
     inTransaction(ctx, (ctx) => {
       assertCurrentUser(ctx, user);
       const actor = membershipForUser(ctx.db, workspace.id, user.id);

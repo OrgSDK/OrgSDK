@@ -1,10 +1,8 @@
-import { browser } from "../../domain/permissions";
 import { documentsRepository } from "../../repositories/documents";
 import { documentView } from "../../documents/views";
 import { page } from "../../shared/pagination";
-import { protectedProcedure } from "../procedures";
+import { browserWorkspaceProcedure } from "../procedures";
 
-export const listProcedure = protectedProcedure.query(({ ctx }) => {
-  browser(ctx);
+export const listProcedure = browserWorkspaceProcedure.query(({ ctx }) => {
   return page(documentsRepository(ctx).list().map(documentView));
 });

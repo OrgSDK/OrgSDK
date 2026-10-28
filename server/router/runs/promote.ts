@@ -1,24 +1,18 @@
 import { promoteRunSchema } from "../../runs/schemas";
-import { protectedProcedure } from "../procedures";
+import { scopedProcedure } from "../procedures";
 import { resolveActionForSave, versionForSave } from "../../actions/versions";
 import { serializeVersion } from "../../actions/views";
-import {
-  authoringGrant,
-  authorizeRunRead,
-  scope,
-  tx,
-} from "../../domain/permissions";
+import { authoringGrant, authorizeRunRead, tx } from "../../domain/permissions";
 import { ServiceError } from "../../shared/errors";
 import { runsRepository } from "../../repositories/runs";
 import { jsonValue, sourceText } from "../../shared/contracts";
 
-export const promoteProcedure = protectedProcedure
+export const promoteProcedure = scopedProcedure(["runs:read", "actions:write"])
   .input(promoteRunSchema)
   .mutation(({ ctx, input }) =>
     tx(ctx, (ctx) => {
       const run = runsRepository(ctx).find(input.id);
-      authorizeRunRead(ctx, run);
-      scope(ctx, "actions:write");
+      authorizeRunRead(ctx, run, null);
       authoringGrant(ctx, run.projectId);
       if (run.operation !== "code") {
         throw new ServiceError(
