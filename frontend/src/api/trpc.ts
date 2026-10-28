@@ -1,6 +1,6 @@
 import { createTRPCClient, httpBatchLink, TRPCClientError } from "@trpc/client";
 import type { inferRouterOutputs } from "@trpc/server";
-import type { AppRouter } from "../../../server/trpc";
+import type { AppRouter } from "../../../server/api/trpc";
 
 export type RouterOutputs = inferRouterOutputs<AppRouter>;
 

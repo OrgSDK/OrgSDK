@@ -8,6 +8,8 @@ export type TableColumn = {
 };
 export type PluginMetadata = JsonObject & {
   auth?: JsonObject & { type?: string; provider?: string; scopes?: string[] };
+  marketplace?: JsonObject & { icon_url?: string };
+  description?: string;
   slug?: string;
   version?: string;
   digest?: string;

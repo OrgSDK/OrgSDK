@@ -24,6 +24,7 @@ e2e:
 	$(BUN) scripts/e2e.ts
 
 lint:
+	$(BUN) run lint
 	$(NPM) --prefix frontend run lint
 
 typecheck:
@@ -37,8 +38,7 @@ license-check:
 	cmp LICENSE runtime/LICENSE
 
 check: license-check runtime-check
-	$(BUN) run format:check
-	$(BUN) run typecheck
+	$(BUN) run check
 	$(BUN) test server
 	$(NPM) --prefix frontend run check
 	$(NPM) --prefix frontend run build

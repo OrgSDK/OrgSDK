@@ -26,5 +26,6 @@ jobs:
       - run: make check
       - run: bunx playwright install --with-deps chromium
       - run: make build
+      - run: ORGSDK_TEST_BINARY=dist/orgsdk bun test server/tests/database-history.test.ts
       - run: ORGSDK_E2E_BINARY=dist/orgsdk make e2e
       - run: scripts/smoke-binary.sh

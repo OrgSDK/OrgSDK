@@ -1,0 +1,101 @@
+import { Database } from "bun:sqlite";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { databaseFilename, migrationsFolder } from "../db/migrate";
+import journal from "../db/migrations/meta/_journal.json";
+import * as schema from "../db/schema";
+import { ensureEncryptionKey } from "../shared/security";
+
+export function temporaryDatabase() {
+  const directory = mkdtempSync(join(tmpdir(), "orgsdk-database-"));
+  return {
+    directory,
+    cleanup: () => rmSync(directory, { recursive: true, force: true }),
+  };
+}
+
+export function initialStore(dataDir: string) {
+  mkdirSync(dataDir, { recursive: true });
+  const migrationDirectory = mkdtempSync(
+    join(tmpdir(), "orgsdk-initial-migration-"),
+  );
+  const sqlite = new Database(join(dataDir, databaseFilename), {
+    create: true,
+  });
+  try {
+    const entries = journal.entries.slice(0, 1);
+    mkdirSync(join(migrationDirectory, "meta"));
+    writeFileSync(
+      join(migrationDirectory, "meta/_journal.json"),
+      JSON.stringify({ ...journal, entries }),
+    );
+    for (const entry of entries)
+      copyFileSync(
+        join(migrationsFolder, `${entry.tag}.sql`),
+        join(migrationDirectory, `${entry.tag}.sql`),
+      );
+    sqlite.exec("PRAGMA foreign_keys=ON;");
+    const db = drizzle(sqlite, { schema });
+    migrate(db, { migrationsFolder: migrationDirectory });
+    ensureEncryptionKey(dataDir);
+    return { db, sqlite, dataDir, close: () => sqlite.close() };
+  } catch (error) {
+    sqlite.close();
+    throw error;
+  } finally {
+    rmSync(migrationDirectory, { recursive: true, force: true });
+  }
+}
+
+export function seedWorkspace(store: ReturnType<typeof initialStore>) {
+  const time = new Date().toISOString();
+  const user = store.db
+    .insert(schema.users)
+    .values({
+      username: "owner",
+      email: "owner@example.test",
+      passwordHash: "test hash",
+    })
+    .returning()
+    .get();
+  const workspace = store.db
+    .insert(schema.workspaces)
+    .values({ name: "Workspace", host: "localhost", createdAt: time })
+    .returning()
+    .get();
+  store.db
+    .insert(schema.memberships)
+    .values({ userId: user.id, workspaceId: workspace.id, role: "owner" })
+    .run();
+  const project = store.db
+    .insert(schema.projects)
+    .values({
+      id: crypto.randomUUID(),
+      workspaceId: workspace.id,
+      name: "Persistent project",
+      createdAt: time,
+      updatedAt: time,
+    })
+    .returning()
+    .get();
+  return { user, workspace, project, time };
+}
+
+export function migrationCount(sqlite: Database): number {
+  return (
+    sqlite
+      .query<{ count: number }, []>(
+        "SELECT count(*) AS count FROM __drizzle_migrations",
+      )
+      .get()?.count ?? 0
+  );
+}

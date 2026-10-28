@@ -10,7 +10,10 @@ await mkdir("dist", { recursive: true });
 const result = await Bun.build({
   entrypoints: ["./server/index.ts"],
   target: "bun",
-  compile: { outfile: "./dist/orgsdk", assets: ["./frontend/out"] },
+  compile: {
+    outfile: "./dist/orgsdk",
+    assets: ["./frontend/out", "./server/db/migrations"],
+  },
 });
 if (!result.success) {
   for (const log of result.logs) console.error(log);

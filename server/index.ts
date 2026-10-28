@@ -2,23 +2,21 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
-  writeFileSync,
   unlinkSync,
-  copyFileSync,
-  constants,
-  chmodSync,
+  writeFileSync,
 } from "node:fs";
-import { resolve, join } from "node:path";
 import { homedir } from "node:os";
-import { Database } from "bun:sqlite";
-import { openStore } from "./db";
+import { join, resolve } from "node:path";
 import { createApp } from "./app";
-import { maintenance } from "./execution";
-import { flushOutbox, smtpConfigured } from "./mail";
-import { resetPassword } from "./account-cli";
+import { resetPassword } from "./cli/accounts";
+import { backupDatabase, restoreDatabase } from "./cli/database";
+import { openStore } from "./db";
+import { databaseFilename } from "./db/migrate";
+import { maintenance } from "./execution/maintenance";
+import { flushOutbox, smtpConfigured } from "./mail/outbox";
 
 const dataDir = resolve(
-  process.env.ORGSDK_DATA_DIR ?? join(homedir(), ".local/share/orgsdk-bun"),
+  process.env.ORGSDK_DATA_DIR ?? join(homedir(), ".local/share/orgsdk"),
 );
 const command = process.argv[2] ?? "server";
 const port = Number(process.env.PORT ?? "8080");
@@ -52,7 +50,7 @@ function serverLock(): () => void {
 async function main() {
   if (command === "reset-password") {
     if (!process.argv[3]) throw new Error("Usage: orgsdk reset-password EMAIL");
-    if (!existsSync(join(dataDir, "orgsdk-bun.sqlite3")))
+    if (!existsSync(join(dataDir, databaseFilename)))
       throw new Error("No installation found in this data directory.");
     const store = openStore(dataDir);
     try {
@@ -72,64 +70,29 @@ async function main() {
   }
   if (command === "backup") {
     if (!process.argv[3]) throw new Error("Usage: orgsdk backup DESTINATION");
-    const destination = resolve(process.argv[3]);
-    if (!existsSync(join(dataDir, "orgsdk-bun.sqlite3")))
-      throw new Error("No database to back up.");
-    if (existsSync(destination))
-      throw new Error("Backup destination already exists.");
-    const store = openStore(dataDir);
-    try {
-      store.sqlite.query("VACUUM INTO ?").run(destination);
-      chmodSync(destination, 0o600);
-      const snapshot = new Database(destination, { readonly: true });
-      try {
-        const rows = snapshot.query("PRAGMA integrity_check").all() as {
-          integrity_check: string;
-        }[];
-        if (rows.length !== 1 || rows[0]?.integrity_check !== "ok")
-          throw new Error("Backup integrity check failed.");
-      } finally {
-        snapshot.close();
-      }
-      console.log(
-        "Verified SQLite snapshot created. Preserve encryption.key separately.",
-      );
-    } finally {
-      store.close();
-    }
+    backupDatabase(dataDir, resolve(process.argv[3]));
+    console.log(
+      "Verified SQLite snapshot created. Preserve encryption.key separately.",
+    );
     return;
   }
   if (command === "restore") {
     if (!process.argv[3]) throw new Error("Usage: orgsdk restore SOURCE");
     const unlock = serverLock();
     try {
-      const destination = join(dataDir, "orgsdk-bun.sqlite3");
-      if (existsSync(destination))
-        throw new Error("Restore requires an empty installation.");
-      const source = resolve(process.argv[3]);
-      const snapshot = new Database(source, { readonly: true });
-      try {
-        const integrity = snapshot.query("PRAGMA integrity_check").get() as {
-          integrity_check: string;
-        };
-        const format = snapshot
-          .query("SELECT version FROM orgsdk_format")
-          .get() as { version: number };
-        if (
-          integrity.integrity_check !== "ok" ||
-          ![1, 2, 3, 4].includes(format.version)
-        )
-          throw new Error("Unsupported or invalid backup.");
-      } finally {
-        snapshot.close();
-      }
-      if (!existsSync(join(dataDir, "encryption.key")))
-        throw new Error(
-          "Restore the original encryption.key before restoring the database.",
-        );
-      copyFileSync(source, destination, constants.COPYFILE_EXCL);
-      chmodSync(destination, 0o600);
+      restoreDatabase(dataDir, resolve(process.argv[3]));
       console.log("Database restored.");
+    } finally {
+      unlock();
+    }
+    return;
+  }
+  if (command === "migrate") {
+    const unlock = serverLock();
+    try {
+      const store = openStore(dataDir);
+      store.close();
+      console.log("Database migrations applied.");
     } finally {
       unlock();
     }
@@ -137,7 +100,7 @@ async function main() {
   }
   if (command !== "server")
     throw new Error(
-      "Usage: orgsdk [server | healthcheck | backup DESTINATION | restore SOURCE | reset-password EMAIL]",
+      "Usage: orgsdk [server | migrate | healthcheck | backup DESTINATION | restore SOURCE | reset-password EMAIL]",
     );
   if (!Number.isInteger(port) || port < 1 || port > 65535)
     throw new Error("PORT must be between 1 and 65535.");
@@ -169,10 +132,17 @@ async function main() {
     }, 1000);
     const stop = () => {
       clearInterval(timer);
-      server.stop(true);
-      store.close();
-      unlock();
-      process.exit(0);
+      void server
+        .stop(true)
+        .then(() => {
+          store.close();
+          unlock();
+          process.exit(0);
+        })
+        .catch(() => {
+          unlock();
+          process.exitCode = 1;
+        });
     };
     process.once("SIGTERM", stop);
     process.once("SIGINT", stop);

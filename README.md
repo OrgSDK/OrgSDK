@@ -4,11 +4,25 @@ OrgSDK gives external AI clients persistent projects for executing code and buil
 
 ## Build and run locally
 
-Install Bun 1.4, Node 22 and npm, then run `make install` and `make build`. Start `dist/orgsdk` and open `http://127.0.0.1:8080`. The executable embeds the frontend, including Monaco, and does not require Bun or Node at runtime. `HOST`, `PORT`, and `ORGSDK_DATA_DIR` configure listening and storage. The default data directory is `~/.local/share/orgsdk-bun`.
+Install Bun 1.4, Node 22 and npm, then run `make install` and `make build`. Start `dist/orgsdk` and open `http://127.0.0.1:8080`. The executable embeds the frontend, including Monaco, and does not require Bun or Node at runtime. `HOST`, `PORT`, and `ORGSDK_DATA_DIR` configure listening and storage. The default data directory is `~/.local/share/orgsdk`.
 
-This version uses a fresh database format. It refuses to open an existing Django database; use a new data directory and retain the old installation and its data. No migration from Django is provided.
+The Drizzle schema is the source of truth. Startup applies pending generated migrations to `orgsdk.sqlite3`, and the executable embeds the migration files. Start the initial installation in an empty data directory. This is a greenfield schema without compatibility with the earlier experimental database.
 
 For development, run `make dev` and `make frontend` in separate terminals. Next uses `ORGSDK_PROXY_TARGET` (default `http://127.0.0.1:8080`). Run `make check` for code checks and `make e2e` for browser tests against a temporary isolated database. Install Playwright's browser if needed with `bunx playwright install chromium`.
+
+## Database development
+
+Edit the Drizzle models in `server/db/schema/`, including foreign keys, indexes,
+checks and defaults. Run `bun run db:generate --name <change>` and review the
+resulting SQL, snapshots and journal in `server/db/migrations/`. Commit generated
+migrations with their schema changes. Do not edit an applied migration or use
+schema push. `bun run db:check` verifies the generated history and checks for drift.
+
+Startup applies migrations automatically. To apply them without starting the
+server, run `bun run db:migrate` or `dist/orgsdk migrate` with `ORGSDK_DATA_DIR`
+set to the intended installation. The migration command refuses to run while a
+server owns that data directory. Tests cover fresh installs, forward upgrades,
+repeat starts, encrypted data, database constraints and failed-upgrade rollback.
 
 ## Containers and executor
 
@@ -16,9 +30,9 @@ For development, run `make dev` and `make frontend` in separate terminals. Next 
 
 ## Backup and recovery
 
-`scripts/backup.sh /secure/path/backup.sqlite3` creates a verified SQLite snapshot. Back up the matching encryption key from the application data directory and the executor project data separately, with appropriate access controls. A database snapshot alone cannot recover encrypted credentials or project files.
+`scripts/backup.sh /secure/path/backup.sqlite3` creates a verified SQLite snapshot. Back up the matching encryption key from the application data directory and the executor project data separately, with appropriate access controls. A database snapshot alone cannot recover encrypted credentials or project files. Backups preserve the source migration level without upgrading it; restored databases apply pending migrations on their next startup.
 
-`scripts/restore.sh /secure/path/backup.sqlite3` restores only into a Bun data volume without a database. Put the matching `encryption.key` in that volume before running the restore. Test recovery in a separate Compose project and preserve the source backup. Never reuse an old Django data directory for this format.
+`scripts/restore.sh /secure/path/backup.sqlite3` restores only into a Bun data volume without a database. Put the matching `encryption.key` in that volume before running the restore. Test recovery in a separate Compose project and preserve the source backup. Restore into a separate empty data directory.
 
 The source is distributed under [LICENSE](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidance.
 
