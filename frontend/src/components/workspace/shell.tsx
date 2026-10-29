@@ -5,7 +5,7 @@ import { Menu, X } from "lucide-react";
 import { BotMark } from "./brand";
 import {
   workspaceNavigation as navigation,
-  workspaceSections,
+  workspacePages,
   settingsSections,
   actionActivityViews,
   projectHref,
@@ -16,15 +16,13 @@ import { PageHeaderContext } from "./page-header";
 import { ProjectSelector } from "./project-selector";
 import { useWorkspace } from "./workspace-context";
 export function WorkspaceShell({
-  workspace,
   tab,
   children,
 }: {
-  workspace: string;
   tab: string;
   children: ReactNode;
 }): ReactNode {
-  const { agents: projects, selected } = useWorkspace();
+  const { projects, selected, workspace } = useWorkspace();
   const project = projects.find((item) => item.id === selected);
   const [open, setOpen] = useState(false);
   const [pageHeader, setPageHeader] = useState<HTMLDivElement | null>(null);
@@ -77,10 +75,8 @@ export function WorkspaceShell({
       desktop.removeEventListener("change", closeOnDesktop);
     };
   }, []);
-  const title =
-    workspaceSections
-      .flatMap((group) => group.items)
-      .find((item) => item.id === tab)?.label ?? "Projects";
+  const currentPage = workspacePages.find((item) => item.id === tab);
+  const title = currentPage?.label ?? "Projects";
   return (
     <div className="shell">
       {open ? (
@@ -110,8 +106,8 @@ export function WorkspaceShell({
         <nav className="flex flex-col" aria-label="Project and workspace">
           {navigation.map((group) => (
             <div
-              className={`nav-group ${group.label === "Workspace" ? "mt-auto pt-6" : ""}`}
-              key={group.label}
+              className={`nav-group ${group.id === "workspace" ? "mt-auto pt-6" : ""}`}
+              key={group.id}
             >
               <p className="eyebrow">{group.label}</p>
               {group.items.map((item) => {
@@ -189,31 +185,7 @@ export function WorkspaceShell({
         <main className={tab === "actions" ? "action-page" : undefined}>
           <div className={tab === "actions" ? "sr-only" : "page-heading"}>
             <h1>{title}</h1>
-            <p>
-              {
-                {
-                  home: "Your workspace at a glance.",
-                  work: "Build the actions and access available to your connected agent.",
-                  schedules: "Manage recurring workflows and their next run.",
-                  webhooks:
-                    "Register action triggers and inspect delivery health.",
-                  approvals: "Review work that needs a human decision.",
-                  artifacts:
-                    "Inspect and download files produced by your runs.",
-                  plugins:
-                    "Extend the tools available to this project's actions.",
-                  credentials: "Manage encrypted provider credentials.",
-                  settings: "Workspace access and available capabilities.",
-                  actions: "Build, version and run reusable workflows.",
-                  runs: "Follow execution, review approvals and inspect results.",
-                  documents:
-                    "Knowledge and memory shared across your workspace.",
-                  connections:
-                    "Connect an external agent to this project's tools over MCP.",
-                  members: "Manage access to your workspace.",
-                }[tab]
-              }
-            </p>
+            <p>{currentPage?.description}</p>
           </div>
           <PageHeaderContext value={pageHeader}>{children}</PageHeaderContext>
         </main>

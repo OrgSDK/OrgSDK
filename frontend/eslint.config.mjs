@@ -33,6 +33,23 @@ export default defineConfig([
       ],
       "@typescript-eslint/no-unsafe-type-assertion": "error",
       "@typescript-eslint/switch-exhaustiveness-check": "error",
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "openapi-fetch",
+              message: "Use the inferred client from api/trpc.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["**/api/client", "**/api/schema", "**/api/auth-schema"],
+              message: "Use the inferred tRPC contract.",
+            },
+          ],
+        },
+      ],
       eqeqeq: ["error", "always", { null: "ignore" }],
       "@typescript-eslint/explicit-module-boundary-types": "error",
       "@typescript-eslint/strict-boolean-expressions": [
@@ -77,7 +94,5 @@ export default defineConfig([
     "next-env.d.ts",
     "node_modules/**",
     "src/generated/**",
-    "src/api/schema.d.ts",
-    "src/api/auth-schema.d.ts",
   ]),
 ]);

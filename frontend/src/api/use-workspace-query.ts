@@ -33,9 +33,9 @@ export function useWorkspaceQuery<T>(
   }, [query]);
   useEffect(() => {
     active.current = true;
-    void (async () => {
-      await refresh();
-    })();
+    queueMicrotask(() => {
+      if (active.current) void refresh();
+    });
     const timer =
       pollMs > 0
         ? setInterval(() => {

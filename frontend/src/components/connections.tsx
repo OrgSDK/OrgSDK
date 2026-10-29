@@ -1,9 +1,14 @@
 "use client";
 import { Cable, Copy, KeyRound, Plug, Trash2 } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
-import { api } from "../api/client";
-import { result, errorMessage, requireSuccess } from "../api/result";
-import { loadActions, loadAgents, loadTokens } from "../api/workspace-queries";
+import { trpc } from "../api/trpc";
+import type { ClientScope } from "../api/types";
+import { errorMessage } from "../api/result";
+import {
+  loadActions,
+  loadProjects,
+  loadTokens,
+} from "../api/workspace-queries";
 import { useWorkspaceQuery } from "../api/use-workspace-query";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -23,7 +28,7 @@ const clientScopes = [
   ["runs:cancel", "Cancel this client's own runs"],
 ] as const;
 const authorScopes = clientScopes.map(([scope]) => scope);
-const runnerScopes = [
+const runnerScopes: ClientScope[] = [
   "catalog:read",
   "actions:run",
   "runs:read",
@@ -31,23 +36,21 @@ const runnerScopes = [
 ];
 async function loadGrantOptions(signal: AbortSignal, projectId: string) {
   const [projects, actions] = await Promise.all([
-    loadAgents(signal),
+    loadProjects(signal),
     loadActions(signal),
   ]);
   const versions = await Promise.all(
     actions
-      .filter((action) => (action.project ?? action.agent) === projectId)
+      .filter((action) => action.project === projectId)
       .map(async (action) => {
-        const response = result(
-          await api.GET("/api/v1/actions/{id}/versions/", {
-            signal,
-            params: { path: { id: action.id } },
-          }),
+        const response = await trpc.actions.versions.query(
+          { id: action.id },
+          { signal: signal },
         );
         return response.map((version) => ({
           ...version,
           actionName: action.name,
-          project: action.project ?? action.agent,
+          project: action.project,
         }));
       }),
   );
@@ -56,20 +59,14 @@ async function loadGrantOptions(signal: AbortSignal, projectId: string) {
     versions: versions.flat(),
   };
 }
-function toggleValue(
-  values: string[],
-  value: string,
+function toggleValue<Value extends string>(
+  values: Value[],
+  value: Value,
   isChecked: boolean,
-): string[] {
+): Value[] {
   return isChecked
     ? [...values, value]
     : values.filter((item) => item !== value);
-}
-function isLegacy(scopes: unknown): boolean {
-  return (
-    Array.isArray(scopes) &&
-    scopes.some((scope) => ["read", "write", "approve"].includes(String(scope)))
-  );
 }
 export function Connections({
   canManage,
@@ -78,7 +75,7 @@ export function Connections({
   canManage: boolean;
   navigate: (view: string) => void;
 }): ReactNode {
-  const { selected, agents, setDirty } = useWorkspace();
+  const { selected, projects: workspaceProjects, setDirty } = useWorkspace();
   const query = useWorkspaceQuery(loadTokens);
   const loadOptions = useCallback(
     (signal: AbortSignal) => loadGrantOptions(signal, selected),
@@ -90,12 +87,12 @@ export function Connections({
   );
   const tokens = (query.data ?? []).filter(
     (item) =>
-      isLegacy(item.scopes) ||
-      (item.projects?.includes(selected) ?? false) ||
-      (item.action_versions?.some((id) => versionIds.has(id)) ?? false),
+      item.projects.includes(selected) ||
+      item.action_versions.some((id) => versionIds.has(id)),
   );
   const projectName =
-    agents.find((project) => project.id === selected)?.name ?? "this project";
+    workspaceProjects.find((project) => project.id === selected)?.name ??
+    "this project";
   const [projects, setProjects] = useState<string[]>(
     selected ? [selected] : [],
   );
@@ -103,7 +100,7 @@ export function Connections({
   const [grantMode, setGrantMode] = useState("projects");
   const canConfirm = useDiscardConfirmation();
   const [name, setName] = useState("");
-  const [scopes, setScopes] = useState<string[]>(authorScopes);
+  const [scopes, setScopes] = useState<ClientScope[]>(authorScopes);
   const [token, setToken] = useState("");
   const [isBusy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -157,7 +154,7 @@ export function Connections({
             <h3>2. Configure your client</h3>
             <p className="small">
               Use this workspace domain with the MCP endpoint <code>/mcp/</code>
-              , or the REST API at <code>/api/v1/</code>. Send the token as{" "}
+              , or the typed tRPC API at <code>/trpc</code>. Send the token as{" "}
               <code>Authorization: Bearer &lt;token&gt;</code>.
             </p>
             <Button
@@ -230,27 +227,24 @@ export function Connections({
             <div>
               <strong>{item.name}</strong>
               <small>
-                {isLegacy(item.scopes)
-                  ? "Legacy broad token · replace with explicit grants"
-                  : "Scoped client token"}{" "}
-                · {displayValue(item.scopes)} ·{" "}
+                Scoped client token · {displayValue(item.scopes)} ·{" "}
                 {item.activity_state.replaceAll("_", " ")}
               </small>
               <small>
                 Projects:{" "}
                 {item.projects
-                  ?.map(
+                  .map(
                     (id) =>
                       options.data?.projects.find(
                         (project) => project.id === id,
                       )?.name ?? id,
                   )
-                  .join(", ") ?? "None"}
+                  .join(", ") || "None"}
               </small>
               <small>
                 Exact action versions:{" "}
                 {item.action_versions
-                  ?.map((id) => {
+                  .map((id) => {
                     const version = options.data?.versions.find(
                       (version) => version.id === id,
                     );
@@ -258,11 +252,11 @@ export function Connections({
                       ? `${version.actionName} · version ${String(version.number)}`
                       : id;
                   })
-                  .join(", ") ?? "None"}
+                  .join(", ") || "None"}
               </small>
               <small>
                 {item.request_count} requests · {item.success_count} successful
-                · {item.error_count} errors · {item.rest_request_count} REST ·{" "}
+                · {item.error_count} errors · {item.trpc_request_count} tRPC ·{" "}
                 {item.mcp_request_count} MCP
               </small>
               <small>
@@ -298,11 +292,7 @@ export function Connections({
                       }))
                     )
                       return;
-                    requireSuccess(
-                      await api.DELETE("/api/v1/tokens/{id}/", {
-                        params: { path: { id: item.id } },
-                      }),
-                    );
+                    await trpc.tokens.revoke.mutate({ id: item.id });
                     setNotice("Client token revoked.");
                   });
                 }}
@@ -327,16 +317,12 @@ export function Connections({
             onSubmit={(event) => {
               event.preventDefault();
               void perform(async () => {
-                const issued = result(
-                  await api.POST("/api/v1/tokens/", {
-                    body: {
-                      name,
-                      scopes,
-                      projects: grantMode === "projects" ? projects : [],
-                      action_versions: grantMode === "versions" ? versions : [],
-                    },
-                  }),
-                );
+                const issued = await trpc.tokens.create.mutate({
+                  name,
+                  scopes,
+                  projects: grantMode === "projects" ? projects : [],
+                  action_versions: grantMode === "versions" ? versions : [],
+                });
                 setToken(issued.token);
                 setName("");
                 setNotice(

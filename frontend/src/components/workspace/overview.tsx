@@ -8,41 +8,44 @@ import {
   ArrowRight,
   CheckCircle2,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import {
   loadActions,
-  loadAgents,
+  loadProjects,
   loadApprovals,
   loadTokens,
   loadPlugins,
   loadRuns,
 } from "../../api/workspace-queries";
-import type { components } from "../../api/schema";
+import type { Action, Project, Approval, Token, Plugin } from "../../api/types";
+import { useWorkspace } from "./workspace-context";
 import { Button } from "../ui/button";
 import { ResourceState } from "./resource-state";
 import { activeStatuses, runLabel, RunStatus, type Run } from "./run-display";
 import { QuickAction, SignalCard } from "./home-cards";
 interface OverviewData {
   runs: Run[];
-  agents: components["schemas"]["Agent"][];
-  actions: components["schemas"]["Action"][];
-  approvals: components["schemas"]["Approval"][];
-  tokens: components["schemas"]["Token"][];
-  plugins: components["schemas"]["Plugin"][];
+  projects: Project[];
+  actions: Action[];
+  approvals: Approval[];
+  tokens: Token[];
+  plugins: Plugin[];
 }
-async function loadOverview(signal: AbortSignal): Promise<OverviewData> {
-  const [runs, agents, actions, approvals, tokens, plugins] = await Promise.all(
-    [
+async function loadOverview(
+  signal: AbortSignal,
+  canManage: boolean,
+): Promise<OverviewData> {
+  const [runs, projects, actions, approvals, tokens, plugins] =
+    await Promise.all([
       loadRuns(signal),
-      loadAgents(signal),
+      loadProjects(signal),
       loadActions(signal),
       loadApprovals(signal),
-      loadTokens(signal),
+      canManage ? loadTokens(signal) : Promise.resolve([]),
       loadPlugins(signal),
-    ],
-  );
-  return { runs, agents, actions, approvals, tokens, plugins };
+    ]);
+  return { runs, projects, actions, approvals, tokens, plugins };
 }
 export function Overview({
   navigate,
@@ -51,7 +54,12 @@ export function Overview({
   navigate: (view: string) => void;
   openRun: (id: string) => void;
 }): ReactNode {
-  const query = useWorkspaceQuery(loadOverview, 10_000);
+  const { canManage } = useWorkspace();
+  const load = useCallback(
+    (signal: AbortSignal) => loadOverview(signal, canManage),
+    [canManage],
+  );
+  const query = useWorkspaceQuery(load, 10_000);
   const data = query.data;
   const pending =
     data?.approvals.filter((item) => item.status === "pending") ?? [];
@@ -63,7 +71,7 @@ export function Overview({
   const steps = [
     {
       label: "Create a project",
-      done: (data?.agents.length ?? 0) > 0,
+      done: (data?.projects.length ?? 0) > 0,
       view: "work",
     },
     {
@@ -145,7 +153,7 @@ export function Overview({
             />
             <SignalCard
               label="Projects"
-              value={String(data.agents.length)}
+              value={String(data.projects.length)}
               hint={`${String(data.plugins.length)} installed plugins`}
               onClick={() => {
                 navigate("connections");
@@ -196,7 +204,7 @@ export function Overview({
               </h2>
               {active.map((run) => (
                 <div className="resource-row" key={run.id}>
-                  <span>{runLabel(run, data.agents)}</span>
+                  <span>{runLabel(run, data.projects)}</span>
                   <RunStatus status={run.status} />
                   <Button
                     variant="outline"
@@ -243,7 +251,7 @@ export function Overview({
               data.runs.slice(0, 5).map((run) => (
                 <div className="resource-row" key={run.id}>
                   <div>
-                    <strong>{runLabel(run, data.agents)}</strong>
+                    <strong>{runLabel(run, data.projects)}</strong>
                     <small>{new Date(run.created_at).toLocaleString()}</small>
                   </div>
                   <RunStatus status={run.status} />

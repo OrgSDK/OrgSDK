@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useSession } from "../../api/use-session";
-import { useState, type ReactNode } from "react";
+import { loadSession } from "../../api/trpc";
+import { useEffect, useState, type ReactNode } from "react";
 import { AccountSecurityContext } from "./account-security-context";
 import { ConfirmIdentity } from "./confirm-identity";
 export function AccountAccess({
@@ -9,15 +9,29 @@ export function AccountAccess({
 }: {
   children: ReactNode;
 }): ReactNode {
-  const session = useSession();
+  const [session, setSession] =
+    useState<Awaited<ReturnType<typeof loadSession>>>();
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadSession(controller.signal)
+      .then((current) => {
+        if (!controller.signal.aborted) setSession(current);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setFailed(true);
+      });
+    return () => {
+      controller.abort();
+    };
+  }, []);
   const [confirming, setConfirming] = useState(false);
-  if (session.status === "loading")
-    return <p role="status">Loading your account…</p>;
-  if (session.status === "error")
+  if (failed)
     return (
       <p role="alert">Unable to load your account. Reload to try again.</p>
     );
-  if (!session.session.is_authenticated)
+  if (!session) return <p role="status">Loading your account…</p>;
+  if (!session.is_authenticated)
     return (
       <p>
         Please <Link href="/accounts/login/">sign in</Link> to manage your

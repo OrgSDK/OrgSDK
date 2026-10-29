@@ -1,13 +1,13 @@
 "use client";
 import { useCallback, useEffect } from "react";
-import { api } from "../../api/client";
-import { result } from "../../api/result";
+import { trpc } from "../../api/trpc";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
-import type { components } from "../../api/schema";
-import { activeStatuses, type Run } from "./run-display";
+import type { Run, RunEvent } from "../../api/types";
+import { activeStatuses } from "./run-display";
+import { subscribeToRunUpdates } from "./run-subscription";
 interface RunData {
   run: Run;
-  events: components["schemas"]["Event"][];
+  events: RunEvent[];
 }
 export function useRunDetail(
   id: string,
@@ -15,40 +15,20 @@ export function useRunDetail(
   const load = useCallback(
     async (signal: AbortSignal): Promise<RunData> => {
       const [run, events] = await Promise.all([
-        api.GET("/api/v1/runs/{id}/", { signal, params: { path: { id } } }),
-        api.GET("/api/v1/runs/{id}/events/", {
-          signal,
-          params: { path: { id } },
-        }),
+        trpc.runs.get.query({ id }, { signal }),
+        trpc.runs.events.query({ id }, { signal }),
       ]);
-      return { run: result(run), events: result(events) };
+      return { run, events };
     },
     [id],
   );
   const query = useWorkspaceQuery(load, 3000);
-  const status = query.data?.run.status;
+  const current = query.data?.run.id === id ? query.data : undefined;
+  const status = current?.run.status;
   const { refresh } = query;
   useEffect(() => {
     if (!status || !activeStatuses.includes(status)) return;
-    const stream = new EventSource(`/api/v1/runs/${id}/stream/`);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const update = (): void => {
-      if (timer) return;
-      timer = setTimeout(() => {
-        timer = undefined;
-        void refresh();
-      }, 400);
-    };
-    stream.addEventListener("message", update);
-    stream.addEventListener("complete", () => {
-      stream.close();
-      clearTimeout(timer);
-      void refresh();
-    });
-    return () => {
-      clearTimeout(timer);
-      stream.close();
-    };
+    return subscribeToRunUpdates(id, refresh);
   }, [id, status, refresh]);
-  return { ...query, data: query.data?.run.id === id ? query.data : undefined };
+  return { ...query, data: current };
 }

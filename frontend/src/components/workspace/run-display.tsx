@@ -1,3 +1,4 @@
+import type { Project, Run } from "../../api/types";
 import {
   Activity,
   CheckCircle2,
@@ -6,15 +7,14 @@ import {
   XCircle,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import type { components } from "../../api/schema";
-export type Run = components["schemas"]["Run"];
+export type { Run } from "../../api/types";
 export const activeStatuses: Run["status"][] = [
   "queued",
   "running",
   "waiting_approval",
 ];
 export function RunStatus({ status }: { status: Run["status"] }): ReactNode {
-  const icons = {
+  const icons: Record<string, typeof Clock3> = {
     succeeded: CheckCircle2,
     waiting_approval: ShieldAlert,
     running: Activity,
@@ -23,7 +23,7 @@ export function RunStatus({ status }: { status: Run["status"] }): ReactNode {
     cancelled: XCircle,
     interrupted: XCircle,
   };
-  const Icon = icons[status];
+  const Icon = icons[status] ?? Clock3;
   return (
     <span className={`run-status status-${status}`}>
       <Icon size={13} aria-hidden="true" />
@@ -63,14 +63,12 @@ export function runOperationLabel(operation: Run["operation"]): string {
     validate: "Code validation",
     test: "Action tests",
   };
-  return labels[operation];
+  return labels[operation] ?? operation.replaceAll("_", " ");
 }
-export function runLabel(
-  run: Run,
-  agents: components["schemas"]["Agent"][],
-): string {
-  const agent = agents.find((item) => item.id === run.agent)?.name ?? "Agent";
+export function runLabel(run: Run, projects: Project[]): string {
+  const project =
+    projects.find((item) => item.id === run.project)?.name ?? "Project";
   return run.operation === "chat"
-    ? `${agent} · ${textField(run.inputs, "message").slice(0, 70)}`
-    : `${agent} · ${runOperationLabel(run.operation)}`;
+    ? `${project} · ${textField(run.inputs, "message").slice(0, 70)}`
+    : `${project} · ${runOperationLabel(run.operation)}`;
 }

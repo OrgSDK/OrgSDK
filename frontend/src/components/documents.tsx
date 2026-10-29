@@ -1,17 +1,15 @@
 "use client";
+import type { Document } from "../api/types";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { loadDocuments } from "../api/workspace-queries";
-import { api } from "../api/client";
-import { errorMessage, result } from "../api/result";
-import type { components } from "../api/schema";
+import { trpc } from "../api/trpc";
+import { errorMessage } from "../api/result";
 
 export function Documents(): ReactNode {
-  const [documents, setDocuments] = useState<
-    components["schemas"]["Document"][]
-  >([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [selected, setSelected] = useState("");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -32,18 +30,8 @@ export function Documents(): ReactNode {
     try {
       const body = { title, content };
       if (selected)
-        result(
-          await api.PATCH("/api/v1/documents/{id}/", {
-            params: { path: { id: selected } },
-            body,
-          }),
-        );
-      else
-        result(
-          await api.POST("/api/v1/documents/", {
-            body: { ...body, kind: "document" },
-          }),
-        );
+        await trpc.documents.update.mutate({ id: selected, ...body });
+      else await trpc.documents.create.mutate({ ...body, kind: "document" });
       await load();
       setError("");
     } catch (error_) {

@@ -13,8 +13,8 @@ export function pluginIconUrl(marketplace: unknown): string {
   return text(record(marketplace).icon_url);
 }
 
-export function pinnedPluginTools(metadata: unknown[] | null): ToolInspection {
-  if (metadata === null) return { tools: [], isComplete: false };
+export function pinnedPluginTools(metadata: unknown): ToolInspection {
+  if (!Array.isArray(metadata)) return { tools: [], isComplete: false };
   const tools: DeclaredTool[] = [];
   let isComplete = true;
   for (const entry of metadata) {
@@ -47,4 +47,21 @@ export function pinnedPluginTools(metadata: unknown[] | null): ToolInspection {
     });
   }
   return { tools, isComplete };
+}
+
+export interface PluginAuth {
+  type?: string;
+  provider?: string;
+  label?: string;
+  hint?: string;
+}
+
+export function pluginAuth(metadata: unknown): PluginAuth {
+  const auth = record(metadata);
+  return {
+    ...(typeof auth.type === "string" && { type: auth.type }),
+    ...(typeof auth.provider === "string" && { provider: auth.provider }),
+    ...(typeof auth.label === "string" && { label: auth.label }),
+    ...(typeof auth.hint === "string" && { hint: auth.hint }),
+  };
 }

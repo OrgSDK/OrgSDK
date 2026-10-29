@@ -1,52 +1,22 @@
-import type { paths } from "./auth-schema";
-import { createApiClient, api } from "./client";
+import { isTRPCClientError } from "@trpc/client";
+import type { AppRouter } from "../../../server/router";
+import type { RouterOutputs } from "./trpc";
 
-export const auth = createApiClient<paths>();
-
-export async function bootstrapAccount(): Promise<void> {
-  const { response } = await api.GET("/api/v1/session/", { cache: "no-store" });
-  if (!response.ok)
-    throw new Error("Unable to load your session. Reload to try again.");
-}
-
-export class ReauthenticationRequired extends Error {}
-
-export function authResult<T>({
-  data,
-  error,
-  response,
-}: {
-  data?: T;
-  error?: unknown;
-  response: Response;
-}): T {
-  if (data !== undefined && response.ok) return data;
-  if (response.status === 401)
-    throw new ReauthenticationRequired(
-      "Confirm your identity below, then retry your change.",
-    );
-  throw new Error(authError(error));
-}
-
-export function authError(value: unknown): string {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("errors" in value) ||
-    !Array.isArray(value.errors)
-  )
-    return "Unable to complete this request. Please try again.";
-  const messages = value.errors.map((error: unknown) =>
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof error.message === "string"
-      ? error.message
-      : "",
-  );
+export function requiresMfa(
+  session: RouterOutputs["auth"]["browserSession"],
+): boolean {
   return (
-    messages.filter(Boolean).join(" ") ||
-    "Unable to complete this request. Please try again."
+    !session.is_authenticated &&
+    session.flows.some((flow) => flow.id === "mfa_authenticate")
+  );
+}
+
+export const identityConfirmationMessage =
+  "Confirm your identity below, then retry your change.";
+
+export function isReauthenticationRequired(error: unknown): boolean {
+  return (
+    isTRPCClientError<AppRouter>(error) && error.data?.code === "UNAUTHORIZED"
   );
 }
 
@@ -56,12 +26,13 @@ export function safeNextPath(search: string): string {
     !next ||
     !next.startsWith("/") ||
     next.startsWith("//") ||
-    // Reject browser URL normalization of ASCII controls in redirect targets.
-    // eslint-disable-next-line no-control-regex
-    /[\u{0}-\u{20}]/u.test(next) ||
     next.includes("\\")
   )
     return "/";
+  // Browsers normalize ASCII controls before resolving redirect URLs.
+  for (const character of next) {
+    if ((character.codePointAt(0) ?? 0) <= 32) return "/";
+  }
   const url = new URL(next, location.origin);
   return url.origin === location.origin
     ? `${url.pathname}${url.search}${url.hash}`

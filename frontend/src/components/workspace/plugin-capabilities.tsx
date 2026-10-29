@@ -8,7 +8,7 @@ export function PluginCapabilities({
   metadata,
 }: {
   slug: string;
-  metadata: unknown[] | null;
+  metadata: unknown;
 }): ReactNode {
   const { tools, isComplete } = pinnedPluginTools(metadata);
   const [search, setSearch] = useState("");

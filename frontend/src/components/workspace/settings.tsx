@@ -4,8 +4,8 @@ import { WorkspaceLink } from "./workspace-link";
 import { formText } from "../../lib/form-fields";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import { result, errorMessage } from "../../api/result";
+import { trpc } from "../../api/trpc";
+import { errorMessage } from "../../api/result";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 const available = [
@@ -84,11 +84,7 @@ export function Settings({
               setNotice("");
               void (async () => {
                 try {
-                  result(
-                    await api.PATCH("/api/v1/workspaces/current/", {
-                      body: { name },
-                    }),
-                  );
+                  await trpc.workspace.update.mutate({ name });
                   await refreshWorkspace();
                   setNotice("Workspace name saved.");
                 } catch (error_) {

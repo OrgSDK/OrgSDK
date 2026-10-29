@@ -1,7 +1,7 @@
 "use client";
+import type { Project } from "../../api/types";
 import { useState, type ReactNode } from "react";
 import { Braces, ChevronDown, Package, Plus, Search } from "lucide-react";
-import type { components } from "../../api/schema";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { loadPlugins } from "../../api/workspace-queries";
 import { Input } from "../ui/input";
@@ -23,7 +23,7 @@ async function loadPluginPanel(signal: AbortSignal) {
     tools.set(
       plugin.id,
       plugin.distribution === "inline"
-        ? (inspect?.(plugin.source ?? "") ?? { tools: [], isComplete: false })
+        ? (inspect?.(plugin.source) ?? { tools: [], isComplete: false })
         : pinnedPluginTools(plugin.tools),
     );
   }
@@ -37,16 +37,15 @@ function toolAvailabilityNote(isComplete: boolean, isInline: boolean): string {
 }
 
 export function ActionPlugins({
-  agent,
+  project,
 }: {
-  agent: components["schemas"]["Agent"] | undefined;
+  project: Project | undefined;
 }): ReactNode {
   const query = useWorkspaceQuery(loadPluginPanel);
   const [search, setSearch] = useState("");
   const assigned =
-    query.data?.plugins.filter((plugin) =>
-      agent?.plugins.includes(plugin.id),
-    ) ?? [];
+    query.data?.plugins.filter((plugin) => plugin.project === project?.id) ??
+    [];
   const entries = assigned
     .map((plugin) => {
       const inspection = query.data?.tools.get(plugin.id) ?? {
@@ -54,9 +53,12 @@ export function ActionPlugins({
         isComplete: false,
       };
       const tools = inspection.tools;
-      const name = plugin.display_name;
+      const name =
+        typeof plugin.display_name === "string"
+          ? plugin.display_name
+          : plugin.slug;
       const term = search.trim().toLowerCase();
-      const isPluginMatch = `${name} ${plugin.description ?? ""}`
+      const isPluginMatch = `${name} ${plugin.description}`
         .toLowerCase()
         .includes(term);
       return {
@@ -88,7 +90,7 @@ export function ActionPlugins({
         </h3>
         <WorkspaceLink
           className="action-text-link"
-          href={`/plugins/?project=${encodeURIComponent(agent?.id ?? "")}`}
+          href={`/plugins/?project=${encodeURIComponent(project?.id ?? "")}`}
         >
           <Plus size={14} /> {assigned.length > 0 ? "Manage" : "Add plugin"}
         </WorkspaceLink>
@@ -107,9 +109,9 @@ export function ActionPlugins({
         </label>
       ) : null}
       <p className="small action-panel-caption">
-        {agent
-          ? `Available to ${agent.name}`
-          : "Choose an agent to see its plugins."}
+        {project
+          ? `Available to ${project.name}`
+          : "Choose a project to see its plugins."}
       </p>
       <ResourceState {...query} />
       {!query.isLoading && !query.error && entries.length === 0 ? (
@@ -121,7 +123,7 @@ export function ActionPlugins({
           <p>
             {search
               ? "Try another plugin or tool name."
-              : "Explore the marketplace, then assign plugins to this action’s agent to use them in your workflow."}
+              : "Explore the marketplace, then assign plugins to this action’s project to use them in your workflow."}
           </p>
           {search ? null : (
             <WorkspaceLink

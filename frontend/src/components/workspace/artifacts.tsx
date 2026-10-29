@@ -29,7 +29,7 @@ export function Artifacts({
           <span className="badge">{query.data?.length ?? 0} files</span>
         </div>
         <p className="small">
-          Markdown, JSON and text produced by your agents and actions.
+          Markdown, JSON and text produced by your projects and actions.
         </p>
         <label className="search-field">
           <Search size={15} />
@@ -56,8 +56,7 @@ export function Artifacts({
             <div>
               <strong>{item.name}</strong>
               <small>
-                {item.media_type ?? "text/plain"} ·{" "}
-                {new Blob([item.content]).size} bytes
+                {item.media_type} · {new Blob([item.content]).size} bytes
               </small>
             </div>
             <Button
@@ -95,7 +94,7 @@ export function Artifacts({
               </Button>
             </div>
           </div>
-          {artifact.media_type?.includes("markdown") ||
+          {artifact.media_type.includes("markdown") ||
           artifact.name.endsWith(".md") ? (
             <MarkdownContent content={artifact.content} />
           ) : (

@@ -1,9 +1,8 @@
 "use client";
+import type { Project } from "../api/types";
 import { Search } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
-import type { components } from "../api/schema";
-import { api } from "../api/client";
-import { result } from "../api/result";
+import { trpc } from "../api/trpc";
 import { useWorkspaceQuery } from "../api/use-workspace-query";
 import { loadRuns } from "../api/workspace-queries";
 import { Button } from "./ui/button";
@@ -13,12 +12,12 @@ import { RunStatus, runLabel } from "./workspace/run-display";
 import { useWorkspace } from "./workspace/workspace-context";
 import { RunDetail } from "./workspace/run-detail";
 export function Runs({
-  agents,
+  projects,
   selected,
   onSelect,
   actionId = "",
 }: {
-  agents: components["schemas"]["Agent"][];
+  projects: Project[];
   selected: string;
   onSelect: (id: string) => void;
   actionId?: string;
@@ -29,13 +28,7 @@ export function Runs({
       const [runs, versions] = await Promise.all([
         loadRuns(signal),
         actionId
-          ? (async () =>
-              result(
-                await api.GET("/api/v1/actions/{id}/versions/", {
-                  signal,
-                  params: { path: { id: actionId } },
-                }),
-              ))()
+          ? trpc.actions.versions.query({ id: actionId }, { signal })
           : undefined,
       ]);
       const versionIds = new Set(versions?.map((version) => version.id));
@@ -59,7 +52,7 @@ export function Runs({
         run.project === projectId &&
         (!status || run.status === status) &&
         (!operation || run.operation === operation) &&
-        `${runLabel(run, agents)} ${run.id}`
+        `${runLabel(run, projects)} ${run.id}`
           .toLowerCase()
           .includes(search.toLowerCase()),
     ) ?? [];
@@ -79,7 +72,7 @@ export function Runs({
       <RunDetail
         key={selected}
         id={selected}
-        agents={agents}
+        projects={projects}
         back={() => {
           onSelect("");
         }}
@@ -94,7 +87,7 @@ export function Runs({
       </div>
       <p className="small">
         Project:{" "}
-        {agents.find((project) => project.id === projectId)?.name ??
+        {projects.find((project) => project.id === projectId)?.name ??
           "Choose a project"}
       </p>
       <div className="resource-toolbar">
@@ -170,7 +163,7 @@ export function Runs({
             {runs.map((run) => (
               <tr key={run.id}>
                 <td>
-                  <strong>{runLabel(run, agents)}</strong>
+                  <strong>{runLabel(run, projects)}</strong>
                   <small className="block muted">{run.id.slice(0, 8)}</small>
                 </td>
                 <td>

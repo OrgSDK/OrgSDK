@@ -1,5 +1,5 @@
 "use client";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Settings } from "../../../components/workspace/settings";
 import { useWorkspace } from "../../../components/workspace/workspace-context";
 export default function Page(): ReactNode {

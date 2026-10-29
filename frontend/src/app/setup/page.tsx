@@ -1,29 +1,14 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import { result, errorMessage } from "../../api/result";
+import { trpc, type RouterOutputs } from "../../api/trpc";
+import { errorMessage } from "../../api/result";
 import { AccountShell } from "../../components/accounts/account-shell";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { formText } from "../../lib/form-fields";
-import type { components } from "../../api/schema";
 
-type SetupStatus = components["schemas"]["InstallationSetupStatus"];
-function validationMessage(error: unknown): string {
-  if (typeof error !== "object" || error === null)
-    return "Setup failed. Please try again.";
-  return Object.entries(error)
-    .map(([field, messages]) => {
-      const message = Array.isArray(messages)
-        ? messages.join(" ")
-        : String(messages);
-      return ["detail", "non_field_errors"].includes(field)
-        ? message
-        : `${field.replaceAll("_", " ")}: ${message}`;
-    })
-    .join(" ");
-}
+type SetupStatus = RouterOutputs["auth"]["setupStatus"];
 export default function SetupPage(): ReactNode {
   const [status, setStatus] = useState<SetupStatus>();
   const [error, setError] = useState("");
@@ -32,10 +17,10 @@ export default function SetupPage(): ReactNode {
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
-    void api
-      .GET("/api/v1/setup/", { signal: controller.signal })
+    void trpc.auth.setupStatus
+      .query(undefined, { signal: controller.signal })
       .then((response) => {
-        if (!controller.signal.aborted) setStatus(result(response));
+        if (!controller.signal.aborted) setStatus(response);
       })
       .catch((error_: unknown) => {
         if (!controller.signal.aborted) setError(errorMessage(error_));
@@ -75,20 +60,18 @@ export default function SetupPage(): ReactNode {
             setError("");
             void (async () => {
               try {
-                const response = await api.POST("/api/v1/setup/", {
-                  body: {
-                    domain: status.hostname,
-                    workspace_name: formText(fields, "workspace_name"),
-                    username: formText(fields, "username"),
-                    email: formText(fields, "email"),
-                    password1: formText(fields, "password1"),
-                    password2: formText(fields, "password2"),
-                    project_name: formText(fields, "project_name"),
-                  },
+                const password = formText(fields, "password1");
+                if (password !== formText(fields, "password2"))
+                  throw new Error("The passwords do not match.");
+                await trpc.auth.setup.mutate({
+                  domain: status.hostname,
+                  workspace_name: formText(fields, "workspace_name"),
+                  username: formText(fields, "username"),
+                  email: formText(fields, "email"),
+                  password1: password,
+                  password2: formText(fields, "password2"),
+                  project_name: formText(fields, "project_name"),
                 });
-                if (response.error !== undefined)
-                  throw new Error(validationMessage(response.error));
-                result(response);
                 setComplete(true);
               } catch (error_) {
                 setError(errorMessage(error_));

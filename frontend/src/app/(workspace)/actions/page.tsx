@@ -1,18 +1,16 @@
 "use client";
-import { Suspense, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { Actions } from "../../../components/workspace/actions";
 import { ActionIndex } from "../../../components/workspace/action-index";
 import { useWorkspace } from "../../../components/workspace/workspace-context";
 export default function Page(): ReactNode {
-  return (
-    <Suspense fallback={<p role="status">Loading…</p>}>
-      <Content />
-    </Suspense>
-  );
-}
-function Content(): ReactNode {
-  const { agents, selected: projectId, setDirty, navigateTo } = useWorkspace();
+  const {
+    projects,
+    selected: projectId,
+    setDirty,
+    navigateTo,
+  } = useWorkspace();
   const parameters = useSearchParams();
   const selectedId = parameters.get("action") ?? "";
   const isCreating = parameters.get("new") === "1";
@@ -20,7 +18,7 @@ function Content(): ReactNode {
   return (
     <Actions
       key={selectedId}
-      agents={agents}
+      projects={projects}
       onDirtyChange={setDirty}
       selectedId={selectedId}
       onSelect={(id) => {

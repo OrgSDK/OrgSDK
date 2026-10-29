@@ -1,38 +1,28 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import {
-  auth,
-  authError,
-  bootstrapAccount,
-  finishSignIn,
-} from "../../api/auth";
+import { finishSignIn, requiresMfa } from "../../api/auth";
+import { loadSession, trpc } from "../../api/trpc";
 import { AccountShell } from "./account-shell";
 import { AccountField, AccountForm } from "./account-form";
 import { formText } from "../../lib/form-fields";
 
-async function authenticate(
+function authenticate(
   fields: FormData,
   isSignup: boolean,
   hasChallenge: boolean,
 ) {
   if (hasChallenge)
-    return auth.POST("/api/auth/browser/v1/auth/2fa/authenticate", {
-      body: { code: formText(fields, "code") },
-    });
+    return trpc.auth.mfaAuthenticate.mutate({ code: formText(fields, "code") });
   if (isSignup)
-    return auth.POST("/api/auth/browser/v1/auth/signup", {
-      body: {
-        email: formText(fields, "email"),
-        username: formText(fields, "username"),
-        password: formText(fields, "password"),
-      },
-    });
-  return auth.POST("/api/auth/browser/v1/auth/login", {
-    body: {
+    return trpc.auth.signup.mutate({
       email: formText(fields, "email"),
+      username: formText(fields, "username"),
       password: formText(fields, "password"),
-    },
+    });
+  return trpc.auth.login.mutate({
+    email: formText(fields, "email"),
+    password: formText(fields, "password"),
   });
 }
 
@@ -41,27 +31,31 @@ export function SignIn({ signup = false }: { signup?: boolean }): ReactNode {
   const [error, setError] = useState("");
   const [challenge, setChallenge] = useState(false);
   useEffect(() => {
-    void bootstrapAccount()
-      .then(async () => {
-        const session = await auth.GET("/api/auth/browser/v1/auth/session", {
-          cache: "no-store",
-        });
-        const body = session.data ?? session.error;
-        if ("meta" in body && body.meta.is_authenticated) {
+    const controller = new AbortController();
+    void loadSession(controller.signal)
+      .then(() =>
+        trpc.auth.browserSession.query(undefined, {
+          signal: controller.signal,
+        }),
+      )
+      .then((session) => {
+        if (controller.signal.aborted) return;
+        if (session.is_authenticated) {
           finishSignIn();
           return;
         }
-        if (
-          "data" in body &&
-          "flows" in body.data &&
-          body.data.flows.some((flow) => flow.id === "mfa_authenticate")
-        )
-          setChallenge(true);
+        setChallenge(requiresMfa(session));
         setReady(true);
       })
       .catch(() => {
-        setError("Unable to load your session. Reload this page to try again.");
+        if (!controller.signal.aborted)
+          setError(
+            "Unable to load your session. Reload this page to try again.",
+          );
       });
+    return () => {
+      controller.abort();
+    };
   }, []);
   const title = signup ? "Create your account" : "Welcome back";
   const submitLabel = signup ? "Create account" : "Sign in";
@@ -84,21 +78,16 @@ export function SignIn({ signup = false }: { signup?: boolean }): ReactNode {
         <AccountForm
           submitLabel={challenge ? "Verify code" : submitLabel}
           onSubmit={async (fields) => {
-            const result = await authenticate(fields, signup, challenge);
-            const body = result.data ?? result.error;
-            if ("meta" in body && body.meta.is_authenticated) {
+            const session = await authenticate(fields, signup, challenge);
+            if (session.is_authenticated) {
               finishSignIn();
               return "";
             }
-            if (
-              "data" in body &&
-              "flows" in body.data &&
-              body.data.flows.some((flow) => flow.id === "mfa_authenticate")
-            ) {
+            if (requiresMfa(session)) {
               setChallenge(true);
               return "";
             }
-            throw new Error(authError(body));
+            throw new Error("Unable to sign in. Please try again.");
           }}
         >
           {challenge ? (

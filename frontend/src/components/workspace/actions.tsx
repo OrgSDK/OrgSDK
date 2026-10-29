@@ -1,4 +1,5 @@
 "use client";
+import type { Action, Project, ActionVersion } from "../../api/types";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
@@ -31,10 +32,9 @@ import {
   Save,
 } from "lucide-react";
 import { parseActionJSON } from "./action-json";
-import { api } from "../../api/client";
+import { trpc } from "../../api/trpc";
 import { loadActions, loadRuns } from "../../api/workspace-queries";
-import { result, errorMessage, requireSuccess } from "../../api/result";
-import type { components } from "../../api/schema";
+import { errorMessage } from "../../api/result";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { ActionPlugins } from "./action-plugins";
 import { ActionResults, ActionRunHistory } from "./action-results";
@@ -50,17 +50,16 @@ const Editor = dynamic(
   },
   { ssr: false },
 );
-type Action = components["schemas"]["Action"];
-type Version = components["schemas"]["Version"];
+
 const initialSource =
   'const { name } = actionParams;\nreturn `Hello, ${name ?? "world"}!`;';
 function ActionWorkspace({
-  agents,
+  projects,
   onDirtyChange,
   selectedId,
   onSelect,
 }: {
-  agents: components["schemas"]["Agent"][];
+  projects: Project[];
   onDirtyChange: (isDirty: boolean) => void;
   selectedId: string;
   onSelect: (id: string) => void;
@@ -70,11 +69,11 @@ function ActionWorkspace({
   const canDiscardChanges = useDiscardConfirmation();
   const [actions, setActions] = useState<Action[]>([]);
   const [selected, setSelected] = useState<Action | undefined>();
-  const [agent, setAgent] = useState(projectId || (agents[0]?.id ?? ""));
+  const [project, setProject] = useState(projectId || (projects[0]?.id ?? ""));
   const [name, setName] = useState("");
   const [source, setSource] = useState(initialSource);
   const [savedSource, setSavedSource] = useState(initialSource);
-  const [versions, setVersions] = useState<Version[]>([]);
+  const [versions, setVersions] = useState<ActionVersion[]>([]);
   const [versionId, setVersionId] = useState("");
   const initialSchema = '{"type":"object"}';
   const [testsDirty, setTestsDirty] = useState(false);
@@ -118,12 +117,11 @@ function ActionWorkspace({
   const savedStatus = latest ? "Saved" : "Draft";
   const editStatus = isDirty ? "Unsaved changes" : savedStatus;
   const isHistorical = !!versionId && versionId !== latest?.id;
-  const canRun =
-    !!selected && selected.enabled !== false && !!versionId && !isDirty;
+  const canRun = !!selected && selected.enabled && !!versionId && !isDirty;
   const scheduleUnavailableReason = (): string => {
     if (!selected || !latest)
       return "Save this action before creating a schedule.";
-    if (selected.enabled === false)
+    if (!selected.enabled)
       return "Enable this action before creating a schedule.";
     return isHistorical
       ? "Choose the latest version before creating a schedule."
@@ -138,7 +136,7 @@ function ActionWorkspace({
         const allActions = await loadActions(controller.signal);
         controller.signal.throwIfAborted();
         const list = allActions.filter(
-          (action) => (action.project ?? action.agent) === projectId,
+          (action) => action.project === projectId,
         );
         setActions(list);
         if (selectedId) {
@@ -147,17 +145,15 @@ function ActionWorkspace({
             throw new Error(
               "This action does not exist or is not available in this workspace.",
             );
-          const data = result(
-            await api.GET("/api/v1/actions/{id}/versions/", {
-              params: { path: { id: action.id } },
-              signal: controller.signal,
-            }),
+          const data = await trpc.actions.versions.query(
+            { id: action.id },
+            { signal: controller.signal },
           );
           controller.signal.throwIfAborted();
           const ordered = data.toSorted((a, b) => b.number - a.number);
           const version = ordered[0];
           setSelected(action);
-          setAgent(action.project ?? action.agent ?? projectId);
+          setProject(action.project);
           setName(action.name);
           setVersions(ordered);
           setVersionId(version?.id ?? "");
@@ -266,38 +262,42 @@ function ActionWorkspace({
     setVersionId(version.id);
     setSource(version.source);
     setSavedSource(version.source);
-    const schema = JSON.stringify(version.input_schema ?? { type: "object" });
+    const schema = JSON.stringify(version.input_schema);
     setInputSchema(schema);
     setSavedSchema(schema);
-    const output = JSON.stringify(version.output_schema ?? {});
+    const output = JSON.stringify(version.output_schema);
     setOutputSchema(output);
     setSavedOutputSchema(output);
   };
   const save = async (): Promise<void> => {
     if (testsDirty && !(await canDiscardChanges())) return;
-    const parsedSchema: unknown = parseActionJSON(inputSchema);
-    const parsedOutput: unknown = parseActionJSON(outputSchema);
-    let action = selected;
-    if (!action) {
-      action = result(
-        await api.POST("/api/v1/actions/", {
-          body: { project: agent, name: name.trim() },
-        }),
-      );
-      setSelected(action);
-      const createdAction = action;
-      setActions((previous) => [...previous, createdAction]);
+    if (!selected) {
+      const current = await trpc.actions.list.query();
+      if (
+        current.results.some(
+          (action) => action.project === project && action.name === name.trim(),
+        )
+      ) {
+        throw new Error(
+          "An action with this name already exists in this project. Open that action or choose a different name.",
+        );
+      }
     }
-    const saved = result(
-      await api.POST("/api/v1/actions/{id}/versions/", {
-        params: { path: { id: action.id } },
-        body: {
-          source,
-          input_schema: parsedSchema,
-          output_schema: parsedOutput,
-        },
-      }),
-    );
+    const savedResult = await trpc.actions.saveAction.mutate({
+      project,
+      ...(selected && { action: selected.id }),
+      name: name.trim(),
+      source,
+      input_schema: parseActionJSON(inputSchema),
+      output_schema: parseActionJSON(outputSchema),
+    });
+    const action =
+      selected ?? (await trpc.actions.get.query({ id: savedResult.action }));
+    const saved = savedResult.version;
+    if (!selected) {
+      setSelected(action);
+      setActions((previous) => [...previous, action]);
+    }
     setTestsDirty(false);
     setVersions((previous) => [
       saved,
@@ -309,25 +309,20 @@ function ActionWorkspace({
     setSavedOutputSchema(outputSchema);
     setNotice(`Version ${String(saved.number)} saved.`);
     if (selectedId) return;
-    const query = new URLSearchParams({ project: agent, action: action.id });
+    const query = new URLSearchParams({ project, action: action.id });
     router.replace(`/actions/?${query.toString()}`);
   };
   const run = async (): Promise<void> => {
     const version = versions.find((item) => item.id === versionId);
     if (!selected || !canRun || !version) return;
-    const parsed: unknown = parseActionJSON(inputs);
-    const created = result(
-      await api.POST("/api/v1/runs/", {
-        body: {
-          project: agent,
-          action: selected.id,
-          operation: "action",
-          version: version.number,
-          inputs: parsed,
-          idempotency_key: crypto.randomUUID(),
-        },
-      }),
-    );
+    const created = await trpc.runs.create.mutate({
+      project,
+      action: selected.id,
+      operation: "action",
+      version: version.number,
+      inputs: parseActionJSON(inputs),
+      idempotency_key: crypto.randomUUID(),
+    });
     setSelectedRunId(created.id);
     await runQuery.refresh();
     setNotice("Run queued. Follow its progress and results below.");
@@ -427,7 +422,7 @@ function ActionWorkspace({
                 disabled={
                   busy ||
                   !source.trim() ||
-                  (!selected && (!name.trim() || !agent))
+                  (!selected && (!name.trim() || !project))
                 }
                 onClick={() => {
                   void perform(save);
@@ -489,7 +484,7 @@ function ActionWorkspace({
               <Input
                 readOnly
                 value={
-                  agents.find((project) => project.id === projectId)?.name ??
+                  projects.find((project) => project.id === projectId)?.name ??
                   "No project selected"
                 }
               />
@@ -499,7 +494,7 @@ function ActionWorkspace({
             </label>
           </div>
         )}
-        {agents.length === 0 ? (
+        {projects.length === 0 ? (
           <p className="notice">
             Create a project from Projects before saving an action.
           </p>
@@ -619,8 +614,8 @@ function ActionWorkspace({
                       value={source}
                       onChange={setSource}
                       readOnly={busy}
-                      actionId={`${agent}:${selected?.id ?? "new"}:${versionId}`}
-                      projectId={agent}
+                      actionId={`${project}:${selected?.id ?? "new"}:${versionId}`}
+                      projectId={project}
                       theme="light"
                       height="100%"
                     />
@@ -650,7 +645,7 @@ function ActionWorkspace({
                   <h3 id="action-schedule-title">Schedule action</h3>
                   {selected ? (
                     <WorkspaceLink
-                      href={`/schedules/?${new URLSearchParams({ project: agent, action: selected.id }).toString()}`}
+                      href={`/schedules/?${new URLSearchParams({ project, action: selected.id }).toString()}`}
                     >
                       View saved schedules
                     </WorkspaceLink>
@@ -675,12 +670,11 @@ function ActionWorkspace({
                     onClick={() => {
                       void perform(async () => {
                         if (!selected || !canRun) return;
-                        const parsed: unknown = parseActionJSON(inputs);
-                        result(
-                          await api.POST("/api/v1/schedules/", {
-                            body: { action: selected.id, cron, inputs: parsed },
-                          }),
-                        );
+                        await trpc.schedules.create.mutate({
+                          action: selected.id,
+                          cron,
+                          inputs: parseActionJSON(inputs),
+                        });
                         setNotice("Schedule created.");
                       });
                     }}
@@ -732,8 +726,8 @@ function ActionWorkspace({
             aria-label="Plugins and recent runs"
           >
             <ActionPlugins
-              key={agent}
-              agent={agents.find((item) => item.id === agent)}
+              key={project}
+              project={projects.find((item) => item.id === project)}
             />
             <section
               className="action-card action-recent-runs"
@@ -754,8 +748,8 @@ function ActionWorkspace({
           </aside>
         </div>
         <ActionChecks
-          key={`${agent}:${selected?.id ?? "new"}:${versionId}`}
-          project={agent}
+          key={`${project}:${selected?.id ?? "new"}:${versionId}`}
+          project={project}
           action={selected}
           version={versions.find((version) => version.id === versionId)}
           source={source}
@@ -789,12 +783,10 @@ function ActionWorkspace({
               isBusy={busy}
               save={(body) => {
                 void perform(async () => {
-                  const updated = result(
-                    await api.PATCH("/api/v1/actions/{id}/", {
-                      params: { path: { id: selected.id } },
-                      body,
-                    }),
-                  );
+                  const updated = await trpc.actions.update.mutate({
+                    id: selected.id,
+                    ...body,
+                  });
                   setSelected(updated);
                   setActions((previous) =>
                     previous.map((item) =>
@@ -802,31 +794,6 @@ function ActionWorkspace({
                     ),
                   );
                   setNotice("Action settings saved.");
-                });
-              }}
-              remove={() => {
-                void perform(async () => {
-                  if (
-                    !(await canDiscardChanges({
-                      title: "Delete this action?",
-                      description:
-                        "This removes the action and its saved versions. Actions referenced by retained run history cannot be deleted.",
-                      actionLabel: "Delete action",
-                    }))
-                  )
-                    return;
-                  requireSuccess(
-                    await api.DELETE("/api/v1/actions/{id}/", {
-                      params: { path: { id: selected.id } },
-                    }),
-                  );
-                  setActions((previous) =>
-                    previous.filter((item) => item.id !== selected.id),
-                  );
-                  resetEditor();
-                  router.replace(
-                    `/actions/?project=${encodeURIComponent(projectId)}`,
-                  );
                 });
               }}
             />

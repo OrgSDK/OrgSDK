@@ -8,8 +8,7 @@ import {
   Files,
   Terminal,
 } from "lucide-react";
-import { api } from "../../api/client";
-import { result } from "../../api/result";
+import { trpc } from "../../api/trpc";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { loadArtifacts } from "../../api/workspace-queries";
 import { Button } from "../ui/button";
@@ -121,7 +120,7 @@ function RunArtifacts({ run }: { run: Run }): ReactNode {
       ) : null}
       <div className="action-artifact-grid">
         {query.data?.map((artifact) => {
-          const Icon = artifact.media_type?.includes("json")
+          const Icon = artifact.media_type.includes("json")
             ? FileJson
             : FileText;
           return (
@@ -133,7 +132,7 @@ function RunArtifacts({ run }: { run: Run }): ReactNode {
                 <div>
                   <strong title={artifact.name}>{artifact.name}</strong>
                   <small>
-                    {artifact.media_type ?? "text/plain"} ·{" "}
+                    {artifact.media_type} ·{" "}
                     {new Blob([artifact.content]).size.toLocaleString()} B
                   </small>
                 </div>
@@ -165,12 +164,7 @@ function RunArtifacts({ run }: { run: Run }): ReactNode {
 function RunLogs({ run }: { run: Run }): ReactNode {
   const load = useCallback(
     async (signal: AbortSignal) =>
-      result(
-        await api.GET("/api/v1/runs/{id}/events/", {
-          params: { path: { id: run.id } },
-          signal,
-        }),
-      ),
+      trpc.runs.events.query({ id: run.id }, { signal }),
     [run.id],
   );
   const query = useWorkspaceQuery(

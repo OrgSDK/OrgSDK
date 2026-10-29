@@ -3,6 +3,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
   type ReactNode,
@@ -48,13 +49,21 @@ export function DiscardConfirmation({
   const resolve = useRef<((shouldDiscard: boolean) => void) | undefined>(
     undefined,
   );
+  useEffect(
+    () => () => {
+      resolve.current?.(false);
+    },
+    [],
+  );
   const canDiscardChanges = useCallback(
-    (nextOptions = defaultOptions): Promise<boolean> =>
-      new Promise((accept) => {
+    (nextOptions = defaultOptions): Promise<boolean> => {
+      if (resolve.current) return Promise.resolve(false);
+      return new Promise((accept) => {
         setOptions(nextOptions);
         resolve.current = accept;
         setOpen(true);
-      }),
+      });
+    },
     [],
   );
   const finish = (shouldDiscard: boolean): void => {

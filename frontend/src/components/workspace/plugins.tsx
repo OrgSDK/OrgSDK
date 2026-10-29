@@ -4,12 +4,17 @@ import { PluginMarketplace } from "./plugin-marketplace";
 import { PluginConnection } from "./plugin-connection";
 import { PluginIcon } from "./plugin-icon";
 import { PluginCapabilities } from "./plugin-capabilities";
-import { pinnedPluginTools, pluginIconUrl } from "../../lib/plugin-tools";
+import {
+  pinnedPluginTools,
+  pluginIconUrl,
+  pluginAuth,
+} from "../../lib/plugin-tools";
 import { MarkdownContent } from "../markdown-content";
 import { Package, Power } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import { result, errorMessage, requireSuccess } from "../../api/result";
+import { trpc } from "../../api/trpc";
+import { z } from "zod";
+import { errorMessage } from "../../api/result";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { loadCredentials, loadPlugins } from "../../api/workspace-queries";
 import { Button } from "../ui/button";
@@ -17,7 +22,7 @@ import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { useUnsavedChanges } from "./use-unsaved-changes";
 import { useDiscardConfirmation } from "./discard-dialog";
-import type { components } from "../../api/schema";
+import type { Plugin, PluginCatalogEntry } from "../../api/types";
 import { useWorkspace } from "./workspace-context";
 import { ResourceState } from "./resource-state";
 import { WorkspaceLink } from "./workspace-link";
@@ -31,9 +36,9 @@ const Editor = dynamic(
 );
 const initialSource =
   'export const safeFunctions = [{\n  name: "greet",\n  handler: (name: string) => `Hello, ${name}!`\n}];';
-function parseConfig(value: string): unknown {
-  const parsed: unknown = JSON.parse(value);
-  return parsed;
+const pluginConfigSchema = z.record(z.string(), z.json());
+function parseConfig(value: string): z.output<typeof pluginConfigSchema> {
+  return pluginConfigSchema.parse(JSON.parse(value));
 }
 async function loadPluginData(signal: AbortSignal): Promise<{
   plugins: Awaited<ReturnType<typeof loadPlugins>>;
@@ -45,10 +50,8 @@ async function loadPluginData(signal: AbortSignal): Promise<{
   ]);
   return { plugins, credentials };
 }
-async function loadCatalog(
-  signal: AbortSignal,
-): Promise<components["schemas"]["CatalogEntry"][]> {
-  return result(await api.GET("/api/v1/plugins/catalog/", { signal }));
+async function loadCatalog(signal: AbortSignal): Promise<PluginCatalogEntry[]> {
+  return trpc.plugins.catalog.query(undefined, { signal });
 }
 export function Plugins({
   canManage,
@@ -63,10 +66,10 @@ export function Plugins({
     (entry, index, entries) =>
       entries.findIndex((item) => item.slug === entry.slug) === index,
   );
-  const { selected: projectId, agents } = useWorkspace();
-  const project = agents.find((item) => item.id === projectId);
+  const { selected: projectId, projects } = useWorkspace();
+  const project = projects.find((item) => item.id === projectId);
   const plugins = (query.data?.plugins ?? []).filter(
-    (item) => item.agent === projectId,
+    (item) => item.project === projectId,
   );
   const [selected, setSelected] = useState("");
   const [search, setSearch] = useState("");
@@ -92,9 +95,7 @@ export function Plugins({
   const [config, setConfig] = useState("{}");
   const installed = plugins.find((item) => item.id === selected);
   const isExternal = installed?.distribution === "external";
-  const release = catalogQuery.data?.find(
-    (item) => item.slug === installed?.slug,
-  );
+  const auth = pluginAuth(installed?.auth);
   const [isBusy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -127,7 +128,7 @@ export function Plugins({
         <WorkspaceLink href="/projects/?new=1">Create project</WorkspaceLink>
       </section>
     );
-  const applyPlugin = (plugin?: components["schemas"]["Plugin"]): void => {
+  const applyPlugin = (plugin?: Plugin): void => {
     const values = {
       slug: plugin?.slug ?? "",
       version: plugin?.version ?? "1.0.0",
@@ -145,9 +146,7 @@ export function Plugins({
     setConfig(values.configuration);
     setSavedValues(JSON.stringify(values));
   };
-  const selectPlugin = async (
-    plugin?: components["schemas"]["Plugin"],
-  ): Promise<void> => {
+  const selectPlugin = async (plugin?: Plugin): Promise<void> => {
     if (isDirty && !(await canDiscard())) return;
     applyPlugin(plugin);
   };
@@ -234,15 +233,11 @@ export function Plugins({
                     onClick={() => {
                       void perform(async () => {
                         if (isDirty && !(await canDiscard())) return;
-                        const updated = result(
-                          await api.PATCH("/api/v1/plugins/{id}/", {
-                            params: { path: { id: existing.id } },
-                            body: {
-                              version: entry.version,
-                              refresh_bundle: true,
-                            },
-                          }),
-                        );
+                        const updated = await trpc.plugins.update.mutate({
+                          id: existing.id,
+                          version: entry.version,
+                          refresh_bundle: true,
+                        });
                         applyPlugin(updated);
                         setNotice(
                           "Plugin updated for future runs. Older runs still require their original executor image.",
@@ -281,17 +276,13 @@ export function Plugins({
                     onClick={() => {
                       void perform(async () => {
                         if (isDirty && !(await canDiscard())) return;
-                        const plugin = result(
-                          await api.POST("/api/v1/plugins/", {
-                            body: {
-                              slug: entry.slug,
-                              version: entry.version,
-                              distribution: "external",
-                              agent: projectId,
-                              enabled: true,
-                            },
-                          }),
-                        );
+                        const plugin = await trpc.plugins.create.mutate({
+                          project: projectId,
+                          slug: entry.slug,
+                          version: entry.version,
+                          distribution: "external",
+                          enabled: true,
+                        });
                         applyPlugin(plugin);
                         setNotice(
                           "Plugin enabled for the selected project. The runner downloads and verifies its package. Connect credentials if required.",
@@ -332,11 +323,14 @@ export function Plugins({
           <div className="resource-row" key={plugin.id}>
             <PluginIcon url={plugin.icon_url} size={24} />
             <div>
-              <strong>{plugin.display_name}</strong>
+              <strong>
+                {typeof plugin.display_name === "string"
+                  ? plugin.display_name
+                  : plugin.slug}
+              </strong>
               <small>
                 {project.name} · v{plugin.version} ·{" "}
-                {plugin.enabled ? "Enabled" : "Disabled"} ·{" "}
-                {plugin.description ?? "Custom TypeScript tools"}
+                {plugin.enabled ? "Enabled" : "Disabled"} · {plugin.description}
               </small>
             </div>
             <div className="row">
@@ -356,12 +350,10 @@ export function Plugins({
                   disabled={isBusy}
                   onClick={() => {
                     void perform(async () => {
-                      result(
-                        await api.PATCH("/api/v1/plugins/{id}/", {
-                          params: { path: { id: plugin.id } },
-                          body: { enabled: !plugin.enabled },
-                        }),
-                      );
+                      await trpc.plugins.update.mutate({
+                        id: plugin.id,
+                        enabled: !plugin.enabled,
+                      });
                       setNotice(
                         plugin.enabled
                           ? "Plugin disabled for future runs."
@@ -397,7 +389,6 @@ export function Plugins({
               event.preventDefault();
               void perform(async () => {
                 const body = {
-                  slug,
                   version,
                   description,
                   ...(isExternal
@@ -407,12 +398,7 @@ export function Plugins({
                     : { source }),
                   credential: credential || null,
                 };
-                result(
-                  await api.PATCH("/api/v1/plugins/{id}/", {
-                    params: { path: { id: selected } },
-                    body,
-                  }),
-                );
+                await trpc.plugins.update.mutate({ id: selected, ...body });
                 setSavedValues(currentValues);
                 setNotice("Plugin saved for its project.");
               });
@@ -424,7 +410,7 @@ export function Plugins({
                 <Input
                   required
                   value={slug}
-                  disabled={isExternal || isBusy || !canManage}
+                  disabled
                   onChange={(event) => {
                     setSlug(event.target.value);
                   }}
@@ -453,8 +439,7 @@ export function Plugins({
                   <option value="">No credential</option>
                   {query.data?.credentials
                     .filter(
-                      (item) =>
-                        !isExternal || item.provider === release?.auth.provider,
+                      (item) => !isExternal || item.provider === auth.provider,
                     )
                     .map((item) => (
                       <option key={item.id} value={item.id}>
@@ -477,7 +462,7 @@ export function Plugins({
             {isExternal ? (
               <>
                 <p className="small">
-                  {release?.auth.hint ?? "No additional setup instructions."}
+                  {auth.hint ?? "No additional setup instructions."}
                 </p>
                 <p>
                   <WorkspaceLink href="/credentials/">
@@ -555,11 +540,7 @@ export function Plugins({
                       }))
                     )
                       return;
-                    requireSuccess(
-                      await api.DELETE("/api/v1/plugins/{id}/", {
-                        params: { path: { id: selected } },
-                      }),
-                    );
+                    await trpc.plugins.delete.mutate({ id: selected });
                     applyPlugin();
                     setNotice("Plugin removed.");
                   });
@@ -569,21 +550,22 @@ export function Plugins({
               </Button>
             ) : undefined}
           </form>
-          {isExternal && release && canManage && !isDirty ? (
+          {isExternal && canManage && !isDirty ? (
             <PluginConnection
               key={installed.id}
               plugin={installed}
-              auth={release.auth}
+              auth={auth}
               onConnected={async (id) => {
-                const updated = result(
-                  await api.PATCH("/api/v1/plugins/{id}/", {
-                    params: { path: { id: installed.id } },
-                    body: { credential: id },
-                  }),
-                );
-                applyPlugin(updated);
-                await query.refresh();
-                setNotice("Credential connected for this project’s plugin.");
+                try {
+                  const updated = await trpc.plugins.update.mutate({
+                    id: installed.id,
+                    credential: id,
+                  });
+                  applyPlugin(updated);
+                  setNotice("Credential connected for this project’s plugin.");
+                } finally {
+                  await query.refresh();
+                }
               }}
             />
           ) : null}

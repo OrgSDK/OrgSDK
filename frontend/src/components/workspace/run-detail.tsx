@@ -1,9 +1,9 @@
 "use client";
+import type { Project, Run, Artifact } from "../../api/types";
 import { ArrowLeft, Download, RotateCcw, Square } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import { result, errorMessage } from "../../api/result";
-import type { components } from "../../api/schema";
+import { trpc } from "../../api/trpc";
+import { errorMessage } from "../../api/result";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { loadArtifacts } from "../../api/workspace-queries";
 import { Button } from "../ui/button";
@@ -19,11 +19,9 @@ import { useRunDetail } from "./use-run-detail";
 import { ActionCheckReport } from "./action-check-report";
 import { RunPromotion } from "./run-promotion";
 import { ApprovalQueue } from "./approval-queue";
-export function downloadArtifact(
-  artifact: components["schemas"]["Artifact"],
-): void {
+export function downloadArtifact(artifact: Artifact): void {
   const blob = new Blob([artifact.content], {
-    type: artifact.media_type ?? "text/plain",
+    type: artifact.media_type,
   });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -36,7 +34,7 @@ function RunOutcome({
   run,
   hasCheckReport,
 }: {
-  run: components["schemas"]["Run"];
+  run: Run;
   hasCheckReport: boolean;
 }): ReactNode {
   if (hasCheckReport) return <ActionCheckReport output={run.output} />;
@@ -54,14 +52,18 @@ function RunOutcome({
     <pre>{displayValue(run.output) || "Completed without output."}</pre>
   );
 }
+const outcomeTitles: Record<string, string> = {
+  test: "Mocked test results",
+  validate: "Semantic validation diagnostics",
+};
 export function RunDetail({
   id,
-  agents,
+  projects,
   back,
   openRun,
 }: {
   id: string;
-  agents: components["schemas"]["Agent"][];
+  projects: Project[];
   back: () => void;
   openRun: (id: string) => void;
 }): ReactNode {
@@ -80,19 +82,13 @@ export function RunDetail({
     setBusy(true);
     setError("");
     try {
-      if (operation === "cancel")
-        result(
-          await api.POST("/api/v1/runs/{id}/cancel/", {
-            params: { path: { id } },
-          }),
-        );
-      else {
-        const retry = result(
-          await api.POST("/api/v1/runs/{id}/retry/", {
-            params: { path: { id } },
-            body: { idempotency_key: crypto.randomUUID() },
-          }),
-        );
+      if (operation === "cancel") {
+        await trpc.runs.cancel.mutate({ id });
+      } else {
+        const retry = await trpc.runs.retry.mutate({
+          id,
+          idempotency_key: crypto.randomUUID(),
+        });
         openRun(retry.id);
       }
       await query.refresh();
@@ -120,8 +116,8 @@ export function RunDetail({
               <div>
                 <p className="eyebrow">RUN {run.id.slice(0, 8)}</p>
                 <h2>
-                  {agents.find((agent) => agent.id === run.agent)?.name ??
-                    "Agent"}{" "}
+                  {projects.find((project) => project.id === run.project)
+                    ?.name ?? "Project"}{" "}
                   · {runOperationLabel(run.operation)}
                 </h2>
               </div>
@@ -185,34 +181,24 @@ export function RunDetail({
                   "No client token (historical attribution may be unknown)"}
               </dd>
               <dt>SDK revision</dt>
-              <dd>{run.sdk_revision ?? "Legacy / unknown"}</dd>
+              <dd>{displayValue(run.sdk_revision) || "Unknown"}</dd>
               <dt>Configuration revision</dt>
-              <dd>{run.configuration_revision ?? "Legacy / unknown"}</dd>
+              <dd>{displayValue(run.configuration_revision) || "Unknown"}</dd>
               <dt>Immutable action version</dt>
               <dd>{run.action_version ?? "One-off source / none"}</dd>
               <dt>Source digest</dt>
-              <dd>{run.source_digest ?? "Legacy / unknown"}</dd>
+              <dd>{displayValue(run.source_digest) || "Unknown"}</dd>
             </dl>
             {run.source === null ? null : (
               <details>
                 <summary>Accepted source</summary>
-                <pre>{run.source}</pre>
+                <pre>{displayValue(run.source)}</pre>
               </details>
             )}
             {run.operation === "code" && run.source !== null ? (
               <RunPromotion key={run.id} id={run.id} />
             ) : null}
-            <h3>
-              {
-                {
-                  test: "Mocked test results",
-                  validate: "Semantic validation diagnostics",
-                  action: "Outcome",
-                  code: "Outcome",
-                  chat: "Outcome",
-                }[run.operation]
-              }
-            </h3>
+            <h3>{outcomeTitles[run.operation] ?? "Outcome"}</h3>
             <RunOutcome run={run} hasCheckReport={hasCheckReport} />
             <details>
               <summary>Run inputs</summary>

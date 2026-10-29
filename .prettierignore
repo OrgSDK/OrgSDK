@@ -1,0 +1,11 @@
+node_modules/
+frontend/
+runtime/
+dist/
+test-results/
+playwright-report/
+bun.lock
+AGENTS.md
+.opencode/
+.codex/
+server/db/migrations/

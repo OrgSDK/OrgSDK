@@ -1,10 +1,12 @@
 "use client";
 import { CalendarClock, Pause, Play, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import { result, errorMessage, requireSuccess } from "../../api/result";
+import { z } from "zod";
+import { trpc } from "../../api/trpc";
+import type { Schedule } from "../../api/types";
+import { errorMessage } from "../../api/result";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
-import { loadActions, loadSchedules } from "../../api/workspace-queries";
+import { loadActions } from "../../api/workspace-queries";
 import { Button } from "../ui/button";
 import { defaultSchedule, scheduleSummary } from "../../lib/schedule-timing";
 import { SchedulePicker } from "./schedule-picker";
@@ -16,22 +18,20 @@ import { useWorkspace } from "./workspace-context";
 import { WorkspaceLink } from "./workspace-link";
 import { useUnsavedChanges } from "./use-unsaved-changes";
 async function loadScheduleData(signal: AbortSignal): Promise<{
-  schedules: Awaited<ReturnType<typeof loadSchedules>>;
+  schedules: Schedule[];
   actions: Awaited<ReturnType<typeof loadActions>>;
 }> {
   const [schedules, actions] = await Promise.all([
-    loadSchedules(signal),
+    trpc.schedules.list.query(undefined, { signal }),
     loadActions(signal),
   ]);
-  return { schedules, actions };
+  return { schedules: schedules.results, actions };
 }
 export function Schedules({ actionId = "" }: { actionId?: string }): ReactNode {
   const { selected: projectId, setDirty } = useWorkspace();
   const query = useWorkspaceQuery(loadScheduleData);
   const actions = (query.data?.actions ?? []).filter(
-    (item) =>
-      (item.project ?? item.agent) === projectId &&
-      (!actionId || item.id === actionId),
+    (item) => item.project === projectId && (!actionId || item.id === actionId),
   );
   const actionIds = new Set(actions.map((item) => item.id));
   const schedules = (query.data?.schedules ?? []).filter((item) =>
@@ -113,12 +113,10 @@ export function Schedules({ actionId = "" }: { actionId?: string }): ReactNode {
                 disabled={isBusy}
                 onClick={() => {
                   void perform(async () => {
-                    result(
-                      await api.PATCH("/api/v1/schedules/{id}/", {
-                        params: { path: { id: schedule.id } },
-                        body: { enabled: !schedule.enabled },
-                      }),
-                    );
+                    await trpc.schedules.update.mutate({
+                      id: schedule.id,
+                      enabled: !schedule.enabled,
+                    });
                     setNotice(
                       schedule.enabled
                         ? "Schedule paused."
@@ -167,11 +165,7 @@ export function Schedules({ actionId = "" }: { actionId?: string }): ReactNode {
                       }))
                     )
                       return;
-                    requireSuccess(
-                      await api.DELETE("/api/v1/schedules/{id}/", {
-                        params: { path: { id: schedule.id } },
-                      }),
-                    );
+                    await trpc.schedules.delete.mutate({ id: schedule.id });
                     setNotice("Schedule deleted.");
                   });
                 }}
@@ -188,16 +182,13 @@ export function Schedules({ actionId = "" }: { actionId?: string }): ReactNode {
           onSubmit={(event) => {
             event.preventDefault();
             void perform(async () => {
-              const parsed: unknown = JSON.parse(inputs);
+              const parsed = z
+                .record(z.string(), z.json())
+                .parse(JSON.parse(inputs));
               const body = { action, cron, inputs: parsed };
               if (selected)
-                result(
-                  await api.PATCH("/api/v1/schedules/{id}/", {
-                    params: { path: { id: selected } },
-                    body,
-                  }),
-                );
-              else result(await api.POST("/api/v1/schedules/", { body }));
+                await trpc.schedules.update.mutate({ id: selected, ...body });
+              else await trpc.schedules.create.mutate(body);
               setNotice("Schedule saved.");
               resetDraft();
             });

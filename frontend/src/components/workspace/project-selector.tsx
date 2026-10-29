@@ -10,12 +10,7 @@ export function ProjectSelector({
 }: {
   onNavigate: () => void;
 }): ReactNode {
-  const {
-    agents: projects,
-    selected,
-    switchProject,
-    canManage,
-  } = useWorkspace();
+  const { projects, selected, switchProject, canManage } = useWorkspace();
   return (
     <div className="border-b border-slate-200 px-4 py-4">
       <label

@@ -1,6 +1,7 @@
 "use client";
 import type { ReactNode } from "react";
-import { auth, authResult, finishSignIn } from "../../api/auth";
+import { finishSignIn } from "../../api/auth";
+import { trpc } from "../../api/trpc";
 import { AccountShell } from "./account-shell";
 import { AccountAccess } from "./account-access";
 import { AccountForm } from "./account-form";
@@ -14,11 +15,7 @@ export function SignOut(): ReactNode {
         <AccountForm
           submitLabel="Sign out"
           onSubmit={async () => {
-            const result = await auth.DELETE(
-              "/api/auth/browser/v1/auth/session",
-            );
-            // Allauth returns the anonymous session with status 401 after logging out.
-            if (result.response.status !== 401) authResult(result);
+            await trpc.auth.logout.mutate();
             finishSignIn();
             return "";
           }}

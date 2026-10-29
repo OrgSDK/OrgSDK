@@ -1,20 +1,15 @@
 "use client";
 import { MailPlus, Trash2, Users } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { api } from "../api/client";
-import { result, errorMessage, requireSuccess } from "../api/result";
-import type { components } from "../api/schema";
+import { useCallback, useState, type ReactNode } from "react";
+import { trpc } from "../api/trpc";
+import type { Invitation } from "../api/types";
+import { errorMessage } from "../api/result";
 import { useWorkspaceQuery } from "../api/use-workspace-query";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ResourceState } from "./workspace/resource-state";
 import { useDiscardConfirmation } from "./workspace/discard-dialog";
-async function loadMembers(
-  signal: AbortSignal,
-): Promise<components["schemas"]["WorkspaceDetail"]> {
-  return result(await api.GET("/api/v1/workspaces/current/", { signal }));
-}
-function invitationStatus(invite: components["schemas"]["Invitation"]): string {
+function invitationStatus(invite: Invitation): string {
   if (invite.accepted_at) return "Accepted";
   if (invite.revoked_at) return "Revoked";
   return new Date(invite.expires_at) < new Date() ? "Expired" : "Pending";
@@ -24,7 +19,13 @@ export function Members({
 }: {
   onChanged: () => Promise<void>;
 }): ReactNode {
-  const query = useWorkspaceQuery(loadMembers);
+  const query = useWorkspaceQuery(
+    useCallback(
+      (signal: AbortSignal) =>
+        trpc.workspace.current.query(undefined, { signal }),
+      [],
+    ),
+  );
   const canConfirm = useDiscardConfirmation();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "member">("member");
@@ -75,12 +76,10 @@ export function Members({
                   const nextRole =
                     event.target.value === "admin" ? "admin" : "member";
                   void perform(async () => {
-                    result(
-                      await api.PATCH("/api/v1/workspaces/members/{id}/", {
-                        params: { path: { id: member.id } },
-                        body: { role: nextRole },
-                      }),
-                    );
+                    await trpc.workspace.updateMember.mutate({
+                      id: member.id,
+                      role: nextRole,
+                    });
                     setNotice("Member role updated.");
                   });
                 }}
@@ -109,11 +108,7 @@ export function Members({
                       }))
                     )
                       return;
-                    requireSuccess(
-                      await api.DELETE("/api/v1/workspaces/members/{id}/", {
-                        params: { path: { id: member.id } },
-                      }),
-                    );
+                    await trpc.workspace.removeMember.mutate({ id: member.id });
                     setNotice("Member removed.");
                   });
                 }}
@@ -136,11 +131,9 @@ export function Members({
                       }))
                     )
                       return;
-                    requireSuccess(
-                      await api.POST("/api/v1/workspaces/ownership/", {
-                        body: { membership_id: member.id },
-                      }),
-                    );
+                    await trpc.workspace.transferOwnership.mutate({
+                      membership_id: member.id,
+                    });
                     setNotice("Ownership transferred.");
                   });
                 }}
@@ -161,11 +154,7 @@ export function Members({
               onSubmit={(event) => {
                 event.preventDefault();
                 void perform(async () => {
-                  result(
-                    await api.POST("/api/v1/workspaces/invitations/", {
-                      body: { email, role },
-                    }),
-                  );
+                  await trpc.workspace.invite.mutate({ email, role });
                   setEmail("");
                   setNotice("Invitation queued.");
                 });
@@ -231,12 +220,9 @@ export function Members({
                     disabled={isBusy}
                     onClick={() => {
                       void perform(async () => {
-                        requireSuccess(
-                          await api.DELETE(
-                            "/api/v1/workspaces/invitations/{id}/",
-                            { params: { path: { id: invite.id } } },
-                          ),
-                        );
+                        await trpc.workspace.revokeInvitation.mutate({
+                          id: invite.id,
+                        });
                         setNotice("Invitation revoked.");
                       });
                     }}

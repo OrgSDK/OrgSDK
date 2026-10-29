@@ -6,7 +6,7 @@ This attribution is included in the executor npm package alongside the retained
 source. It records origin and modifications; it does not grant a new license or
 replace any applicable upstream copyright and permission notices.
 
-Sandbox, CPU budgeting, TypeScript validation/transpilation, function proxies, secret redaction, plugin namespacing, plugin types and retry utilities are retained from packages/daemon/src. Local changes replace repository-specific logging/constants and the database AgentRow type. Product orchestration uses Django APIs rather than the old AllStores/Postgres boot path. Original tests are retained where their dependencies belong to this extracted engine.
+Sandbox, CPU budgeting, TypeScript validation/transpilation, function proxies, secret redaction, plugin namespacing, plugin types and retry utilities are retained from packages/daemon/src. Local changes replace repository-specific logging/constants and the database AgentRow type. Product orchestration uses scoped OrgSDK HTTP APIs rather than the old AllStores/Postgres boot path. Original tests are retained where their dependencies belong to this extracted engine.
 
 The eleven vendored product plugins and generated bundled catalog have been removed. Plugins are independently released, self-contained ESM artifacts, verified against the snapshot SHA256 before execution. No external plugin source is included in this package. The retained factory-context and safeFunctions adapter derives from the previously integrated OrgSDK plugin interface.
 

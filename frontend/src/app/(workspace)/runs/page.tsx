@@ -1,25 +1,18 @@
 "use client";
-import { Suspense, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { ActionScope } from "../../../components/workspace/action-navigation";
 import { Runs } from "../../../components/runs";
 import { useWorkspace } from "../../../components/workspace/workspace-context";
 export default function Page(): ReactNode {
-  return (
-    <Suspense fallback={<p role="status">Loading…</p>}>
-      <Content />
-    </Suspense>
-  );
-}
-function Content(): ReactNode {
-  const { agents, selected: project, navigateTo } = useWorkspace();
+  const { projects, selected: project, navigateTo } = useWorkspace();
   const parameters = useSearchParams();
   return (
     <ActionScope current="runs">
       {(actionId) => (
         <Runs
           key={`${project}:${actionId}`}
-          agents={agents}
+          projects={projects}
           actionId={actionId}
           selected={parameters.get("run") ?? ""}
           onSelect={(run) => {

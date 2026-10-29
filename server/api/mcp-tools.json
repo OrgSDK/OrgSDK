@@ -1,0 +1,465 @@
+[
+  {
+    "name": "list_projects",
+    "description": "List permitted projects and runner availability.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "mutates": false
+  },
+  {
+    "name": "get_project_sdk",
+    "description": "Discover the static execution SDK without credentials.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": ["project"],
+      "additionalProperties": false
+    },
+    "mutates": false
+  },
+  {
+    "name": "execute_code",
+    "description": "Accept a durable one-off program (source and inputs each at most 200000 UTF-8 bytes).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inputs": {
+          "type": "object"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": ["project", "source", "idempotency_key"],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
+    "name": "get_run_events",
+    "description": "Poll ordered run events using an after-sequence cursor.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "after": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "mutates": false
+  },
+  {
+    "name": "cancel_run",
+    "description": "Request cancellation of an authorized run.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
+    "name": "list_actions",
+    "description": "List permitted saved actions (at most 100 per page).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "mutates": false
+  },
+  {
+    "name": "get_action",
+    "description": "Read one explicit immutable action version.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": ["action", "version"],
+      "additionalProperties": false
+    },
+    "mutates": false
+  },
+  {
+    "name": "validate_code",
+    "description": "Queue isolated semantic TypeScript validation without executing source.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_schema": {
+          "type": "object"
+        },
+        "output_schema": {
+          "type": "object"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": ["project", "source", "idempotency_key"],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
+    "name": "promote_run",
+    "description": "Save the exact source of an authorized one-off run as an immutable draft.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "action": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "input_schema": {
+          "type": "object"
+        },
+        "output_schema": {
+          "type": "object"
+        }
+      },
+      "required": ["id", "name", "input_schema", "output_schema"],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
+    "name": "save_tests",
+    "description": "Save a new immutable mocked-test suite for an explicit action version.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "inputs": {
+                "type": "object"
+              },
+              "expected": {},
+              "mocks": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "tool": {
+                      "type": "string",
+                      "maxLength": 201,
+                      "pattern": "^[a-z][a-zA-Z0-9]*(?:\\.[a-z][a-zA-Z0-9]*)?$"
+                    },
+                    "args": {
+                      "type": "array",
+                      "maxItems": 30
+                    },
+                    "result": {},
+                    "error": {
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "times": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    }
+                  },
+                  "required": ["tool", "args"],
+                  "oneOf": [
+                    {
+                      "required": ["result"]
+                    },
+                    {
+                      "required": ["error"]
+                    }
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "forbidden_calls": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "string",
+                  "maxLength": 201,
+                  "pattern": "^[a-z][a-zA-Z0-9]*(?:\\.[a-z][a-zA-Z0-9]*)?$"
+                }
+              }
+            },
+            "required": ["name", "inputs", "expected"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["action", "version", "cases"],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
+    "name": "get_tests",
+    "description": "Read a permitted action test suite; omit suite_revision to inspect latest.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "suite_revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": ["action", "version"],
+      "additionalProperties": false
+    },
+    "mutates": false
+  },
+  {
+    "name": "run_tests",
+    "description": "Queue an explicit saved suite in an isolated container with mocked integrations.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "suite_revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": ["action", "version", "suite_revision", "idempotency_key"],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
+    "name": "save_action",
+    "description": "Save a new immutable action version.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "input_schema": {
+          "type": "object"
+        },
+        "output_schema": {
+          "type": "object"
+        },
+        "action": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": ["project", "name", "source"],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
+    "name": "run_action",
+    "description": "Queue a saved action; returns a run ID.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "action": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "inputs": {
+          "type": "object"
+        },
+        "idempotency_key": {
+          "type": "string"
+        }
+      },
+      "required": ["action", "version", "idempotency_key"],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
+    "name": "get_run",
+    "description": "Read run output and state.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": ["id"],
+      "additionalProperties": false
+    },
+    "mutates": false
+  },
+  {
+    "name": "list_approvals",
+    "description": "Read pending human approvals. Clients cannot approve them.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "mutates": false
+  },
+  {
+    "name": "list_plugins",
+    "description": "Read installed plugin capability metadata.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "mutates": false
+  },
+  {
+    "name": "list_documents",
+    "description": "Read workspace memories and documents.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "mutates": false
+  }
+]

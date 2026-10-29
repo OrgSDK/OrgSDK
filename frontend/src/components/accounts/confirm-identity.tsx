@@ -1,7 +1,7 @@
 "use client";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { auth, authResult } from "../../api/auth";
+import { trpc } from "../../api/trpc";
 import { formText } from "../../lib/form-fields";
 import { AccountField, AccountForm } from "./account-form";
 export function ConfirmIdentity(): ReactNode {
@@ -20,11 +20,9 @@ export function ConfirmIdentity(): ReactNode {
       <AccountForm
         submitLabel="Confirm password"
         onSubmit={async (fields) => {
-          authResult(
-            await auth.POST("/api/auth/browser/v1/auth/reauthenticate", {
-              body: { password: formText(fields, "password") },
-            }),
-          );
+          await trpc.auth.reauthenticate.mutate({
+            password: formText(fields, "password"),
+          });
           return "Identity confirmed. Retry your change.";
         }}
       >
@@ -40,11 +38,9 @@ export function ConfirmIdentity(): ReactNode {
         <AccountForm
           submitLabel="Confirm code"
           onSubmit={async (fields) => {
-            authResult(
-              await auth.POST("/api/auth/browser/v1/auth/2fa/reauthenticate", {
-                body: { code: formText(fields, "code") },
-              }),
-            );
+            await trpc.auth.mfaReauthenticate.mutate({
+              code: formText(fields, "code"),
+            });
             return "Identity confirmed. Retry your change.";
           }}
         >

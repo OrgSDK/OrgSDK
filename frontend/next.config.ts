@@ -20,25 +20,23 @@ const config: NextConfig = {
     ],
     rewrites() {
       const backend =
-        process.env.DJANGO_PROXY_TARGET ?? "http://127.0.0.1:8000";
+        process.env.ORGSDK_PROXY_TARGET ?? "http://127.0.0.1:8080";
       return Promise.resolve([
         {
-          source: "/api/auth/:path*",
-          destination: `${backend}/api/auth/:path*`,
-        },
-        ...["api", "admin", "mcp"].map((prefix) => ({
-          source: `/${prefix}/:path*/`,
-          // Django routes end in a slash; dropping it creates a redirect loop.
-          destination: `${backend}/${prefix}/:path*/`,
-        })),
-        {
-          // The local manager alone can bootstrap runners; never proxy that route.
-          source: "/internal/execution/v1/:path((?!bootstrap(?:/|$)).*)/",
-          destination: `${backend}/internal/execution/v1/:path/`,
+          source: "/trpc/:path*",
+          destination: `${backend}/trpc/:path*`,
         },
         {
-          source: "/static/:path*",
-          destination: `${backend}/static/:path*`,
+          source: "/mcp/:path*",
+          destination: `${backend}/mcp/:path*`,
+        },
+        {
+          source: "/oauth/callback",
+          destination: `${backend}/oauth/callback`,
+        },
+        {
+          source: "/webhooks/:id",
+          destination: `${backend}/webhooks/:id`,
         },
       ]);
     },

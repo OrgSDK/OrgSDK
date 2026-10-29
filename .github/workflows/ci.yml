@@ -14,19 +14,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-        with:
-          version: "0.13.1"
-          enable-cache: true
-      - run: uv sync --locked
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm --prefix frontend ci
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.0"
-      - run: cd runtime && bun install --frozen-lockfile
+      - run: make install
       - run: make check
+      - run: bunx playwright install --with-deps chromium
+      - run: make build
+      - run: ORGSDK_TEST_BINARY=dist/orgsdk bun test server/tests/database-history.test.ts
+      - run: ORGSDK_E2E_BINARY=dist/orgsdk make e2e
+      - run: scripts/smoke-binary.sh

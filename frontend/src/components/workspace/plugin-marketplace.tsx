@@ -1,8 +1,7 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import { result } from "../../api/result";
-import type { components } from "../../api/schema";
+import { trpc } from "../../api/trpc";
+import type { PluginCatalogEntry, MarketplaceEntry } from "../../api/types";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { Input } from "../ui/input";
 import { ResourceState } from "./resource-state";
@@ -10,14 +9,14 @@ import { PluginIcon } from "./plugin-icon";
 
 async function loadMarketplace(
   signal: AbortSignal,
-): Promise<components["schemas"]["MarketplaceListing"][]> {
-  return result(await api.GET("/api/v1/plugins/marketplace/", { signal }));
+): Promise<MarketplaceEntry[]> {
+  return trpc.plugins.marketplace.query(undefined, { signal });
 }
 
 export function PluginMarketplace({
   releases,
 }: {
-  releases: components["schemas"]["CatalogEntry"][];
+  releases: PluginCatalogEntry[];
 }): ReactNode {
   const query = useWorkspaceQuery(loadMarketplace);
   const [search, setSearch] = useState("");
@@ -72,7 +71,9 @@ export function PluginMarketplace({
         {listings.map((item) => (
           <article key={item.slug} className="rounded-lg border p-4">
             <div className="flex items-center gap-3">
-              <PluginIcon url={item.icon_url} />
+              <PluginIcon
+                url={typeof item.icon_url === "string" ? item.icon_url : ""}
+              />
               <h3>{item.display_name}</h3>
             </div>
             <p className="small">
@@ -82,7 +83,9 @@ export function PluginMarketplace({
                 : "Awaiting release"}
             </p>
             <p>{item.description}</p>
-            <p className="small">{item.tool_count} functions</p>
+            {typeof item.tool_count === "number" ? (
+              <p className="small">{item.tool_count} functions</p>
+            ) : null}
             <ul className="my-3 list-inside list-disc text-sm">
               {item.use_cases.map((useCase) => (
                 <li key={useCase}>{useCase}</li>

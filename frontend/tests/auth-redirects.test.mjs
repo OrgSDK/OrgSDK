@@ -48,6 +48,13 @@ test("account redirects accept local paths and reject external or malformed dest
       safeNextPath("?next=%2Fsettings%2F%3Ftab%3Daccount%23password"),
       "/settings/?tab=account#password",
     );
+    for (let code = 0; code <= 32; code += 1) {
+      const destination = `/actions/${String.fromCodePoint(code)}/other.example`;
+      assert.equal(
+        safeNextPath(`?next=${encodeURIComponent(destination)}`),
+        "/",
+      );
+    }
     for (const destination of [
       "https://other.example",
       "//other.example",

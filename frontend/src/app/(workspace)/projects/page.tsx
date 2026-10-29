@@ -2,8 +2,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Folder, Plus } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { api } from "../../../api/client";
-import { result, errorMessage } from "../../../api/result";
+import { trpc } from "../../../api/trpc";
+import { errorMessage } from "../../../api/result";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Workbench } from "../../../components/workbench";
@@ -12,13 +12,7 @@ import { WorkspaceLink } from "../../../components/workspace/workspace-link";
 import { useUnsavedChanges } from "../../../components/workspace/use-unsaved-changes";
 
 export default function Page(): ReactNode {
-  const {
-    agents: projects,
-    selected,
-    setDirty,
-    refresh,
-    navigateTo,
-  } = useWorkspace();
+  const { projects, selected, setDirty, refresh, navigateTo } = useWorkspace();
   const parameters = useSearchParams();
   const current = projects.find((project) => project.id === selected);
   if (parameters.get("new") === "1") {
@@ -42,7 +36,7 @@ export default function Page(): ReactNode {
     return (
       <Workbench
         key={current.id}
-        agent={current}
+        project={current}
         tab={tab}
         refresh={refresh}
         onDirtyChange={setDirty}
@@ -77,9 +71,7 @@ function CreateProject({ onCancel }: { onCancel: () => void }): ReactNode {
     setBusy(true);
     setError("");
     try {
-      const project = result(
-        await api.POST("/api/v1/projects/", { body: { name: name.trim() } }),
-      );
+      const project = await trpc.projects.create.mutate({ name: name.trim() });
       setSelected(project.id);
       await refresh();
       setDirty(false);

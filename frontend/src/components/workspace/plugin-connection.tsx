@@ -1,8 +1,9 @@
 "use client";
+import { trpc } from "../../api/trpc";
 import { useState, type ReactNode } from "react";
-import { api } from "../../api/client";
-import { result, errorMessage } from "../../api/result";
-import type { components } from "../../api/schema";
+import { errorMessage } from "../../api/result";
+import type { Plugin } from "../../api/types";
+import type { PluginAuth } from "../../lib/plugin-tools";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 
@@ -11,8 +12,8 @@ export function PluginConnection({
   auth,
   onConnected,
 }: {
-  plugin: components["schemas"]["Plugin"];
-  auth: components["schemas"]["PluginAuth"];
+  plugin: Plugin;
+  auth: PluginAuth;
   onConnected: (credential: string) => Promise<void>;
 }): ReactNode {
   const [name, setName] = useState(`${plugin.slug} connection`);
@@ -21,36 +22,29 @@ export function PluginConnection({
   const [clientSecret, setClientSecret] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  if (!auth.provider) return null;
+  const provider = auth.provider;
+  if (!provider) return null;
   const connect = async (): Promise<void> => {
     setBusy(true);
     setError("");
     try {
       if (auth.type === "oauth2") {
-        const response = result(
-          await api.POST("/api/v1/credentials/oauth-connect/", {
-            body: {
-              plugin: plugin.id,
-              name,
-              client_id: clientId,
-              client_secret: clientSecret,
-            },
-          }),
-        );
+        const response = await trpc.credentials.beginOAuth.mutate({
+          plugin: plugin.id,
+          name,
+          client_id: clientId,
+          client_secret: clientSecret,
+        });
         setClientSecret("");
         location.assign(response.authorization_url);
         return;
       }
       const field = plugin.slug === "github" ? "secret_token" : "secret_apiKey";
-      const credential = result(
-        await api.POST("/api/v1/credentials/", {
-          body: {
-            name,
-            provider: auth.provider ?? "",
-            secret: { [field]: token },
-          },
-        }),
-      );
+      const credential = await trpc.credentials.create.mutate({
+        name,
+        provider,
+        secret: { [field]: token },
+      });
       setToken("");
       // Keep the created credential visible even if assigning it needs a retry.
       await onConnected(credential.id);
@@ -78,7 +72,7 @@ export function PluginConnection({
           <p>Use your own OAuth application. Register this redirect URL:</p>
           <code className="break-all">
             {typeof window === "undefined" ? "" : location.origin}
-            /api/v1/credentials/oauth-callback/
+            /oauth/callback
           </code>
           <label>
             Client ID
