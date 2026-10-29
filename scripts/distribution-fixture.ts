@@ -74,11 +74,11 @@ export async function startInstallation(
   cli: string,
   directory: string,
   port: number,
-  nodePath: string,
+  runtimePath: string,
 ) {
   const origin = `http://127.0.0.1:${port}`;
   const env: NodeJS.ProcessEnv = {
-    PATH: nodePath,
+    PATH: runtimePath,
     HOME: directory,
     ORGSDK_DATA_DIR: join(directory, "data"),
     HOST: "127.0.0.1",

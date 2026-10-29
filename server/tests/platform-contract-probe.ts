@@ -3,19 +3,26 @@ import { copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { createApp } from "../app";
 import { openStore } from "../db";
+import { openDatabase } from "../db/connection";
+import { databaseFilename } from "../db/migrate";
 import { inTransaction } from "../db/transaction";
 import * as schema from "../db/schema";
 import { backupDatabase, restoreDatabase } from "../cli/database";
 import { password } from "../platform/password";
 import { serve } from "../platform/server";
-import { staticResponse } from "../http/static";
+import { verifyApplicationHttpContract } from "./platform-http-contract";
 
 const directory = process.argv[2];
 const existingHash = process.argv[3];
 if (!directory || !existingHash) {
   throw new Error("Expected isolated data directory and password fixture");
 }
-assert.equal(typeof Bun, "undefined");
+const runtime = typeof Bun === "undefined" ? "node" : "bun";
+assert.equal(
+  runtime,
+  process.argv[4],
+  "Contract must execute in the selected runtime",
+);
 assert.equal(await password.verify("existing password", existingHash), true);
 assert.equal(await password.verify("wrong password", existingHash), false);
 const freshHash = await password.hash("new password");
@@ -50,6 +57,18 @@ try {
     /rollback marker/,
   );
   assert.equal(store.db.select().from(schema.users).all().length, 1);
+  const contender = openDatabase(join(source, databaseFilename));
+  try {
+    contender.sqlite.exec("PRAGMA busy_timeout=0");
+    inTransaction(store, () => {
+      assert.throws(
+        () => contender.sqlite.exec("BEGIN IMMEDIATE"),
+        /locked|busy/i,
+      );
+    });
+  } finally {
+    contender.sqlite.close();
+  }
   inTransaction(store, (context) => {
     context.db
       .insert(schema.users)
@@ -104,6 +123,8 @@ try {
   store.close();
 }
 
+const httpStore = openStore(join(directory, "http"));
+const application = createApp(httpStore);
 const server = await serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -127,14 +148,12 @@ const server = await serve({
         }),
       );
     }
-    return (
-      (await staticResponse(request)) ??
-      new Response("missing", { status: 404 })
-    );
+    return application(request);
   },
 });
 try {
   const origin = `http://127.0.0.1:${server.port}`;
+  await verifyApplicationHttpContract(origin);
   const response = await fetch(`${origin}/echo`, {
     method: "POST",
     body: "hello",
@@ -157,5 +176,13 @@ try {
   assert.equal(await head.text(), "");
 } finally {
   await server.stop(true);
+  httpStore.close();
 }
-console.log(JSON.stringify({ hash: freshHash, status: "ok" }));
+console.log(
+  JSON.stringify({
+    hash: freshHash,
+    status: "ok",
+    runtime,
+    version: runtime === "bun" ? process.versions.bun : process.versions.node,
+  }),
+);

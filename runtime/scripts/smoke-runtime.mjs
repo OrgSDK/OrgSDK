@@ -19,11 +19,23 @@ import { pathToFileURL } from "node:url";
 const packageDirectory = resolve(process.argv[2] ?? ".");
 const moduleAt = (path) =>
   import(pathToFileURL(join(packageDirectory, "dist", path)).href);
-assert.ok(
-  spawnSync("bun", ["--version"]).error,
-  "Run this smoke with Bun absent from PATH",
+const runtime = process.versions.bun ? "bun" : "node";
+assert.equal(
+  runtime,
+  process.argv[3],
+  "Smoke must execute under the selected runtime",
 );
-const directory = await mkdtemp(join(tmpdir(), "orgsdk-node-artifact-"));
+const runtimeLabel =
+  runtime === "bun"
+    ? `Bun ${process.versions.bun}`
+    : `Node.js ${process.versions.node}`;
+if (runtime === "node") {
+  assert.ok(
+    spawnSync("bun", ["--version"]).error,
+    "Node smoke requires Bun absent from PATH",
+  );
+}
+const directory = await mkdtemp(join(tmpdir(), "orgsdk-runtime-artifact-"));
 const agentDirectory = join(directory, "agents", "project");
 await mkdir(join(agentDirectory, "workspace"), { recursive: true });
 const jobs = new Map();
@@ -151,7 +163,7 @@ try {
   assert.equal(await execute('return await readFile("persisted.txt");'), "42");
 
   const inlineSource =
-    'enum Answer { Value = 42 }; export const safeFunctions = [{name:"answer", handler: () => Answer.Value}];';
+    'enum Answer { Value = 42 }; export const safeFunctions = [{name:"answer", handler: () => Answer.Value},{name:"runtime",handler:()=>process.versions.bun ? "bun" : "node"}];';
   const inline = {
     distribution: "inline",
     slug: "inline",
@@ -161,6 +173,10 @@ try {
     credential_id: null,
   };
   assert.equal(await execute("return await inline.answer();", [inline]), 42);
+  assert.equal(
+    await execute("return await inline.runtime();", [inline]),
+    runtime,
+  );
 
   const checkout = join(directory, "plugin-checkout");
   const release = join(directory, "release # literal % path");
@@ -272,11 +288,11 @@ try {
   } finally {
     await manager.dispose();
   }
-  await verifySessionStartupFailure(packageDirectory);
-  await verifyManagerShutdown(packageDirectory);
+  await verifySessionStartupFailure(packageDirectory, runtimeLabel);
+  await verifyManagerShutdown(packageDirectory, runtimeLabel);
   assert.ok(requests.some((request) => request.path.endsWith("/events/")));
   console.log(
-    "Node artifact smoke passed: CLI registration, persistent workers, inline TypeScript, external packaged plugins, host validation/test, durable session cells, deduplication and cancellation.",
+    `${runtimeLabel} artifact smoke passed: CLI registration, persistent workers, inline TypeScript, external packaged plugins, host validation/test, durable session cells, deduplication and cancellation.`,
   );
 } finally {
   await new Promise((resolve) => server.close(resolve));

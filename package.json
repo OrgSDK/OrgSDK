@@ -22,6 +22,7 @@
     "build:npm": "node scripts/build-npm.mjs",
     "test:cli": "node --test bin/*.test.mjs",
     "test:distribution": "esbuild scripts/distribution-smoke.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/distribution-smoke.mjs && node dist/distribution-smoke.mjs",
+    "test:distribution:bun": "esbuild scripts/distribution-smoke.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/distribution-smoke.mjs && bun dist/distribution-smoke.mjs",
     "prepack": "npm run build:npm"
   },
   "dependencies": {

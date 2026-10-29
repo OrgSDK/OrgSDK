@@ -16,16 +16,20 @@ import {
 
 const tarball = process.argv[2];
 assert(tarball, "Usage: npm run test:distribution -- PACKAGE.tgz");
-assert(!process.versions.bun, "Run this acceptance test using Node.js.");
+const runtime = process.versions.bun ? "bun" : "node";
+assert.equal(runtime, process.env.ORGSDK_TEST_RUNTIME ?? runtime);
+console.log(
+  `Testing packed platform with ${runtime} ${process.versions[runtime]}`,
+);
 const directory = await mkdtemp(join(tmpdir(), "orgsdk-npm-acceptance-"));
 let installation: Awaited<ReturnType<typeof startInstallation>> | undefined;
 
 try {
   const installed = join(directory, "installed");
-  const nodePath = join(directory, "node-only");
+  const runtimePath = join(directory, `${runtime}-only`);
   await mkdir(installed);
-  await mkdir(nodePath);
-  await symlink(process.execPath, join(nodePath, "node"));
+  await mkdir(runtimePath);
+  await symlink(process.execPath, join(runtimePath, runtime));
   await command(
     "npm",
     [
@@ -39,7 +43,7 @@ try {
     directory,
   ).success();
   const cli = join(installed, "node_modules/@orgsdk/cli/bin/orgsdk.mjs");
-  const minimalEnv = { PATH: nodePath, HOME: directory };
+  const minimalEnv = { PATH: runtimePath, HOME: directory };
   assert.match(
     await command(
       process.execPath,
@@ -59,8 +63,16 @@ try {
     /0\.1\.0/,
   );
   const port = await availablePort();
-  installation = await startInstallation(cli, directory, port, nodePath);
+  installation = await startInstallation(cli, directory, port, runtimePath);
   let rpc = api(installation.origin);
+  const health = z
+    .object({ runtime: z.string() })
+    .parse(await rpc("system.health"));
+  assert.equal(
+    health.runtime,
+    runtime,
+    "Platform must use the selected runtime",
+  );
   for (const path of ["/", "/setup/", "/monaco/vs/editor/editor.main.js"]) {
     const asset: Response = await fetch(`${installation.origin}${path}`);
     assert.equal(asset.status, 200, `Missing package asset: ${path}`);
@@ -72,7 +84,7 @@ try {
     "auth.setup",
     {
       domain: "127.0.0.1",
-      workspace_name: "Packed Node installation",
+      workspace_name: `Packed ${runtime} installation`,
       username: "package-owner",
       email: "owner@example.test",
       password1: password,
@@ -103,7 +115,7 @@ try {
     return waitForRun(rpc, queued.id);
   }
   const written = await execute(
-    'await writeFile("npm-proof.txt", "persistent node execution"); return 6 * 7;',
+    'await writeFile("npm-proof.txt", "persistent execution"); return 6 * 7;',
   );
   assert.deepEqual(written.output, { result: 42 });
   const validation = runSchema.parse(
@@ -194,7 +206,7 @@ try {
     directory,
     dataEnv,
   ).success();
-  installation = await startInstallation(cli, directory, port, nodePath);
+  installation = await startInstallation(cli, directory, port, runtimePath);
   rpc = api(installation.origin);
   await rpc("auth.setupStatus");
   await rpc("auth.login", { email: "owner@example.test", password }, true);
@@ -204,7 +216,7 @@ try {
   );
   assert.deepEqual(
     (await execute('return await readFile("npm-proof.txt");')).output,
-    { result: "persistent node execution" },
+    { result: "persistent execution" },
   );
   const cancelled = runSchema.parse(
     await rpc(
@@ -237,7 +249,7 @@ try {
   await rpc("runs.cancel", { id: cancelled.id }, true);
   await waitForRun(rpc, cancelled.id, "cancelled");
   console.log(
-    "Packed Node-only installation passed: setup, login, assets, code, validation, action tests, action execution, persistent files, restart, migration, backup, cancellation and shutdown.",
+    `Packed ${runtime}-only installation passed: setup, login, assets, code, validation, action tests, action execution, persistent files, restart, migration, backup, cancellation and shutdown.`,
   );
 } catch (error) {
   console.error(installation?.output());

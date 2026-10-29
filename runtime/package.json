@@ -17,7 +17,8 @@
     "supervisor": "node dist/supervisor.js",
     "build": "node scripts/build.mjs",
     "prepack": "npm run build",
-    "smoke:node": "node scripts/verify-node-package.mjs"
+    "smoke:node": "node scripts/verify-runtime-package.mjs node",
+    "smoke:bun": "node scripts/verify-runtime-package.mjs bun"
   },
   "dependencies": {
     "pino": "^10.3.1",

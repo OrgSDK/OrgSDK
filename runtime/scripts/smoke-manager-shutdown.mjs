@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
-export async function verifyManagerShutdown(packageDirectory) {
+export async function verifyManagerShutdown(packageDirectory, runtimeLabel) {
   const directory = await mkdtemp(join(tmpdir(), "orgsdk-manager-shutdown-"));
   const token = "fixture-manager-token-".repeat(3);
   const job = {
@@ -154,7 +154,7 @@ export async function verifyManagerShutdown(packageDirectory) {
     assert.ok(Date.now() - stoppedAt < 4000);
     assert.throws(() => process.kill(workerPid, 0), { code: "ESRCH" });
     console.log(
-      "Node manager shutdown passed: completed-run helpers stop; SIGTERM aborts blocked bootstrap and terminates detached host job.",
+      `${runtimeLabel} manager shutdown passed: completed-run helpers stop; SIGTERM aborts blocked bootstrap and terminates detached host job.`,
     );
   } finally {
     manager?.kill("SIGKILL");
