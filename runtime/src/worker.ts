@@ -1,9 +1,10 @@
+import { readStdin } from "./process-runtime";
 import { z } from "zod";
 import { Client } from "./client";
 import { jobSchema } from "./contract";
 import { Runner } from "./runner";
 
-const job = jobSchema.parse(JSON.parse(await Bun.stdin.text()));
+const job = jobSchema.parse(JSON.parse(await readStdin()));
 const base = z.string().url().parse(process.env.DJANGO_URL);
 const controller = new AbortController();
 const client = new Client(base, job.capability, controller.signal);

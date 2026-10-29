@@ -1,3 +1,6 @@
+import { z } from "zod";
+import type { Store } from "../db";
+import type { SqliteConnection } from "../db/connection";
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
@@ -60,7 +63,7 @@ export function initialStore(dataDir: string, migrationLimit = 1) {
   }
 }
 
-export function seedWorkspace(store: ReturnType<typeof initialStore>) {
+export function seedWorkspace(store: Pick<Store, "db">) {
   const time = new Date().toISOString();
   const user = store.db
     .insert(schema.users)
@@ -94,12 +97,9 @@ export function seedWorkspace(store: ReturnType<typeof initialStore>) {
   return { user, workspace, project, time };
 }
 
-export function migrationCount(sqlite: Database): number {
-  return (
-    sqlite
-      .query<{ count: number }, []>(
-        "SELECT count(*) AS count FROM __drizzle_migrations",
-      )
-      .get()?.count ?? 0
-  );
+export function migrationCount(sqlite: SqliteConnection): number {
+  const row = sqlite
+    .query("SELECT count(*) AS count FROM __drizzle_migrations")
+    .get();
+  return z.object({ count: z.number() }).parse(row).count;
 }

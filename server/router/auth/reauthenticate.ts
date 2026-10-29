@@ -1,3 +1,4 @@
+import { password as passwords } from "../../platform/password";
 import { authenticatedBrowserProcedure } from "../procedures";
 import { ServiceError } from "../../shared/errors";
 import { markFresh } from "../../auth/sessions";
@@ -10,7 +11,7 @@ export const reauthenticateProcedure = authenticatedBrowserProcedure
     const password = input.password;
     const user = ctx.user;
     throttle(ctx, `reauth:${user.id}`);
-    if (!(await Bun.password.verify(password, user.passwordHash))) {
+    if (!(await passwords.verify(password, user.passwordHash))) {
       throw new ServiceError("BAD_REQUEST", "Invalid password.");
     }
     if (user.totpSecret) {

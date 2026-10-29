@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  outputDir: process.env.ORGSDK_E2E_OUTPUT_DIR ?? "test-results/source",
   workers: 1,
   projects: [
     { name: "setup", testMatch: "setup.spec.ts" },

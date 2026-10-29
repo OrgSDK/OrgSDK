@@ -49,7 +49,7 @@ export function ProjectRunner({
         });
         if (isLocal)
           setNotice(
-            "Local Docker runner enabled. It will connect automatically.",
+            "Local runner enabled. It will connect when the installation’s runner is running.",
           );
         else setToken(registration.token);
       }
@@ -61,9 +61,9 @@ export function ProjectRunner({
     }
   };
   const command =
-    "orgsdk-executor register --url " +
+    "orgsdk executor register --url " +
     origin +
-    "\norgsdk-executor start --mode docker";
+    "\norgsdk executor start --mode docker";
   const [now, setNow] = useState(0);
   useEffect(() => {
     const update = () => {
@@ -90,12 +90,13 @@ export function ProjectRunner({
       <h2>Project runner</h2>
       <p className="mb-4">
         This project uses its own runner to execute actions in its persistent
-        working folder.
+        working folder. Starting OrgSDK with <code>orgsdk start</code> also
+        starts the local runner.
       </p>
       <p>
         {project.runner.registered ? registrationStatus : "Not registered"} ·{" "}
         {project.runner.locally_managed
-          ? "Managed by local Docker Compose"
+          ? "Managed by this installation"
           : "Linked runner"}
       </p>
       {project.runner.last_seen_at ? (
@@ -122,7 +123,7 @@ export function ProjectRunner({
             void perform(false, true);
           }}
         >
-          Use local Docker runner
+          Use local runner
         </Button>
         <Button
           variant="outline"
@@ -166,11 +167,12 @@ export function ProjectRunner({
           setOrigin(location.origin);
         }}
       >
-        <summary>Link an npm or Docker runner</summary>
+        <summary>Link a separate runner</summary>
         <p className="mt-4">
-          Install the executor package from your installation’s runtime build
-          with npm. It requires Node 22 and Bun 1.4. Docker mode also requires
-          Docker and the executor image configured by your administrator.
+          The npm-installed OrgSDK command includes the runner. A separate
+          runner machine needs Linux and Node.js 22.22 or newer. Docker mode
+          also requires Docker and an executor image, network and storage
+          configured by your administrator.
         </p>
         <pre className="my-4 overflow-auto">{command}</pre>
         <Button

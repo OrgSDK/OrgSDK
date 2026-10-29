@@ -12,9 +12,8 @@ mode=${3:-docker}
 [[ $instance =~ ^[a-z][a-z0-9-]{0,23}$ ]] || { echo 'Instance must be 1-24 lowercase letters, digits or hyphens, starting with a letter.' >&2; exit 1; }
 [[ $mode == docker || $mode == host ]] || { echo 'Mode must be docker or host.' >&2; exit 1; }
 [[ -f $package ]] || { echo 'Package tarball not found.' >&2; exit 1; }
-bun=$(command -v bun)
-[[ $($bun --version) == 1.4.* ]] || { echo 'Install Bun 1.4.x system-wide first.' >&2; exit 1; }
-[[ $bun != /root/* && $bun != /home/* ]] || { echo 'Install Bun outside /root and /home (for example /usr/local/bin/bun).' >&2; exit 1; }
+node=$(command -v node)
+[[ $node != /root/* && $node != /home/* ]] || { echo 'Install Node outside /root and /home (for example /usr/local/bin/node).' >&2; exit 1; }
 command -v npm >/dev/null
 node -e 'if (Number(process.versions.node.split(".")[0]) < 22) { console.error("Node 22+ is required."); process.exit(1); }'
 command -v systemctl >/dev/null
@@ -35,7 +34,7 @@ package_dir=/opt/orgsdk-executor/node_modules/@orgsdk/executor
 install -m 644 "$package_dir/systemd/orgsdk-executor@.service" /etc/systemd/system/orgsdk-executor@.service
 cat > /opt/orgsdk-executor/start-service <<WRAPPER
 #!/bin/sh
-exec "$bun" --no-env-file "$package_dir/src/cli.ts" start --data "/var/lib/orgsdk-executor/\$1" --mode "\$EXECUTOR_MODE"
+exec "$node" "$package_dir/dist/cli.js" start --data "/var/lib/orgsdk-executor/\$1" --mode "\$EXECUTOR_MODE"
 WRAPPER
 chmod 755 /opt/orgsdk-executor/start-service
 install -d -m 711 /var/lib/orgsdk-executor
@@ -49,7 +48,7 @@ EXECUTOR_MODE=$mode
 EXECUTOR_DATA_BIND=1
 EXECUTOR_IMAGE=orgsdk-executor:local
 EXECUTION_NETWORK=bridge
-PATH=$(dirname "$bun"):/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PATH=$(dirname "$node"):/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 CONFIG
 fi
 systemctl daemon-reload
@@ -58,7 +57,7 @@ Installed orgsdk-executor@$instance (not started).
 Edit $config; build or pull EXECUTOR_IMAGE on this VM for Docker mode.
 Create the agent's executor identity in the application, then register via stdin:
   read -r -s -p 'Executor token: ' token; echo
-  printf '%s' "\$token" | runuser -u $account -- "$bun" --no-env-file "$package_dir/src/cli.ts" register --url https://YOUR-SERVER --data /var/lib/orgsdk-executor/$instance
+  printf '%s' "\$token" | runuser -u $account -- "$node" "$package_dir/dist/cli.js" register --url https://YOUR-SERVER --data /var/lib/orgsdk-executor/$instance
   unset token
 Then: systemctl enable --now orgsdk-executor@$instance
 INSTRUCTIONS

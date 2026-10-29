@@ -1,21 +1,23 @@
-import type { Database } from "bun:sqlite";
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { readMigrationFiles } from "drizzle-orm/migrator";
-import { join } from "node:path";
-import type * as schema from "./schema";
+import { z } from "zod";
+import { assetDirectory } from "../platform/assets";
+import type { SqliteConnection } from "./connection";
 
-export const migrationsFolder = join(import.meta.dir, "migrations");
+export const migrationsFolder = assetDirectory("migrations");
 export const databaseFilename = "orgsdk.sqlite3";
 
-type AppliedMigration = { hash: string; createdAt: number };
+const appliedMigration = z.object({ hash: z.string(), createdAt: z.number() });
 
-export function assertManagedDatabase(sqlite: Database): void {
-  const tables = sqlite
-    .query<{ name: string }, []>(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
-    )
-    .all();
+export function assertManagedDatabase(sqlite: SqliteConnection): void {
+  const tables = z
+    .array(z.object({ name: z.string() }))
+    .parse(
+      sqlite
+        .query(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+        )
+        .all(),
+    );
   if (tables.length === 0) {
     return;
   }
@@ -24,11 +26,15 @@ export function assertManagedDatabase(sqlite: Database): void {
       "Unmanaged database; refusing to open it. Use an empty data directory.",
     );
   }
-  const applied = sqlite
-    .query<AppliedMigration, []>(
-      "SELECT hash, created_at AS createdAt FROM __drizzle_migrations ORDER BY created_at",
-    )
-    .all();
+  const applied = z
+    .array(appliedMigration)
+    .parse(
+      sqlite
+        .query(
+          "SELECT hash, created_at AS createdAt FROM __drizzle_migrations ORDER BY created_at",
+        )
+        .all(),
+    );
   const available = readMigrationFiles({ migrationsFolder });
   if (applied.length === 0 && tables.length > 1) {
     throw new Error("Database tables have no recorded migrations.");
@@ -45,10 +51,4 @@ export function assertManagedDatabase(sqlite: Database): void {
       );
     }
   }
-}
-
-export function migrateDatabase(
-  database: BunSQLiteDatabase<typeof schema>,
-): void {
-  migrate(database, { migrationsFolder });
 }

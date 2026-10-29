@@ -1,8 +1,7 @@
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import type * as schema from "./schema";
+import type { DatabaseConnection } from "./connection";
 
 // Application code receives Drizzle's query and transaction API, never its native client.
 export type AppDatabase = Pick<
-  BunSQLiteDatabase<typeof schema>,
+  DatabaseConnection,
   "select" | "insert" | "update" | "delete" | "transaction"
 >;

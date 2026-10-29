@@ -3,7 +3,6 @@ import { useCallback, useEffect } from "react";
 import { trpc } from "../../api/trpc";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import type { Run, RunEvent } from "../../api/types";
-import { activeStatuses } from "./run-display";
 import { subscribeToRunUpdates } from "./run-subscription";
 interface RunData {
   run: Run;
@@ -24,11 +23,12 @@ export function useRunDetail(
   );
   const query = useWorkspaceQuery(load, 3000);
   const current = query.data?.run.id === id ? query.data : undefined;
-  const status = current?.run.status;
+  const hasRun = current !== undefined;
   const { refresh } = query;
   useEffect(() => {
-    if (!status || !activeStatuses.includes(status)) return;
+    if (!hasRun) return;
+    // Polling can see completion before the stream delivers its final events.
     return subscribeToRunUpdates(id, refresh);
-  }, [id, status, refresh]);
+  }, [id, hasRun, refresh]);
   return { ...query, data: current };
 }

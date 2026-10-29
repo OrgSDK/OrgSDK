@@ -1,11 +1,11 @@
 BUN ?= bun
 NPM ?= npm
 
-.PHONY: install dev frontend build test e2e lint typecheck check runtime-check license-check
+.PHONY: install dev frontend build build-npm test e2e lint typecheck check runtime-check license-check
 install:
-	$(BUN) install --frozen-lockfile
+	$(NPM) ci
 	$(NPM) --prefix frontend ci
-	cd runtime && $(BUN) install --frozen-lockfile
+	$(NPM) --prefix runtime ci
 
 dev:
 	$(BUN) --watch server/index.ts
@@ -15,6 +15,9 @@ frontend:
 
 build:
 	$(BUN) scripts/build.ts
+
+build-npm:
+	$(NPM) run build:npm
 
 test:
 	$(BUN) test server
@@ -38,6 +41,7 @@ license-check:
 	cmp LICENSE runtime/LICENSE
 
 check: license-check runtime-check
+	$(NPM) run test:cli
 	$(BUN) run check
 	$(BUN) test server
 	$(NPM) --prefix frontend run check

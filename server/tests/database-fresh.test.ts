@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { z } from "zod";
 import { getTableName } from "drizzle-orm";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import { openStore } from "../db";
@@ -17,11 +18,15 @@ test("fresh installs apply generated migrations and expose the declared schema",
     try {
       const expected = readMigrationFiles({ migrationsFolder });
       expect(migrationCount(store.sqlite)).toBe(expected.length);
-      const tables = store.sqlite
-        .query<{ name: string }, []>(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+      const tables = z
+        .array(z.object({ name: z.string() }))
+        .parse(
+          store.sqlite
+            .query(
+              "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+            )
+            .all(),
         )
-        .all()
         .map((table) => table.name);
       expect(tables.sort()).toEqual(
         [

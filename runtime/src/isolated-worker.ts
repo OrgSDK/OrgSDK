@@ -1,3 +1,4 @@
+import { isEntrypoint, readStdin } from "./process-runtime";
 import { z } from "zod";
 import { isDeepStrictEqual } from "node:util";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -254,20 +255,11 @@ export async function executeIsolated(
   return { passed: cases.every((item) => item.passed), validation, cases };
 }
 
-if (import.meta.main) {
+if (isEntrypoint(import.meta.url)) {
   try {
-    const reader = Bun.stdin.stream().getReader();
-    const chunks: Uint8Array[] = [];
-    let size = 0;
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      size += value.length;
-      if (size > 800_000) throw new Error("Isolated input exceeds limit");
-      chunks.push(value);
-    }
     const output = await executeIsolated(
-      JSON.parse(Buffer.concat(chunks).toString("utf8")),
+      JSON.parse(await readStdin(800_000)),
+      process.cwd(),
     );
     const serialized = JSON.stringify(output);
     if (Buffer.byteLength(serialized) > 1_000_000)

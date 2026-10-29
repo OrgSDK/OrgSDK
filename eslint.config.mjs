@@ -99,6 +99,8 @@ export default defineConfig([
     ignores: [
       "server/db/index.ts",
       "server/db/migrate.ts",
+      "server/db/bun-driver.ts",
+      "server/db/node-driver.ts",
       "server/cli/database.ts",
       "server/tests/**",
     ],
@@ -109,6 +111,11 @@ export default defineConfig([
           paths: [
             {
               name: "bun:sqlite",
+              message:
+                "Use the Drizzle database. Native SQLite belongs to database lifecycle and backup code.",
+            },
+            {
+              name: "better-sqlite3",
               message:
                 "Use the Drizzle database. Native SQLite belongs to database lifecycle and backup code.",
             },
@@ -228,5 +235,20 @@ export default defineConfig([
       ],
     },
   },
-  { files: ["*.mjs"], extends: [js.configs.recommended] },
+  {
+    files: ["*.mjs", "bin/**/*.mjs", "scripts/*.mjs"],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      globals: {
+        console: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        fetch: "readonly",
+        AbortSignal: "readonly",
+        AbortController: "readonly",
+        URL: "readonly",
+      },
+    },
+    rules: { curly: ["error", "all"], "one-var": ["error", "never"] },
+  },
 ]);

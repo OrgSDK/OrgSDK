@@ -1,9 +1,8 @@
 import { resolve, sep } from "node:path";
+import { readFile, stat } from "node:fs/promises";
+import { assetDirectory } from "../platform/assets";
 
-// Bun places --asset directories beside the compiled entrypoint in its virtual filesystem.
-const root = Bun.isStandaloneExecutable
-  ? resolve(import.meta.dir, "out")
-  : resolve(import.meta.dir, "../../frontend/out");
+const root = assetDirectory("out");
 
 const contentTypes: Record<string, string> = {
   html: "text/html; charset=utf-8",
@@ -40,19 +39,32 @@ export async function staticResponse(
   if (!path.startsWith(root + sep)) {
     return new Response("Invalid path", { status: 400 });
   }
-  let file = Bun.file(path);
-  if (!(await file.exists()) && !pathname.split("/").at(-1)?.includes(".")) {
-    file = Bun.file(resolve(path, "index.html"));
+  let filename = path;
+  try {
+    if (!(await stat(filename)).isFile()) {
+      filename = resolve(path, "index.html");
+    }
+  } catch {
+    if (pathname.split("/").at(-1)?.includes(".")) {
+      return null;
+    }
+    filename = resolve(path, "index.html");
   }
-  if (!(await file.exists())) {
+  let file: Buffer;
+  try {
+    file = await readFile(filename);
+  } catch {
     return null;
   }
-  const extension = file.name?.split(".").pop()?.toLowerCase() ?? "";
+  const extension = filename.split(".").pop()?.toLowerCase() ?? "";
   const headers = new Headers({
     "Content-Type": contentTypes[extension] ?? "application/octet-stream",
   });
   if (pathname.startsWith("/_next/static/")) {
     headers.set("Cache-Control", "public, max-age=31536000, immutable");
   }
-  return new Response(request.method === "HEAD" ? null : file, { headers });
+  return new Response(
+    request.method === "HEAD" ? null : Uint8Array.from(file).buffer,
+    { headers },
+  );
 }

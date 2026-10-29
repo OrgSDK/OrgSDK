@@ -1,10 +1,29 @@
 # OrgSDK
 
-OrgSDK gives external AI clients persistent projects for executing code and building tested, reusable actions. The application combines a static Next.js interface with a Bun API, tRPC, and a Drizzle-managed SQLite store. Executors are independent HTTP clients; they do not access the application database.
+OrgSDK gives external AI clients persistent projects for executing code and building tested, reusable actions. The application combines a static Next.js interface with a Node.js or Bun API, tRPC, and a Drizzle-managed SQLite store. Executors are independent HTTP clients; they do not access the application database.
+
+## Install the npm candidate
+
+The npm packages are local release candidates and have not been published. On Linux with Node.js 22.22.0 or newer, install the packed platform package and start it:
+
+```sh
+npm install -g ./orgsdk-cli-0.1.0.tgz
+orgsdk start
+```
+
+Open `http://127.0.0.1:8080` and create your workspace and account. The command starts the platform and a separate executor manager. It connects a local runner for each enabled project, so code, validation and action tests can run without a separate registration command. Neither Bun nor Docker is required for this local mode. Code and plugins run with your current user's host privileges; use trusted code and clients. This mode is not an operating-system sandbox.
+
+`orgsdk start --data /path/to/installation --port 8081` selects another installation. Data defaults to `~/.local/share/orgsdk`, outside the npm package: the database and encryption key are in that directory, and executor project folders are under `executor/agents/`. Stopping with Ctrl+C stops the supervised processes. Reinstalling the package does not remove installation data; back up that directory before upgrading.
+
+Use `orgsdk server` to run only the platform, or `orgsdk executor --help` to register and run a separate executor. `orgsdk start --mode docker` uses the existing Docker executor configuration and requires Docker, an executor image and the documented network/storage settings. See [the executor guide](runtime/README.md). Linux is the current supported host because persistent project-file access uses `/proc`; macOS and Windows are not supported by this candidate.
+
+After an authorized npm publication, the intended registry installation will be `npm install -g @orgsdk/cli`, followed by the same `orgsdk start` command. Namespace ownership and publication remain release steps. See [distribution and verification](docs/npm-distribution.md).
 
 ## Build and run locally
 
 Install Bun 1.4, Node 22 and npm, then run `make install` and `make build`. Start `dist/orgsdk` and open `http://127.0.0.1:8080`. The executable embeds the frontend, including Monaco, and does not require Bun or Node at runtime. `HOST`, `PORT`, and `ORGSDK_DATA_DIR` configure listening and storage. The default data directory is `~/.local/share/orgsdk`.
+
+To build the npm candidate, run `npm run build:npm`, then `npm pack --ignore-scripts`. The tarball includes the platform JavaScript, frontend, migrations and executor workers. `npm pack` without `--ignore-scripts` builds those assets automatically. Use `npm run test:distribution -- ./orgsdk-cli-0.1.0.tgz` to install and verify the actual tarball with temporary data and a Node-only runtime path.
 
 The Drizzle schema is the source of truth. Startup applies pending generated migrations to `orgsdk.sqlite3`, and the executable embeds the migration files. Start the initial installation in an empty data directory. This is a greenfield schema without compatibility with the earlier experimental database.
 

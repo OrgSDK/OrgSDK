@@ -1,7 +1,7 @@
 import { expect, signIn, test, testClient } from "./fixtures";
 import { prepareExecutor } from "./executor";
 
-test("a browser-queued action executes in a separate Bun worker and streams its outcome", async ({
+test("a browser-queued action executes in a separate worker and streams its outcome", async ({
   page,
 }) => {
   test.setTimeout(60000);
@@ -71,6 +71,10 @@ test("a browser-queued action executes in a separate Bun worker and streams its 
     );
     await executor.execute(queued.id);
     await expect.poll(() => messages.join("\n")).toContain("action.result");
+    expect(
+      streamRequests.size,
+      "Status changes must preserve the live subscription",
+    ).toBe(1);
     expect(messages.join("\n")).toContain("execution.log");
     await expect(page.locator(".run-detail .status-succeeded")).toBeVisible();
     await expect(

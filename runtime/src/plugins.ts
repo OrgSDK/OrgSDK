@@ -1,3 +1,4 @@
+import { importPluginModule } from "./plugin-module";
 import { z } from "zod";
 import type { Client } from "./client";
 import type { Plugin } from "./contract";
@@ -105,7 +106,7 @@ export async function loadPlugin(
   client: Client,
   agentId: string,
 ): Promise<SandboxFunction[]> {
-  const file = await installPlugin(plugin, agentId);
+  const file = await installPlugin(plugin, agentId, undefined, client.signal);
   const secret = plugin.credential_id
     ? await client.secret(plugin.credential_id)
     : undefined;
@@ -114,7 +115,10 @@ export async function loadPlugin(
       "Reconnect this credential using your own OAuth application; the former first-party relay is retired",
     );
   const context = snapshotContext(plugin, secret);
-  const exports = await import(file);
+  const exports = await importPluginModule(
+    file,
+    plugin.distribution !== "external",
+  );
   const exported = exports.default ?? exports;
   const module = moduleSchema.parse(
     typeof exported === "function" ? await exported(context) : exported,

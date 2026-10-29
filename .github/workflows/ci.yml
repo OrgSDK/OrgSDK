@@ -29,3 +29,14 @@ jobs:
       - run: ORGSDK_TEST_BINARY=dist/orgsdk bun test server/tests/database-history.test.ts
       - run: ORGSDK_E2E_BINARY=dist/orgsdk make e2e
       - run: scripts/smoke-binary.sh
+      - run: npm run test:cli
+      - run: npm run build:npm
+      - run: npm pack --ignore-scripts
+      - run: npm run test:distribution -- ./orgsdk-cli-0.1.0.tgz
+      - run: ORGSDK_E2E_NODE_ENTRY=dist/server/index.js make e2e
+      - run: npm --prefix runtime run smoke:node
+      - uses: actions/upload-artifact@v4
+        with:
+          name: orgsdk-npm-candidate
+          path: orgsdk-cli-*.tgz
+          if-no-files-found: error

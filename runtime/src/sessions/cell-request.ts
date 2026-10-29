@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { SessionLimits } from "./configuration";
 import { canonicalJson, jsonValue, MAX_VALUE_BYTES } from "./values";
@@ -34,12 +35,10 @@ export function prepareCell(request: CellRequest): PreparedCell {
   return {
     ...request,
     inputs,
-    digest: new Bun.CryptoHasher("sha256")
+    digest: createHash("sha256")
       .update(canonicalJson({ source: request.source, inputs }))
       .digest("hex"),
-    sourceDigest: new Bun.CryptoHasher("sha256")
-      .update(request.source)
-      .digest("hex"),
+    sourceDigest: createHash("sha256").update(request.source).digest("hex"),
   };
 }
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { JsonObject, TableColumn } from "../db/types";
 export { validateCases } from "./action-tests";
-import Ajv from "ajv/dist/2020";
+import Ajv from "ajv/dist/2020.js";
 import { ServiceError } from "./errors";
 
 export const object = (value: unknown): value is Record<string, unknown> =>

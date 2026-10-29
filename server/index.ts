@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { serve } from "./platform/server";
 import {
   existsSync,
   mkdirSync,
@@ -145,12 +146,13 @@ async function main() {
   const unlock = serverLock();
   try {
     const store = openStore(dataDir);
-    const server = Bun.serve({
+    const server = await serve({
       hostname,
       port,
       fetch: createApp(store),
-      maxRequestBodySize: 2_000_000,
-      idleTimeout: 75,
+    }).catch((error: unknown) => {
+      store.close();
+      throw error;
     });
     let flushing = false;
     const timer = setInterval(() => {

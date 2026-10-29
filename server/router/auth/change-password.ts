@@ -1,3 +1,4 @@
+import { password as passwords } from "../../platform/password";
 import { freshBrowserProcedure } from "../procedures";
 import { identityContext } from "../identity-context";
 import { ServiceError } from "../../shared/errors";
@@ -19,12 +20,10 @@ export const changePasswordProcedure = freshBrowserProcedure
 
     const user = requestContext.user;
     throttle(ctx, `password:${user.id}`);
-    if (
-      !(await Bun.password.verify(input.current_password, user.passwordHash))
-    ) {
+    if (!(await passwords.verify(input.current_password, user.passwordHash))) {
       throw new ServiceError("BAD_REQUEST", "Invalid current password.");
     }
-    const passwordHash = await Bun.password.hash(input.new_password);
+    const passwordHash = await passwords.hash(input.new_password);
     rotateSession(
       ctx,
       user.id,

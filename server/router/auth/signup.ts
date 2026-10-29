@@ -1,3 +1,4 @@
+import { password as passwords } from "../../platform/password";
 import { browserProcedure } from "../procedures";
 import { identityContext } from "../identity-context";
 import { ServiceError } from "../../shared/errors";
@@ -20,7 +21,7 @@ export const signupProcedure = browserProcedure
     if (identityRepository(ctx.db).userByEmail(email)) {
       throw new ServiceError("BAD_REQUEST", "This email is already in use.");
     }
-    const passwordHash = await Bun.password.hash(input.password);
+    const passwordHash = await passwords.hash(input.password);
     try {
       const user = createAccount(ctx.db, {
         email,

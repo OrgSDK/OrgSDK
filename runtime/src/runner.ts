@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { validateCode } from "./validate-code";
 import { join } from "node:path";
 import { projectDataFunctions } from "./project-data";
@@ -58,7 +59,7 @@ export class Runner {
     });
     while (approval.status === "pending") {
       this.signal.throwIfAborted();
-      await Bun.sleep(1000);
+      await sleep(1000);
       approval = approvalSchema.parse(
         await this.client.product(`approvals/${approval.id}/`),
       );

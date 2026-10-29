@@ -1,3 +1,4 @@
+import { setTimeout } from "node:timers/promises";
 import { authorizeRunRead } from "../../domain/permissions";
 import { and, asc, eq, gt } from "drizzle-orm";
 import { accessTokens, memberships, runEvents } from "../../db/schema";
@@ -90,6 +91,6 @@ export const streamProcedure = scopedProcedure("runs:read")
       ) {
         return;
       }
-      await Bun.sleep(1000);
+      await setTimeout(1000);
     }
   });

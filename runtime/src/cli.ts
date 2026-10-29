@@ -1,3 +1,6 @@
+import { homedir } from "node:os";
+import { executorArguments } from "./cli-options";
+import { readStdin } from "./process-runtime";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { z } from "zod";
@@ -7,21 +10,24 @@ import { installPlugin } from "./plugin-store";
 import { pluginSchema } from "./contract";
 import { packagePlugin } from "./package-plugin";
 
-const args = process.argv.slice(2);
-const option = (name: string) => {
-  const index = args.indexOf(`--${name}`);
-  return index < 0 ? undefined : args[index + 1];
-};
+const { command, option } = executorArguments(process.argv.slice(2));
 const data = resolve(
-  option("data") || process.env.EXECUTOR_DATA_DIR || ".orgsdk",
+  option("data") ||
+    process.env.EXECUTOR_DATA_DIR ||
+    join(
+      process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
+      "orgsdk",
+      "executor",
+    ),
 );
 process.env.EXECUTOR_DATA_DIR = data;
 const file = join(data, "registration.json");
-const command = args[0];
 if (command === "--help" || !command) {
   console.log(
-    "orgsdk-executor register --url URL [--data DIR] (token: EXECUTOR_TOKEN or stdin)\norgsdk-executor start [--mode docker|host] [--data DIR]\norgsdk-executor install --agent ID --manifest FILE [--file bundled.mjs] [--data DIR]\norgsdk-executor package-plugin --directory CHECKOUT --output DIR [--embed-dependencies package,...] [--license FILE]\norgsdk-executor manage (Docker bootstrap manager)",
+    "orgsdk-executor register --url URL [--data DIR] (token: EXECUTOR_TOKEN or stdin)\norgsdk-executor start [--mode docker|host] [--data DIR]\norgsdk-executor install --agent ID --manifest FILE [--file bundled.mjs] [--data DIR]\norgsdk-executor package-plugin --directory CHECKOUT --output DIR [--embed-dependencies package,...] [--license FILE]\norgsdk-executor manage [--mode docker|host] (bootstrap manager)",
   );
+} else if (command === "--version") {
+  console.log("0.1.0");
 } else if (command === "register") {
   const base = z
     .string()
@@ -30,7 +36,7 @@ if (command === "--help" || !command) {
   const token = z
     .string()
     .min(32)
-    .parse(process.env.EXECUTOR_TOKEN || (await Bun.stdin.text()).trim());
+    .parse(process.env.EXECUTOR_TOKEN || (await readStdin()).trim());
   const registration = z.object({ id: z.string(), agent_id: z.string() }).parse(
     await new Client(base, token).request(
       "/internal/execution/v1/register/",
@@ -63,7 +69,8 @@ if (command === "--help" || !command) {
     config,
     z.enum(["docker", "host"]).parse(option("mode") || "docker"),
   );
-} else if (command === "manage") await manage();
+} else if (command === "manage")
+  await manage(z.enum(["docker", "host"]).parse(option("mode") || "docker"));
 else if (command === "package-plugin")
   await packagePlugin(
     z.string().parse(option("directory")),

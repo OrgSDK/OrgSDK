@@ -1,12 +1,13 @@
-import { Database } from "bun:sqlite";
+import { z } from "zod";
+import { openDatabase, type SqliteConnection } from "../db/connection";
 import { chmodSync, constants, copyFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { assertManagedDatabase, databaseFilename } from "../db/migrate";
 
-function verifySnapshot(sqlite: Database): void {
-  const integrity = sqlite
-    .query<{ integrity_check: string }, []>("PRAGMA integrity_check")
-    .all();
+function verifySnapshot(sqlite: SqliteConnection): void {
+  const integrity = z
+    .array(z.object({ integrity_check: z.string() }))
+    .parse(sqlite.query("PRAGMA integrity_check").all());
   if (integrity.length !== 1 || integrity[0]?.integrity_check !== "ok") {
     throw new Error("Backup integrity check failed.");
   }
@@ -26,14 +27,15 @@ export function backupDatabase(dataDir: string, destination: string): void {
   if (existsSync(destination)) {
     throw new Error("Backup destination already exists.");
   }
-  const source = new Database(join(dataDir, databaseFilename), {
-    readonly: true,
-  });
+  const { sqlite: source } = openDatabase(
+    join(dataDir, databaseFilename),
+    true,
+  );
   try {
     verifySnapshot(source);
     source.query("VACUUM INTO ?").run(destination);
     chmodSync(destination, 0o600);
-    const snapshot = new Database(destination, { readonly: true });
+    const { sqlite: snapshot } = openDatabase(destination, true);
     try {
       verifySnapshot(snapshot);
     } finally {
@@ -49,7 +51,7 @@ export function restoreDatabase(dataDir: string, source: string): void {
   if (existsSync(destination)) {
     throw new Error("Restore requires an empty installation.");
   }
-  const snapshot = new Database(source, { readonly: true });
+  const { sqlite: snapshot } = openDatabase(source, true);
   try {
     verifySnapshot(snapshot);
   } finally {

@@ -1,3 +1,11 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  spawnProcess,
+  stopHostProcess,
+  workerCommand,
+} from "./process-runtime";
 import { z } from "zod";
 import type { Job } from "./contract";
 import { Client } from "./client";
@@ -40,15 +48,12 @@ export function isolatedCommand(
 }
 
 async function boundedText(
-  stream: ReadableStream<Uint8Array>,
+  stream: AsyncIterable<Uint8Array>,
   kill: (reason?: "cancelled" | "overflow") => void,
 ): Promise<string> {
-  const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
+  for await (const value of stream) {
     size += value.length;
     if (size > 1_000_000) {
       kill("overflow");
@@ -64,12 +69,15 @@ export async function runIsolatedJob(
   base: string,
   sourceArguments: string[],
   signal?: AbortSignal,
+  mode: "docker" | "host" = "docker",
 ): Promise<void> {
   const control = new Client(base, job.capability);
   const path = `/internal/execution/v1/runs/${job.run_id}/`;
   let timer: ReturnType<typeof setInterval> | undefined;
   let deadline: ReturnType<typeof setTimeout> | undefined;
   let cancelled = false;
+  let temporaryDirectory: string | undefined;
+  let exited: Promise<number> | undefined;
   let kill: (reason?: unknown) => void = () => {};
   try {
     // Explicit allowlist: the full claim and its credentials never cross this boundary.
@@ -84,27 +92,38 @@ export async function runIsolatedJob(
     if (Buffer.byteLength(serialized) > 800_000)
       throw new Error("Isolated input exceeds 800000 bytes");
     const name = `orgsdk-isolated-${job.run_id}`;
-    const child = Bun.spawn(
-      isolatedCommand(
-        name,
-        z.string().min(1).parse(process.env.EXECUTOR_IMAGE),
-        sourceArguments,
-      ),
+    if (mode === "host")
+      temporaryDirectory = await mkdtemp(join(tmpdir(), "orgsdk-validation-"));
+    const child = spawnProcess(
+      mode === "host"
+        ? workerCommand(import.meta.url, "./isolated-worker")
+        : isolatedCommand(
+            name,
+            z.string().min(1).parse(process.env.EXECUTOR_IMAGE),
+            sourceArguments,
+          ),
       {
+        cwd: temporaryDirectory,
+        detached: mode === "host" && process.platform !== "win32",
         env: {
+          ...(temporaryDirectory ? { HOME: temporaryDirectory } : {}),
           PATH: process.env.PATH ?? "",
-          ...(process.env.DOCKER_HOST
+          ...(mode === "docker" && process.env.DOCKER_HOST
             ? { DOCKER_HOST: process.env.DOCKER_HOST }
             : {}),
         },
-        stdin: "pipe",
         stdout: "pipe",
         stderr: "pipe",
       },
     );
+    exited = child.exited;
     kill = (reason?: unknown) => {
       cancelled = reason !== "overflow";
-      void Bun.spawn(["docker", "kill", name], {
+      if (mode === "host") {
+        stopHostProcess(child);
+        return;
+      }
+      void spawnProcess(["docker", "kill", name], {
         env: {
           PATH: process.env.PATH ?? "",
           ...(process.env.DOCKER_HOST
@@ -198,5 +217,8 @@ export async function runIsolatedJob(
     clearInterval(timer);
     clearTimeout(deadline);
     signal?.removeEventListener("abort", kill);
+    await exited?.catch(() => undefined);
+    if (temporaryDirectory)
+      await rm(temporaryDirectory, { recursive: true, force: true });
   }
 }
