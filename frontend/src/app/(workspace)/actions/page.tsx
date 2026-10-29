@@ -1,17 +1,10 @@
 "use client";
-import { Suspense, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { Actions } from "../../../components/workspace/actions";
 import { ActionIndex } from "../../../components/workspace/action-index";
 import { useWorkspace } from "../../../components/workspace/workspace-context";
 export default function Page(): ReactNode {
-  return (
-    <Suspense fallback={<p role="status">Loading…</p>}>
-      <Content />
-    </Suspense>
-  );
-}
-function Content(): ReactNode {
   const {
     projects,
     selected: projectId,

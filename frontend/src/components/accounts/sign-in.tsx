@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { bootstrapAccount, finishSignIn, requiresMfa } from "../../api/auth";
-import { trpc } from "../../api/trpc";
+import { finishSignIn, requiresMfa } from "../../api/auth";
+import { loadSession, trpc } from "../../api/trpc";
 import { AccountShell } from "./account-shell";
 import { AccountField, AccountForm } from "./account-form";
 import { formText } from "../../lib/form-fields";
@@ -32,7 +32,7 @@ export function SignIn({ signup = false }: { signup?: boolean }): ReactNode {
   const [challenge, setChallenge] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
-    void bootstrapAccount(controller.signal)
+    void loadSession(controller.signal)
       .then(() =>
         trpc.auth.browserSession.query(undefined, {
           signal: controller.signal,

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { TRPCClientError } from "@trpc/client";
+import { loadSession } from "../src/api/trpc.ts";
 import {
-  bootstrapAccount,
   isReauthenticationRequired,
-  ReauthenticationRequired,
+  identityConfirmationMessage,
   requiresMfa,
 } from "../src/api/auth.ts";
 
@@ -22,10 +22,6 @@ function rpcError(code, httpStatus) {
 
 test("fresh identity prompts use native unauthorized errors, preserving other failures", () => {
   assert.equal(isReauthenticationRequired(rpcError("UNAUTHORIZED", 401)), true);
-  assert.equal(
-    isReauthenticationRequired(new ReauthenticationRequired()),
-    true,
-  );
   for (const error of [
     rpcError("FORBIDDEN", 403),
     rpcError("BAD_REQUEST", 400),
@@ -35,7 +31,7 @@ test("fresh identity prompts use native unauthorized errors, preserving other fa
   ]) {
     assert.equal(isReauthenticationRequired(error), false);
   }
-  assert.match(new ReauthenticationRequired().message, /retry your change/);
+  assert.match(identityConfirmationMessage, /retry your change/);
 });
 
 test("account bootstrap reads the native session query and supplies the CSRF cookie", async () => {
@@ -50,7 +46,7 @@ test("account bootstrap reads the native session query and supplies the CSRF coo
     ]);
   };
   try {
-    await bootstrapAccount();
+    await loadSession();
     assert.equal(requests.length, 1);
     assert.equal(
       new URL(requests[0].address, "http://localhost").pathname,

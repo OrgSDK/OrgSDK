@@ -2,8 +2,7 @@
 import { Button } from "../../../components/ui/button";
 import { Suspense, useState, type ReactNode } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { trpc } from "../../../api/trpc";
-import { bootstrapAccount } from "../../../api/auth";
+import { loadSession, trpc } from "../../../api/trpc";
 import { errorMessage } from "../../../api/result";
 function InvitationForm(): ReactNode {
   const token = useSearchParams().get("token") ?? "";
@@ -28,7 +27,7 @@ function InvitationForm(): ReactNode {
             onClick={() => {
               void (async () => {
                 try {
-                  await bootstrapAccount();
+                  await loadSession();
                   await trpc.workspace.acceptInvitation.mutate({ token });
                   router.push("/");
                 } catch (error) {

@@ -1,17 +1,14 @@
 "use client";
 import { MailPlus, Trash2, Users } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { trpc } from "../api/trpc";
-import type { Invitation, Workspace } from "../api/types";
+import type { Invitation } from "../api/types";
 import { errorMessage } from "../api/result";
 import { useWorkspaceQuery } from "../api/use-workspace-query";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ResourceState } from "./workspace/resource-state";
 import { useDiscardConfirmation } from "./workspace/discard-dialog";
-async function loadMembers(signal: AbortSignal): Promise<Workspace> {
-  return trpc.workspace.current.query(undefined, { signal });
-}
 function invitationStatus(invite: Invitation): string {
   if (invite.accepted_at) return "Accepted";
   if (invite.revoked_at) return "Revoked";
@@ -22,7 +19,13 @@ export function Members({
 }: {
   onChanged: () => Promise<void>;
 }): ReactNode {
-  const query = useWorkspaceQuery(loadMembers);
+  const query = useWorkspaceQuery(
+    useCallback(
+      (signal: AbortSignal) =>
+        trpc.workspace.current.query(undefined, { signal }),
+      [],
+    ),
+  );
   const canConfirm = useDiscardConfirmation();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "member">("member");

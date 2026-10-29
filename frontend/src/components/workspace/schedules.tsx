@@ -3,9 +3,10 @@ import { CalendarClock, Pause, Play, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { z } from "zod";
 import { trpc } from "../../api/trpc";
+import type { Schedule } from "../../api/types";
 import { errorMessage } from "../../api/result";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
-import { loadActions, loadSchedules } from "../../api/workspace-queries";
+import { loadActions } from "../../api/workspace-queries";
 import { Button } from "../ui/button";
 import { defaultSchedule, scheduleSummary } from "../../lib/schedule-timing";
 import { SchedulePicker } from "./schedule-picker";
@@ -17,14 +18,14 @@ import { useWorkspace } from "./workspace-context";
 import { WorkspaceLink } from "./workspace-link";
 import { useUnsavedChanges } from "./use-unsaved-changes";
 async function loadScheduleData(signal: AbortSignal): Promise<{
-  schedules: Awaited<ReturnType<typeof loadSchedules>>;
+  schedules: Schedule[];
   actions: Awaited<ReturnType<typeof loadActions>>;
 }> {
   const [schedules, actions] = await Promise.all([
-    loadSchedules(signal),
+    trpc.schedules.list.query(undefined, { signal }),
     loadActions(signal),
   ]);
-  return { schedules, actions };
+  return { schedules: schedules.results, actions };
 }
 export function Schedules({ actionId = "" }: { actionId?: string }): ReactNode {
   const { selected: projectId, setDirty } = useWorkspace();

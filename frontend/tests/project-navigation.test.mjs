@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  linkedProjectId,
   projectHref,
   projectSwitchHref,
   workspaceNavigation,
@@ -49,4 +50,16 @@ test("activity stays addressable without becoming flat primary navigation", () =
     assert.equal(navigationIds.includes(view), false);
     assert.equal(workspaceView(`/${view}/`), view);
   }
+});
+
+test("only project records select a project without an explicit project parameter", () => {
+  const record = new URLSearchParams({ record: "project-a" });
+  assert.equal(linkedProjectId("/projects/", record), "project-a");
+  assert.equal(linkedProjectId("/documents/", record), null);
+  assert.equal(linkedProjectId("/projects-archive/", record), null);
+  const explicit = new URLSearchParams({
+    project: "project-b",
+    record: "project-a",
+  });
+  assert.equal(linkedProjectId("/projects/", explicit), "project-b");
 });

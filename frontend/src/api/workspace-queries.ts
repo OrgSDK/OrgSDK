@@ -48,27 +48,9 @@ export async function loadCredentials(
   const response = await trpc.credentials.list.query(undefined, { signal });
   return response.results;
 }
-export async function loadSchedules(
-  signal: AbortSignal,
-): Promise<RouterOutputs["schedules"]["list"]["results"]> {
-  const response = await trpc.schedules.list.query(undefined, { signal });
-  return response.results;
-}
 export async function loadTokens(
   signal: AbortSignal,
 ): Promise<RouterOutputs["tokens"]["list"]["results"]> {
   const response = await trpc.tokens.list.query(undefined, { signal });
-  return response.results;
-}
-export async function loadConversations(
-  signal: AbortSignal,
-): Promise<RouterOutputs["conversations"]["list"]["results"]> {
-  const response = await trpc.conversations.list.query(undefined, { signal });
-  return response.results;
-}
-export async function loadWebhooks(
-  signal: AbortSignal,
-): Promise<RouterOutputs["webhooks"]["list"]["results"]> {
-  const response = await trpc.webhooks.list.query(undefined, { signal });
   return response.results;
 }

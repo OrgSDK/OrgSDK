@@ -17,7 +17,12 @@ import type { Project } from "../../api/types";
 import { DiscardConfirmation } from "./discard-dialog";
 import { useWorkspaceNavigation } from "./use-navigation";
 import { WorkspaceShell } from "./shell";
-import { projectHref, projectSwitchHref, workspaceView } from "./routes";
+import {
+  linkedProjectId,
+  projectHref,
+  projectSwitchHref,
+  workspaceView,
+} from "./routes";
 interface WorkspaceContextValue {
   projects: Project[];
   selected: string;
@@ -67,9 +72,7 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
   const runId = parameters.get("run");
   const actionKey = actionId ? `action:${actionId}` : "";
   const detailKey = runId ? `run:${runId}` : actionKey;
-  const linkedProject =
-    parameters.get("project") ??
-    (pathname.startsWith("/projects") ? parameters.get("record") : null);
+  const linkedProject = linkedProjectId(pathname, parameters);
   const isInvalidProject =
     signedIn &&
     !detailKey &&
@@ -89,8 +92,10 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
     if (signal?.aborted) return;
     setProjects(list);
     setSelected((previous) => {
-      const parameters = new URLSearchParams(location.search);
-      const linked = parameters.get("project") ?? parameters.get("record");
+      const linked = linkedProjectId(
+        location.pathname,
+        new URLSearchParams(location.search),
+      );
       const candidates = [
         previous,
         linked,
@@ -223,7 +228,7 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
   };
   return (
     <WorkspaceContext value={value}>
-      <WorkspaceShell workspace={workspace} tab={workspaceView(pathname)}>
+      <WorkspaceShell tab={workspaceView(pathname)}>
         {error || selectionError ? (
           <div className="error" role="alert">
             {error || selectionError}

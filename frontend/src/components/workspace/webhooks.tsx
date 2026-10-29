@@ -3,7 +3,7 @@ import { useState, type ReactNode } from "react";
 import { trpc } from "../../api/trpc";
 import { errorMessage } from "../../api/result";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
-import { loadActions, loadWebhooks } from "../../api/workspace-queries";
+import { loadActions } from "../../api/workspace-queries";
 import type { WebhookSecret } from "../../api/types";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -15,10 +15,10 @@ import { useUnsavedChanges } from "./use-unsaved-changes";
 
 async function loadData(signal: AbortSignal) {
   const [hooks, actions] = await Promise.all([
-    loadWebhooks(signal),
+    trpc.webhooks.list.query(undefined, { signal }),
     loadActions(signal),
   ]);
-  return { hooks, actions };
+  return { hooks: hooks.results, actions };
 }
 function time(value: string | null): string {
   return value ? new Date(value).toLocaleString() : "Never";

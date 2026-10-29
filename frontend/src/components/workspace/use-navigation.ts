@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useDiscardConfirmation } from "./discard-dialog";
-import { workspaceHref } from "./routes";
 function currentHistoryEntry(): object | undefined {
   const navigation: unknown = Reflect.get(globalThis, "navigation");
   if (navigation === null || typeof navigation !== "object") return;
@@ -36,7 +35,6 @@ function historyPosition(key?: string): number | undefined {
   return typeof index === "number" ? index : undefined;
 }
 export function useWorkspaceNavigation(isDirty: boolean): {
-  navigate: (view: string, detail?: string) => Promise<void>;
   navigateTo: (href: string) => Promise<void>;
 } {
   const router = useRouter();
@@ -52,12 +50,6 @@ export function useWorkspaceNavigation(isDirty: boolean): {
       router.push(href);
     },
     [router, canDiscard],
-  );
-  const navigate = useCallback(
-    async (view: string, detail = ""): Promise<void> => {
-      await navigateTo(workspaceHref(view, detail));
-    },
-    [navigateTo],
   );
   useEffect(() => {
     let position = historyPosition();
@@ -127,5 +119,5 @@ export function useWorkspaceNavigation(isDirty: boolean): {
         navigation.removeEventListener("currententrychange", onEntryChange);
     };
   }, [router, canDiscard]);
-  return { navigate, navigateTo };
+  return { navigateTo };
 }

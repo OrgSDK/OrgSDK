@@ -1,5 +1,6 @@
-export function errorMessage(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : "The request failed. Please try again.";
+export function errorMessage(
+  error: unknown,
+  fallback = "The request failed. Please try again.",
+): string {
+  return error instanceof Error ? error.message : fallback;
 }

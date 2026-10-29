@@ -58,10 +58,13 @@ export function createTypedClient(
 export const trpc = createTypedClient();
 
 export async function loadSession(
-  signal: AbortSignal,
+  signal?: AbortSignal,
 ): Promise<RouterOutputs["auth"]["session"]> {
   try {
-    return await trpc.auth.session.query(undefined, { signal });
+    return await trpc.auth.session.query(
+      undefined,
+      signal ? { signal } : undefined,
+    );
   } catch (error) {
     if (
       isTRPCClientError<AppRouter>(error) &&

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
 import { trpc } from "../../api/trpc";
+import { errorMessage } from "../../api/result";
 import { formText } from "../../lib/form-fields";
 import { AccountShell } from "./account-shell";
 import { AccountAccess } from "./account-access";
@@ -19,11 +20,7 @@ function EmailForm(): ReactNode {
       })
       .catch((error_: unknown) => {
         if (isActive)
-          setError(
-            error_ instanceof Error
-              ? error_.message
-              : "Unable to load email address.",
-          );
+          setError(errorMessage(error_, "Unable to load email address."));
       });
     return () => {
       isActive = false;

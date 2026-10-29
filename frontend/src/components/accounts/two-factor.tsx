@@ -1,19 +1,16 @@
 "use client";
-import { useContext, useEffect, useState, type ReactNode } from "react";
-import {
-  isReauthenticationRequired,
-  ReauthenticationRequired,
-} from "../../api/auth";
+import { useEffect, useState, type ReactNode } from "react";
 import { trpc } from "../../api/trpc";
+import { errorMessage } from "../../api/result";
 import { formText } from "../../lib/form-fields";
 import { Button } from "../ui/button";
 import { AccountShell } from "./account-shell";
 import { AccountAccess } from "./account-access";
-import { AccountSecurityContext } from "./account-security-context";
+import { useAccountError } from "./account-security-context";
 import { AccountField, AccountForm } from "./account-form";
 
 function TwoFactorSettings(): ReactNode {
-  const requestIdentity = useContext(AccountSecurityContext);
+  const accountError = useAccountError();
   const [enabled, setEnabled] = useState<boolean>();
   const [settingUp, setSettingUp] = useState(false);
   const [secret, setSecret] = useState("");
@@ -29,11 +26,7 @@ function TwoFactorSettings(): ReactNode {
       })
       .catch((error_: unknown) => {
         if (isActive)
-          setError(
-            error_ instanceof Error
-              ? error_.message
-              : "Unable to load authenticators.",
-          );
+          setError(errorMessage(error_, "Unable to load authenticators."));
       });
     return () => {
       isActive = false;
@@ -104,17 +97,7 @@ function TwoFactorSettings(): ReactNode {
                     setSecret(setup.secret);
                   })
                   .catch((error_: unknown) => {
-                    const requiresIdentity = isReauthenticationRequired(error_);
-                    if (requiresIdentity) requestIdentity?.();
-                    const message =
-                      error_ instanceof Error
-                        ? error_.message
-                        : "Unable to start setup.";
-                    setError(
-                      requiresIdentity
-                        ? new ReauthenticationRequired().message
-                        : message,
-                    );
+                    setError(accountError(error_, "Unable to start setup."));
                   })
                   .finally(() => {
                     setSettingUp(false);

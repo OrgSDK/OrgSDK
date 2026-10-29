@@ -1,10 +1,6 @@
 "use client";
-import { useContext, useState, type SubmitEvent, type ReactNode } from "react";
-import {
-  isReauthenticationRequired,
-  ReauthenticationRequired,
-} from "../../api/auth";
-import { AccountSecurityContext } from "./account-security-context";
+import { useState, type SubmitEvent, type ReactNode } from "react";
+import { useAccountError } from "./account-security-context";
 import { Button } from "../ui/button";
 import { Input, type InputProperties } from "../ui/input";
 
@@ -29,7 +25,7 @@ export function AccountForm({
   submitLabel: string;
   onSubmit: (fields: FormData) => Promise<string | undefined>;
 }): ReactNode {
-  const requestIdentity = useContext(AccountSecurityContext);
+  const accountError = useAccountError();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -42,16 +38,7 @@ export function AccountForm({
     try {
       setNotice((await onSubmit(fields)) ?? "");
     } catch (error_) {
-      const requiresIdentity =
-        requestIdentity !== undefined && isReauthenticationRequired(error_);
-      if (requiresIdentity) requestIdentity();
-      const message =
-        error_ instanceof Error
-          ? error_.message
-          : "Unable to save. Please try again.";
-      setError(
-        requiresIdentity ? new ReauthenticationRequired().message : message,
-      );
+      setError(accountError(error_, "Unable to save. Please try again."));
     } finally {
       setPending(false);
     }
