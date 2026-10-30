@@ -72,7 +72,7 @@ export function ProjectRunner({
     update();
     const timer = setInterval(() => {
       update();
-      void refresh().catch((error_) => {
+      void refresh().catch((error_: unknown) => {
         setError(errorMessage(error_));
       });
     }, 10_000);
