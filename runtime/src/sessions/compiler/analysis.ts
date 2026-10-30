@@ -1,9 +1,16 @@
+import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { join } from "node:path";
 import type { CellDiagnostic } from "../types";
 
-const sourcePath = join(import.meta.dir, "__session_source__.ts");
-const globalsPath = join(import.meta.dir, "__session_globals__.d.ts");
+const sourcePath = join(
+  fileURLToPath(new URL(".", import.meta.url)),
+  "__session_source__.ts",
+);
+const globalsPath = join(
+  fileURLToPath(new URL(".", import.meta.url)),
+  "__session_globals__.d.ts",
+);
 const prefix = "async function __orgsdk_cells__() {\n";
 
 export interface CellAnalysis {

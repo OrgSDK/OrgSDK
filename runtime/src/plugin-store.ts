@@ -41,8 +41,14 @@ function verify(source: Uint8Array, digest: string): void {
     throw new Error("Plugin digest mismatch");
 }
 const maximumReleaseBytes = 32 * 1024 * 1024;
-export async function downloadRelease(url: URL): Promise<Uint8Array> {
-  const signal = AbortSignal.timeout(30_000);
+export async function downloadRelease(
+  url: URL,
+  cancelled?: AbortSignal,
+): Promise<Uint8Array> {
+  const signal = AbortSignal.any([
+    AbortSignal.timeout(30_000),
+    ...(cancelled ? [cancelled] : []),
+  ]);
   for (let redirects = 0; redirects <= 5; redirects++) {
     if (url.protocol !== "https:")
       throw new Error("Plugin release requires HTTPS");
@@ -93,6 +99,7 @@ export async function installPlugin(
   plugin: Plugin,
   agentId: string,
   localFile?: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   safeSegment(agentId);
   safeSegment(plugin.slug);
@@ -141,7 +148,7 @@ export async function installPlugin(
     const url = new URL(plugin.package_url);
     if (url.protocol !== "https:")
       throw new Error("Plugin release requires an HTTPS package URL");
-    source = await downloadRelease(url);
+    source = await downloadRelease(url, signal);
   }
   if (source.byteLength > 32 * 1024 * 1024)
     throw new Error("Plugin release exceeds size limit");

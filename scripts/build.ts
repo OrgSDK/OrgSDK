@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import { resolve } from "node:path";
 
 const frontend = Bun.spawn(["npm", "--prefix", "frontend", "run", "build"], {
   stdout: "inherit",
@@ -12,6 +13,17 @@ await mkdir("dist", { recursive: true });
 const result = await Bun.build({
   entrypoints: ["./server/index.ts"],
   target: "bun",
+  external: ["@node-rs/argon2"],
+  plugins: [
+    {
+      name: "standalone-bun-database",
+      setup(build) {
+        build.onResolve({ filter: /\/node-driver$/ }, () => ({
+          path: resolve("server/db/bun-driver.ts"),
+        }));
+      },
+    },
+  ],
   compile: {
     outfile: "./dist/orgsdk",
     assets: ["./frontend/out", "./server/db/migrations"],

@@ -9,6 +9,7 @@ The frontend uses the typed client in `frontend/src/api/trpc.ts`, with inputs an
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | `router/`                            | Endpoint business logic in logical tRPC subrouters. One procedure per file; `index.ts` only composes its module. |
 | `http/`                              | Fetch adapter, origin/CSRF checks, session context, response headers and static files.                           |
+| `platform/`                          | Node.js/Bun HTTP listeners, password hashing and package asset locations.                                        |
 | `auth/`, `workspaces/`               | Shared session, MFA and membership policies, schemas, views and queries.                                         |
 | `projects/`, `actions/`, `runs/`     | Shared grants, snapshots, immutable versions, run creation, validation and queries.                              |
 | `documents/`, `tables/`, `tokens/`   | Typed resource schemas, scoped queries and shared public views.                                                  |
@@ -129,3 +130,9 @@ Native SQLite is confined to opening/configuring the database, migration-history
 inspection and physical backup/restore. Application dependencies expose a Drizzle
 interface without `$client`. The encryption capability is initialized once from
 the installation key and exposes no filesystem paths.
+
+`db/connection.ts` selects the Bun SQLite or Node.js better-sqlite3 driver. Both
+expose the same synchronous Drizzle operations and immediate transaction behavior.
+The Node npm build keeps the driver modules in lazy chunks; otherwise the Bun
+driver import can be evaluated before runtime selection. The standalone Bun build
+uses the Bun driver exclusively and embeds its assets and migrations.

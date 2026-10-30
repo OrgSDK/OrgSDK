@@ -1,3 +1,4 @@
+import { password as passwords } from "../platform/password";
 import { inTransaction } from "../db/transaction";
 import { eq, or } from "drizzle-orm";
 import { createInterface } from "node:readline/promises";
@@ -46,7 +47,7 @@ export async function resetPassword(store: AppDependencies, email: string) {
         "Use a password of 8–1024 characters that is not entirely numeric.",
       );
     }
-    const passwordHash = await Bun.password.hash(password);
+    const passwordHash = await passwords.hash(password);
     inTransaction(store, (store) => {
       store.db
         .update(users)

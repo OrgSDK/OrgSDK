@@ -1,3 +1,4 @@
+import { password as passwords } from "../../platform/password";
 import { browserProcedure } from "../procedures";
 import { inTransaction } from "../../db/transaction";
 import { randomUUID } from "node:crypto";
@@ -23,7 +24,7 @@ export const setupProcedure = browserProcedure
     const workspaceName = input.workspace_name.trim();
     const projectName =
       typeof input.project_name === "string" ? input.project_name.trim() : "";
-    const hash = await Bun.password.hash(input.password1);
+    const hash = await passwords.hash(input.password1);
     const timestamp = now();
     inTransaction(ctx, (ctx) => {
       const db = ctx.db;

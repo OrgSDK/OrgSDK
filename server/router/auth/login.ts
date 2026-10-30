@@ -1,3 +1,4 @@
+import { password as passwords } from "../../platform/password";
 import { browserProcedure } from "../procedures";
 import { identityContext } from "../identity-context";
 import { ServiceError } from "../../shared/errors";
@@ -16,8 +17,8 @@ export const loginProcedure = browserProcedure
     const email = input.email.trim().toLowerCase();
     throttle(ctx, `login:${email}`);
     const user = identityRepository(ctx.db).userByEmail(email);
-    dummyPasswordHash ??= Bun.password.hash(randomSecret());
-    const valid = await Bun.password.verify(
+    dummyPasswordHash ??= passwords.hash(randomSecret());
+    const valid = await passwords.verify(
       input.password,
       user?.passwordHash ?? (await dummyPasswordHash),
     );

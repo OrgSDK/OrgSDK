@@ -1,14 +1,37 @@
 # OrgSDK
 
-OrgSDK gives external AI clients persistent projects for executing code and building tested, reusable actions. The application combines a static Next.js interface with a Bun API, tRPC, and a Drizzle-managed SQLite store. Executors are independent HTTP clients; they do not access the application database.
+OrgSDK gives external AI clients persistent projects for executing code and building tested, reusable actions. The application combines a static Next.js interface with a Node.js or Bun API, tRPC, and a Drizzle-managed SQLite store. Executors are independent HTTP clients; they do not access the application database.
+
+## Install from npm
+
+On Linux with Node.js 22.22.0 or newer, install the platform package and start it:
+
+```sh
+npm install -g @orgsdk/cli
+orgsdk start
+```
+
+Open `http://127.0.0.1:8080` and create your workspace and account. The command starts the platform and a separate executor manager. It connects a local runner for each enabled project, so code, validation and action tests can run without a separate registration command. Neither Bun nor Docker is required for this local mode. Code and plugins run with your current user's host privileges; use trusted code and clients. This mode is not an operating-system sandbox.
+
+`orgsdk start --data /path/to/installation --port 8081` selects another installation. Data defaults to `~/.local/share/orgsdk`, outside the npm package: the database and encryption key are in that directory, and executor project folders are under `executor/agents/`. Stopping with Ctrl+C stops the supervised processes. Reinstalling the package does not remove installation data; back up that directory before upgrading.
+
+Use `orgsdk server` to run only the platform, or `orgsdk executor --help` to register and run a separate executor. Independently managed runners can install `@orgsdk/executor` from npm. `orgsdk start --mode docker` uses the existing Docker executor configuration and requires Docker, an executor image and the documented network/storage settings. See [the executor guide](runtime/README.md). Linux is the current supported host because persistent project-file access uses `/proc`; macOS and Windows are not supported.
+
+See [distribution and verification](docs/npm-distribution.md) for pinned installation, upgrades, recovery and release checks.
 
 ## Build and run locally
 
-Install Bun 1.4, Node 22 and npm, then run `make install` and `make build`. Start `dist/orgsdk` and open `http://127.0.0.1:8080`. The executable embeds the frontend, including Monaco, and does not require Bun or Node at runtime. `HOST`, `PORT`, and `ORGSDK_DATA_DIR` configure listening and storage. The default data directory is `~/.local/share/orgsdk`.
+Install Bun 1.4, Node.js 22.22.0 or newer and npm, then run `make install` and `make build`. Start `dist/orgsdk` and open `http://127.0.0.1:8080`. The executable embeds the frontend, including Monaco, and does not require Bun or Node at runtime. `HOST`, `PORT`, and `ORGSDK_DATA_DIR` configure listening and storage. The default data directory is `~/.local/share/orgsdk`.
+
+To build the npm package, run `npm run build:npm`, then `npm pack --ignore-scripts`. The tarball includes the platform JavaScript, frontend, migrations and executor workers. `npm pack` without `--ignore-scripts` builds those assets automatically. Use `npm run test:distribution -- ./orgsdk-cli-0.1.0.tgz` to install and verify the actual tarball with temporary data and a Node-only runtime path. Replace the tarball argument with `@orgsdk/cli@0.1.0` to verify the registry release.
 
 The Drizzle schema is the source of truth. Startup applies pending generated migrations to `orgsdk.sqlite3`, and the executable embeds the migration files. Start the initial installation in an empty data directory. This is a greenfield schema without compatibility with the earlier experimental database.
 
-For development, run `make dev` and `make frontend` in separate terminals. Next uses `ORGSDK_PROXY_TARGET` (default `http://127.0.0.1:8080`). Run `make check` for code checks and `make e2e` for browser tests against a temporary isolated database. Install Playwright's browser if needed with `bunx playwright install chromium`. E2E tests also need OpenSSL for their temporary TLS mailbox. To test the standalone product, run `ORGSDK_E2E_BINARY=dist/orgsdk bun scripts/e2e.ts` after building. The harness creates disposable installation data and a local mailbox, rejects browser requests to retired `/api` routes, and exercises the separate Bun worker without changing an existing installation.
+For development, run `make dev` and `make frontend` in separate terminals. Next uses `ORGSDK_PROXY_TARGET` (default `http://127.0.0.1:8080`). Run `make check` for formatting, lint, types, migrations and the full Bun unit suites. Install Playwright's browser if needed with `bunx playwright install chromium`; browser tests also need OpenSSL for their temporary TLS mailbox.
+
+After `npm run build:npm`, run the same browser suite against either runtime with `ORGSDK_E2E_RUNTIME=node ORGSDK_E2E_ENTRY=dist/server/index.js make e2e` or replace `node` with `bun`. The selected runtime runs both the application and its separate execution worker. To test the standalone product, run `ORGSDK_E2E_BINARY=dist/orgsdk make e2e` after `make build`. All browser modes create disposable installation data and a local mailbox, reject requests to retired `/api` routes, and preserve existing installations.
+
+CI tests Node.js 22.22.0, the latest Node.js 24 patch and Bun 1.4.0 in separate jobs using shared platform, packaged-installation, browser and executor assertions. The full unit suites remain on Bun; the compiled Bun executable has its own regression job. The required `check` job succeeds only when every quality and runtime job succeeds. See [the verification commands and coverage](docs/npm-distribution.md#verification).
 
 ## Database development
 

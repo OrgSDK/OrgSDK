@@ -1,9 +1,9 @@
 # Development checks
 
 - Follow `CONTRIBUTING.md`: use an issue-linked feature branch and pull request targeting `main`. Keep unrelated changes separate. Do not push directly to main, merge, publish or deploy without authorization.
-- Use Bun 1.4 for the server and runtime, and npm in `frontend/`. Run `make install`, `make check`, `make e2e`, and `make build` as appropriate. Browser tests use an isolated temporary data directory. Never point test fixtures at a personal installation.
-- Next.js owns the static application, account and setup pages. Bun serves the static export and owns native tRPC, MCP, SQLite, authentication and maintenance. Keep frontend types and API behavior aligned; do not treat historical Django-generated OpenAPI files as a live contract.
-- Preserve Tailwind conventions and established product UI. Protect navigation context and unsaved edits. Shared browser tasks follow the workspace `orgsdk-browser` instructions.
+- Use Node.js 22.22+ for the Linux npm distribution and Bun 1.4 for source tests and the standalone executable. `make install` uses the npm lockfiles in the root, frontend and runtime. Run `make check`, `make e2e`, and `make build` as appropriate. Browser tests use an isolated temporary data directory. Never point test fixtures at a personal installation.
+- Next.js owns the static application, account and setup pages. The portable server serves the static export and owns native tRPC, MCP, SQLite, authentication and maintenance. Keep frontend types and API behavior aligned; do not treat historical Django-generated OpenAPI files as a live contract.
+- Preserve Tailwind conventions and established product UI. Protect navigation context and unsaved edits. Use `playwright-cli` directly for browser tasks.
 - SQLite writes use short immediate transactions. Executors communicate over HTTP only and never access the product database. Network calls must not run inside write transactions.
 
 # Server organization and quality
@@ -31,4 +31,5 @@
 - Workspace hostnames select a registered workspace and membership authorizes access. Scope every query and related resource. Enforce permissions in the server, not only the frontend.
 - Executor capabilities are scoped to immutable run snapshots. Current project grants further constrain access; changes cannot widen existing snapshots. Keep credentials, registration secrets and approvals outside job authority.
 - Preserve immutable action versions, test and validation isolation, protocol compatibility, third-party license notices and runtime vendor provenance.
+- npm packaging includes the separate executor and all worker entrypoints. Verify the actual tarball with `npm run test:distribution -- PACKAGE.tgz`, with Bun absent from the application PATH. Host mode runs trusted code with the OS user's privileges; do not describe its disposable validation workers as an OS sandbox. Keep Docker mode explicit. Run `ORGSDK_E2E_NODE_ENTRY=dist/server/index.js make e2e` for the Node browser flow.
 - SQLite migrations run at startup or through `bun run db:migrate` / `orgsdk migrate`; the compiled executable embeds the generated migration files. Refuse unmanaged or mismatched migration histories. Snapshot SQLite safely and preserve encryption keys and executor data separately.

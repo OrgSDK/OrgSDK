@@ -1,6 +1,4 @@
-import { Database } from "bun:sqlite";
 import { count, isNotNull, isNull, or } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/bun-sqlite";
 import { chmodSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { createSecretCipher } from "../shared/secrets";
@@ -8,9 +6,10 @@ import { ensureEncryptionKey } from "../shared/security";
 import {
   assertManagedDatabase,
   databaseFilename,
-  migrateDatabase,
+  migrationsFolder,
 } from "./migrate";
 import * as schema from "./schema";
+import { openDatabase } from "./connection";
 
 export function openStore(dataDir: string) {
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
@@ -24,21 +23,21 @@ export function openStore(dataDir: string) {
     );
   }
   if (existsSync(path)) {
-    const probe = new Database(path, { readonly: true });
+    const probe = openDatabase(path, true);
     try {
-      assertManagedDatabase(probe);
+      assertManagedDatabase(probe.sqlite);
     } finally {
-      probe.close();
+      probe.sqlite.close();
     }
   }
-  const sqlite = new Database(path, { create: true });
+  const connection = openDatabase(path);
+  const { sqlite, db } = connection;
   chmodSync(path, 0o600);
   try {
     sqlite.exec(
       "PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000;",
     );
-    const db = drizzle(sqlite, { schema });
-    migrateDatabase(db);
+    connection.migrate(migrationsFolder);
     if (!existsSync(join(dataDir, "encryption.key"))) {
       const protectedRows = [
         db.select({ count: count() }).from(schema.credentials).get()?.count ??

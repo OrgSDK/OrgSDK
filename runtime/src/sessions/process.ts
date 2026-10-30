@@ -1,4 +1,9 @@
-import { isAbsolute, join } from "node:path";
+import {
+  spawnProcess,
+  stopHostProcess,
+  workerCommand,
+} from "../process-runtime";
+import { isAbsolute } from "node:path";
 import { z } from "zod";
 import { errorText, jsonValue } from "./values";
 import { SessionError, type CellEvaluation } from "./types";
@@ -14,11 +19,7 @@ export interface SessionProcessOptions {
 
 export function sessionCommand(options: SessionProcessOptions): string[] {
   if (options.mode === "host")
-    return [
-      process.execPath,
-      "--no-env-file",
-      join(import.meta.dir, "worker.ts"),
-    ];
+    return workerCommand(import.meta.url, "./worker");
   for (const path of [
     options.workspaceDirectory,
     options.sourceDirectory,
@@ -93,6 +94,7 @@ export class SessionProcess {
     { resolve: (value: unknown) => void; reject: (error: Error) => void }
   >();
   private stopped?: Promise<void>;
+  private failure?: Error;
 
   constructor(
     private readonly options: SessionProcessOptions,
@@ -102,14 +104,13 @@ export class SessionProcess {
       exit: () => void;
     },
   ) {
-    const child = Bun.spawn(sessionCommand(options), {
+    const child = spawnProcess(sessionCommand(options), {
       cwd: options.workspaceDirectory,
       detached: options.mode === "host" && process.platform !== "win32",
       env: {
         PATH: process.env.PATH ?? "",
         HOME: options.mode === "host" ? options.workspaceDirectory : "/tmp",
       },
-      stdin: "pipe",
       stdout: "pipe",
       stderr: "ignore",
     });
@@ -154,26 +155,30 @@ export class SessionProcess {
         }
       }
     })().catch(() => {
-      void this.stop();
+      void this.stop().catch(() => undefined);
     });
-    void this.child.exited.then(async () => {
+    const finished = async (error?: unknown) => {
+      this.failure =
+        error instanceof Error ? error : new Error("Session worker exited");
       await this.reading;
-      for (const pending of this.pending.values())
-        pending.reject(new Error("Session worker exited"));
+      for (const pending of this.pending.values()) pending.reject(this.failure);
       this.pending.clear();
       hooks.exit();
-    });
+    };
+    void this.child.exited
+      .then(() => finished(), finished)
+      .catch(() => undefined);
   }
 
   private send(message: unknown): void {
     this.child.stdin.write(JSON.stringify(message) + "\n");
-    this.child.stdin.flush();
   }
 
   private request(
     type: string,
     data: Record<string, unknown>,
   ): Promise<unknown> {
+    if (this.failure) return Promise.reject(this.failure);
     return new Promise((resolve, reject) => {
       const requestId = crypto.randomUUID();
       this.pending.set(requestId, { resolve, reject });
@@ -230,7 +235,7 @@ export class SessionProcess {
   stop(): Promise<void> {
     this.stopped ??= (async () => {
       if (this.options.mode === "docker") {
-        await Bun.spawn(
+        await spawnProcess(
           [
             "docker",
             "rm",
@@ -238,17 +243,10 @@ export class SessionProcess {
             `orgsdk-session-${this.options.id}-${this.options.generation}`,
           ],
           { stdout: "ignore", stderr: "ignore" },
-        ).exited;
+        ).exited.catch(() => undefined);
         this.child.kill("SIGKILL");
-      } else if (process.platform === "win32") this.child.kill("SIGKILL");
-      else {
-        try {
-          process.kill(-this.child.pid, "SIGKILL");
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
-        }
-      }
-      await this.child.exited;
+      } else stopHostProcess(this.child);
+      await this.child.exited.catch(() => undefined);
       await this.reading;
     })();
     return this.stopped;

@@ -47,12 +47,18 @@ export async function prepareExecutor(
         );
       }
       const directory = await mkdtemp(join(tmpdir(), "orgsdk-browser-worker-"));
-      const workerPath = fileURLToPath(
-        new URL("../runtime/src/worker.ts", import.meta.url),
-      );
+      const workerPath =
+        process.env.ORGSDK_E2E_WORKER_ENTRY ??
+        fileURLToPath(new URL("../runtime/src/worker.ts", import.meta.url));
+      const workerRuntime =
+        process.env.ORGSDK_E2E_WORKER_RUNTIME ??
+        process.env.ORGSDK_E2E_BUN ??
+        "bun";
       const worker = spawn(
-        process.env.ORGSDK_E2E_BUN ?? "bun",
-        ["--no-env-file", workerPath],
+        workerRuntime,
+        process.env.ORGSDK_E2E_WORKER_ENTRY
+          ? [workerPath]
+          : ["--no-env-file", workerPath],
         {
           cwd: dirname(workerPath),
           env: {
@@ -85,7 +91,7 @@ export async function prepareExecutor(
             .replaceAll(job.capability, "[redacted]")
             .replaceAll(registered.token, "[redacted]");
           throw new Error(
-            `Separate Bun worker failed (${exitCode}): ${safeDiagnostic}`,
+            `Separate executor worker failed (${exitCode}): ${safeDiagnostic}`,
           );
         }
       } finally {

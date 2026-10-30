@@ -1,3 +1,5 @@
+import { pathToFileURL } from "node:url";
+import { build } from "esbuild";
 import { createHash } from "node:crypto";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve, join, relative } from "node:path";
@@ -33,19 +35,20 @@ export async function packagePlugin(
   const entry = resolve(root, manifest.entry);
   if (relative(root, entry).startsWith(".."))
     throw new Error("Plugin entry must be inside its checkout");
-  const built = await Bun.build({
-    entrypoints: [entry],
-    target: "bun",
+  const built = await build({
+    entryPoints: [entry],
+    platform: "node",
+    target: "node22",
     format: "esm",
-    packages: "bundle",
+    bundle: true,
+    write: false,
     minify: true,
     external: embeddedDependencies,
   });
-  if (!built.success || built.outputs.length !== 1)
-    throw new Error(
-      `Plugin build failed: ${built.logs.map(String).join("\n")}`,
-    );
-  let bytes: Uint8Array = new Uint8Array(await built.outputs[0]!.arrayBuffer());
+  const outputFile = built.outputFiles[0];
+  if (!outputFile || built.outputFiles.length !== 1)
+    throw new Error("Plugin build did not produce one JavaScript bundle");
+  let bytes: Uint8Array = outputFile.contents;
   if (embeddedDependencies.length)
     bytes = await embedPluginDependencies(
       checkout,
@@ -73,7 +76,9 @@ export async function packagePlugin(
   await writeFile(bundlePath, bytes);
   if (notices)
     await writeFile(join(resolve(output), `${slug}.notices.txt`), notices);
-  const exported = await import(`${bundlePath}?digest=${digest}`);
+  const moduleUrl = pathToFileURL(bundlePath);
+  moduleUrl.searchParams.set("digest", digest);
+  const exported = await import(moduleUrl.href);
   const factory = exported.default ?? exported;
   const module =
     typeof factory === "function"
