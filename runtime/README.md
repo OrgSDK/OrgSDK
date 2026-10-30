@@ -1,6 +1,6 @@
 # Persistent project executor
 
-This private-release npm package provides `orgsdk-executor`. Install the local `npm pack` tarball with npm; it has not been published. Linux with Node 22.22.0+ and npm is required. Bun 1.4 remains an optional source-development runtime; installed JavaScript workers do not require Bun on PATH. Docker execution additionally requires Docker with `--mount volume-subpath` support, a built executor image, and network access to the OrgSDK application.
+The `@orgsdk/executor` npm package provides `orgsdk-executor`. Install it with `npm install -g @orgsdk/executor@0.1.0` for an independently managed runner. The `@orgsdk/cli` platform package already includes its local executor. Linux with Node 22.22.0+ and npm is required. Bun 1.4 remains an optional source-development runtime; installed JavaScript workers do not require Bun on PATH. Docker execution additionally requires Docker with `--mount volume-subpath` support, a built executor image, and network access to the OrgSDK application.
 
 Create an executor identity for the chosen project in the application. Register using its token on stdin (or `EXECUTOR_TOKEN`), without placing the token in command history:
 
@@ -43,7 +43,7 @@ server, plugin release URLs and configured model providers. No inbound executor
 port is needed. Create one executor identity per agent in the application; a
 service instance uses that identity and processes one run at a time.
 
-Build the private npm artifact from `runtime/` with `npm pack`, and transfer the
+Build the npm artifact from `runtime/` with `npm pack`, and transfer the
 resulting tarball to the local Linux machine if needed. Install Node 22.22.0+/npm and systemd, with Node in a system-wide path such as `/usr/local/bin/node`.
 Docker mode also needs Docker
 Engine. Extract the installer from the tarball and run it as root:

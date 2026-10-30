@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, delimiter } from "node:path";
+import { join, delimiter, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const runtime = process.argv[2];
@@ -57,23 +57,31 @@ function run(command, args, cwd = root, capture = false) {
 }
 
 try {
-  const packed = JSON.parse(
-    await run(
-      "npm",
-      ["pack", "--json", "--pack-destination", directory],
-      root,
-      true,
-    ),
-  );
+  const packageSource = process.argv[3];
+  let packageSpec;
+  if (packageSource) {
+    packageSpec = packageSource.startsWith("@orgsdk/executor@")
+      ? packageSource
+      : resolve(packageSource);
+  } else {
+    const packed = JSON.parse(
+      await run(
+        "npm",
+        ["pack", "--json", "--pack-destination", directory],
+        root,
+        true,
+      ),
+    );
+    packageSpec = join(directory, packed[0].filename);
+  }
   await run("npm", [
     "install",
     "--prefix",
     installation,
     "--omit=dev",
-    "--ignore-scripts",
     "--no-audit",
     "--no-fund",
-    join(directory, packed[0].filename),
+    packageSpec,
   ]);
   await run(executable, [
     ...(runtime === "bun" ? ["--no-env-file"] : []),

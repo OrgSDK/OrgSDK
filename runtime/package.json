@@ -1,11 +1,15 @@
 {
   "name": "@orgsdk/executor",
   "version": "0.1.0",
-  "private": true,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "description": "OrgSDK project executor with persistent files and reusable action workers",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
-    "url": "https://github.com/OrgSDK/OrgSDK.git",
+    "url": "git+https://github.com/OrgSDK/OrgSDK.git",
     "directory": "runtime"
   },
   "type": "module",

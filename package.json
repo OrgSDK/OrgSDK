@@ -1,6 +1,9 @@
 {
   "name": "@orgsdk/cli",
-  "private": true,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "os": [
     "linux"
   ],
@@ -73,6 +76,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/OrgSDK/OrgSDK.git"
+    "url": "git+https://github.com/OrgSDK/OrgSDK.git"
   }
 }

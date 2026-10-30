@@ -14,8 +14,14 @@ import {
   waitForRun,
 } from "./distribution-fixture.ts";
 
-const tarball = process.argv[2];
-assert(tarball, "Usage: npm run test:distribution -- PACKAGE.tgz");
+const packageSource = process.argv[2];
+assert(
+  packageSource,
+  "Usage: npm run test:distribution -- PACKAGE.tgz | @orgsdk/cli@VERSION",
+);
+const packageSpec = packageSource.startsWith("@orgsdk/cli@")
+  ? packageSource
+  : resolve(packageSource);
 const runtime = process.versions.bun ? "bun" : "node";
 assert.equal(runtime, process.env.ORGSDK_TEST_RUNTIME ?? runtime);
 console.log(
@@ -38,7 +44,8 @@ try {
       installed,
       "--no-audit",
       "--no-fund",
-      resolve(tarball),
+      "--omit=dev",
+      packageSpec,
     ],
     directory,
   ).success();
@@ -53,14 +60,29 @@ try {
     ).success(),
     /start/,
   );
-  assert.match(
-    await command(
-      process.execPath,
-      [cli, "--version"],
-      directory,
-      minimalEnv,
-    ).success(),
-    /0\.1\.0/,
+  const manifest = z
+    .object({ name: z.literal("@orgsdk/cli"), version: z.string() })
+    .parse(
+      JSON.parse(
+        await readFile(
+          join(installed, "node_modules/@orgsdk/cli/package.json"),
+          "utf8",
+        ),
+      ),
+    );
+  assert.equal(
+    (
+      await command(
+        process.execPath,
+        [cli, "--version"],
+        directory,
+        minimalEnv,
+      ).success()
+    ).trim(),
+    manifest.version,
+  );
+  console.log(
+    `Installed ${manifest.name}@${manifest.version} from ${packageSpec}`,
   );
   const port = await availablePort();
   installation = await startInstallation(cli, directory, port, runtimePath);
