@@ -7,6 +7,16 @@ import { now } from "../shared/records";
 import { digest, randomSecret } from "../shared/security";
 import { type Executor } from "./authority";
 export function claim(ctx: AppContext, worker: Executor): Response {
+  ctx.db
+    .update(t.executors)
+    .set({ lastSeenAt: now() })
+    .where(
+      and(
+        eq(t.executors.id, worker.id),
+        eq(t.executors.workspaceId, worker.workspaceId),
+      ),
+    )
+    .run();
   const setting = ctx.db
     .select()
     .from(t.workspaceSettings)
@@ -103,11 +113,6 @@ export function claim(ctx: AppContext, worker: Executor): Response {
         updatedAt: now(),
       })
       .where(eq(t.runs.id, run.id))
-      .run();
-    ctx.db
-      .update(t.executors)
-      .set({ lastSeenAt: now() })
-      .where(eq(t.executors.id, worker.id))
       .run();
     return json({
       protocol_version: protocol,
