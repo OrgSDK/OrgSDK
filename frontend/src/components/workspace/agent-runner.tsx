@@ -70,11 +70,16 @@ export function ProjectRunner({
       setNow(Date.now());
     };
     update();
-    const timer = setInterval(update, 10_000);
+    const timer = setInterval(() => {
+      update();
+      void refresh().catch((error_: unknown) => {
+        setError(errorMessage(error_));
+      });
+    }, 10_000);
     return () => {
       clearInterval(timer);
     };
-  }, []);
+  }, [refresh]);
   const lastSeen = project.runner.last_seen_at
     ? new Date(project.runner.last_seen_at).getTime()
     : undefined;

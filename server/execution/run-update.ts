@@ -14,6 +14,18 @@ export function handleRunUpdate(
 ): Response {
   if (action === "heartbeat") {
     if (!terminal.has(run.status)) {
+      if (run.executorId) {
+        ctx.db
+          .update(t.executors)
+          .set({ lastSeenAt: now() })
+          .where(
+            and(
+              eq(t.executors.id, run.executorId),
+              eq(t.executors.workspaceId, run.workspaceId),
+            ),
+          )
+          .run();
+      }
       ctx.db
         .update(t.runs)
         .set({
