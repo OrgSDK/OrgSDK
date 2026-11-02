@@ -5,6 +5,11 @@ import { type ServiceContext } from "../application";
 import { requireManager } from "../shared/authorization";
 import { ServiceError } from "../shared/errors";
 export const providers = {
+  "xero-oauth": {
+    authorization: "https://login.xero.com/identity/connect/authorize",
+    token: "https://identity.xero.com/connect/token",
+    pkce: false,
+  },
   "google-oauth": {
     authorization: "https://accounts.google.com/o/oauth2/v2/auth",
     token: "https://oauth2.googleapis.com/token",
