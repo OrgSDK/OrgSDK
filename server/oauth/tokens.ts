@@ -20,7 +20,7 @@ export async function tokenExchange(
     "Content-Type": "application/x-www-form-urlencoded",
     Accept: "application/json",
   });
-  if (providerName === "twitter-oauth") {
+  if (providerName === "twitter-oauth" || providerName === "xero-oauth") {
     headers.set(
       "Authorization",
       `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,

@@ -115,6 +115,19 @@ export async function resolveExecutionSecret(
   const payload = z
     .record(z.string(), z.unknown())
     .parse(JSON.parse(decrypt(store, credential.encryptedSecret)));
+  // Legacy host 0.1.0 Xero credentials contain only a manually renewed token.
+  // Any OAuth metadata keeps the credential on the strict managed path.
+  if (
+    credential.provider === "xero-oauth" &&
+    Object.keys(payload).length === 1 &&
+    typeof payload.secret_accessToken === "string" &&
+    payload.secret_accessToken
+  ) {
+    return recordSecretVersion(
+      { secret_accessToken: payload.secret_accessToken },
+      credential,
+    );
+  }
   let revision = credential;
   if (
     payload.source !== "byo" ||

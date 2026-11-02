@@ -18,7 +18,9 @@ export function request(
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 }
-export function fixture() {
+export function fixture(
+  auth = { provider: "google-oauth", scopes: ["email"] },
+) {
   const fixture = rpcFixture();
   const store = fixture.store;
   const project = fixture.project.id;
@@ -45,7 +47,7 @@ export function fixture() {
         version: "1",
         digest,
         package_url: packageUrl,
-        auth: { type: "oauth2", provider: "google-oauth", scopes: ["email"] },
+        auth: { type: "oauth2", ...auth },
       },
       packageUrl,
       distribution: "external",

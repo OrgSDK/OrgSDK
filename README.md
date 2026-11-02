@@ -61,6 +61,10 @@ The source is distributed under [LICENSE](LICENSE). See [CONTRIBUTING.md](CONTRI
 
 For OAuth, set `ORGSDK_PUBLIC_ORIGIN` to the installation's exact public origin and use the same hostname for workspace setup. HTTPS is required except for loopback HTTP. Invitations require SMTP: configure `SMTP_HOST`, `SMTP_PORT` (default 587), `SMTP_FROM`, and optional paired `SMTP_USER` and `SMTP_PASSWORD`. STARTTLS is required by default; set `SMTP_SECURE=true` for implicit TLS. Keep credentials private. See `.env.example` for names; provide environment variables to your process or Compose deployment through your normal secrets mechanism.
 
+External plugins can declare `xero-oauth` for a bring-your-own Xero confidential web application. Register the exact `${ORGSDK_PUBLIC_ORIGIN}/oauth/callback` redirect URI in Xero and connect through the plugin's browser setup with your client ID and client secret. The pinned plugin release supplies the requested scopes; include `offline_access` for refresh. OrgSDK stores and rotates refresh tokens in the control plane and injects only the access token into execution. This uses Xero's [standard authorization-code flow](https://developer.xero.com/documentation/guides/oauth2/auth-flow/), not its separate PKCE or Custom Connections app types. The external plugin must restrict API calls to its configured, authorized Xero tenant.
+
+For local Xero setup, use `http://localhost` consistently for the workspace, public origin and registered callback; Xero does not accept `http://127.0.0.1` redirect URIs. Other deployments should use the exact registered HTTPS origin.
+
 If local account recovery is needed, an administrator with access to the server can run `orgsdk reset-password EMAIL` and enter the new password at the private interactive prompt.
 
 For an HTTPS reverse proxy, set `ORGSDK_PUBLIC_ORIGIN` to the public HTTPS origin, preserve the public Host header, and keep the backend reachable through that trusted proxy. The application uses the explicit origin for CSRF and Secure cookies; it ignores forwarded scheme and host headers. Health checks and authenticated internal executor routes keep their direct service address.
