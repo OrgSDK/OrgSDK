@@ -365,7 +365,7 @@ export function Connections({
             <fieldset>
               <legend>Actual operations granted</legend>
               {clientScopes.map(([scope, label]) => (
-                <label className="check" key={scope}>
+                <label className="check permission-option" key={scope}>
                   <Input
                     type="checkbox"
                     checked={scopes.includes(scope)}
@@ -378,7 +378,9 @@ export function Connections({
                       );
                     }}
                   />
-                  {label} <code>{scope}</code>
+                  <span>
+                    {label} <code>{scope}</code>
+                  </span>
                 </label>
               ))}
             </fieldset>

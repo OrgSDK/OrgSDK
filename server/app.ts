@@ -13,7 +13,7 @@ export function createApp(
       path.startsWith("/trpc/") ||
       path === "/mcp/" ||
       path.startsWith("/internal/execution/v1/") ||
-      /^\/webhooks\/[^/]+\/?$/.test(path) ||
+      /^\/webhooks\/[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}\/?$/i.test(path) ||
       path === "/oauth/callback"
     ) {
       return handleApi(request, dependencies);

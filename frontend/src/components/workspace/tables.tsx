@@ -101,8 +101,8 @@ function DefinitionForm({
           changes.
         </p>
         {columns.map((column, index) => (
-          <div className="flex flex-wrap items-end gap-3" key={index}>
-            <label className="min-w-40 flex-1">
+          <div className="table-column-fields" key={index}>
+            <label className="table-column-key">
               Column {index + 1} key
               <Input
                 required
@@ -114,7 +114,7 @@ function DefinitionForm({
                 }}
               />
             </label>
-            <div>
+            <div className="table-column-type">
               <label htmlFor={`${formId}-type-${String(index)}`}>Type</label>
               <select
                 id={`${formId}-type-${String(index)}`}
@@ -130,7 +130,7 @@ function DefinitionForm({
                 <option value="date">Date</option>
               </select>
             </div>
-            <label className="flex items-center gap-2">
+            <label className="check">
               <input
                 type="checkbox"
                 checked={column.required}
