@@ -72,7 +72,6 @@ export async function runIsolatedJob(
   mode: "docker" | "host" = "docker",
 ): Promise<void> {
   const control = new Client(base, job.capability);
-  const path = `/internal/execution/v1/runs/${job.run_id}/`;
   let timer: ReturnType<typeof setInterval> | undefined;
   let deadline: ReturnType<typeof setTimeout> | undefined;
   let cancelled = false;
@@ -147,7 +146,7 @@ export async function runIsolatedJob(
         try {
           const state = z
             .object({ cancel_requested: z.boolean(), status: z.string() })
-            .parse(await control.request(`${path}heartbeat/`, "POST"));
+            .parse(await control.heartbeat(job.run_id));
           if (
             state.cancel_requested ||
             ["failed", "interrupted", "cancelled"].includes(state.status)
@@ -187,7 +186,7 @@ export async function runIsolatedJob(
           : undefined,
       },
     };
-    await control.request(`${path}events/`, "POST", {
+    await control.publishEvent(job.run_id, {
       sequence: 1,
       kind: job.operation === "validate" ? "validation.result" : "test.result",
       data: {
@@ -198,14 +197,14 @@ export async function runIsolatedJob(
           : [],
       },
     });
-    await control.request(`${path}complete/`, "POST", {
+    await control.complete(job.run_id, {
       status: passed ? "succeeded" : "failed",
       output,
       ...(passed ? {} : { error: "Validation or tests failed" }),
     });
   } catch (error) {
     await control
-      .request(`${path}complete/`, "POST", {
+      .complete(job.run_id, {
         status: cancelled ? "cancelled" : "failed",
         error:
           error instanceof Error

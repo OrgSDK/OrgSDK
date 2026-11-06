@@ -79,7 +79,11 @@ try {
       executor.registerMultiple(functions);
       const result = await executor.execute(
         'return data.processData({ data: [3, 1, 2], processor: "sort" });',
-        {},
+        {
+          agent: { id: "orgsdk-platform-test", name: "Release verification" },
+          stores: {},
+          actionRunner: {},
+        },
         {},
       );
       if (JSON.stringify(result.result) !== "[1,2,3]")

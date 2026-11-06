@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { Client } from "./client";
+import { Client, type ProjectDataOperation } from "./client";
 import { projectDataFunctions } from "./project-data";
 
 const tableId = crypto.randomUUID();
@@ -7,8 +7,15 @@ const rowId = crypto.randomUUID();
 function fixture(signal = new AbortController().signal) {
   const calls: unknown[] = [];
   class ScopedClient extends Client {
-    override async product(path: string, method = "GET", body?: unknown) {
-      calls.push({ path, method, body });
+    override async projectData(
+      operation: ProjectDataOperation,
+      params: Record<string, unknown>,
+    ) {
+      calls.push({
+        path: "project-data/",
+        method: "POST",
+        body: { operation, ...params },
+      });
       return { items: [], next_offset: null };
     }
   }

@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile.supervisor
     entrypoint: [bun, --watch, /executor/src/supervisor.ts]
     environment:
-      DJANGO_URL: http://127.0.0.1:${PORT:-8080}
+      ORGSDK_SERVER_URL: http://127.0.0.1:${PORT:-8080}
       LOCAL_EXECUTOR_BOOTSTRAP_TOKEN: ${LOCAL_EXECUTOR_BOOTSTRAP_TOKEN:-}
       EXECUTOR_IMAGE: ${EXECUTOR_JOB_IMAGE:-orgsdk-job:dev}
       EXECUTOR_SOURCE_DIR: ${EXECUTOR_SOURCE_DIR:-${PWD}/runtime/src}

@@ -6,10 +6,10 @@ Describe the problem and resulting behavior. Include any migration or installati
 
 ## Validation
 
-- [ ] `make check`
+- [ ] `npm run check`
 - [ ] Affected user flow exercised; results recorded below
-- [ ] PostgreSQL checks completed if claims or locking changed
-- [ ] Generated contracts included if the API changed
+- [ ] SQLite transaction and isolation checks completed if writes or locking changed
+- [ ] Inferred tRPC types and named executor operations aligned if an API changed
 
 Record results and any remaining limitations here.
 

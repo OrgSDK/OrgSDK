@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Client } from "./client";
+import type { Client, ProjectDataOperation } from "./client";
 import type { SandboxFunction } from "./engine/sandbox/types";
 
 const id = z.string().uuid();
@@ -39,9 +39,12 @@ export function projectDataFunctions(
   client: Client,
   signal: AbortSignal,
 ): SandboxFunction[] {
-  const call = (operation: string, params: Record<string, unknown>) => {
+  const call = (
+    operation: ProjectDataOperation,
+    params: Record<string, unknown>,
+  ) => {
     signal.throwIfAborted();
-    return client.product("project-data/", "POST", { operation, ...params });
+    return client.projectData(operation, params);
   };
   const page = (start: unknown, count: unknown) => ({
     offset: offset.parse(start),

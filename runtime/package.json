@@ -1,6 +1,6 @@
 {
   "name": "@orgsdk/executor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
@@ -14,25 +14,28 @@
   },
   "type": "module",
   "scripts": {
-    "test": "bun test src",
+    "test": "npm run test:unit && npm run test:integration",
     "typecheck": "tsc --noEmit",
-    "check": "bun run typecheck && bun test src",
+    "check": "npm run typecheck && npm test",
     "worker": "node dist/worker.js",
     "supervisor": "node dist/supervisor.js",
-    "build": "node scripts/build.mjs",
+    "build": "tsx scripts/build.ts",
     "prepack": "npm run build",
     "smoke:node": "node scripts/verify-runtime-package.mjs node",
-    "smoke:bun": "node scripts/verify-runtime-package.mjs bun"
+    "smoke:bun": "node scripts/verify-runtime-package.mjs bun",
+    "test:unit": "bun ../scripts/test.ts unit src",
+    "test:integration": "bun ../scripts/test.ts integration src"
   },
   "dependencies": {
-    "pino": "^10.3.1",
+    "pino": "^10.4.0",
     "typescript": "~6.0.3",
     "zod": "^4.0.0",
     "esbuild": "0.28.2"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.14",
-    "@types/node": "^22.20.5"
+    "@types/bun": "^1.4.4",
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15"
   },
   "bin": {
     "orgsdk-executor": "bin/orgsdk-executor.mjs"

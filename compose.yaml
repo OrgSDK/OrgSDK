@@ -29,7 +29,7 @@ services:
     image: ${SUPERVISOR_IMAGE:-orgsdk-supervisor:local}
     build: {context: runtime, dockerfile: Dockerfile.supervisor}
     environment:
-      DJANGO_URL: http://app:8080
+      ORGSDK_SERVER_URL: http://app:8080
       LOCAL_EXECUTOR_BOOTSTRAP_TOKEN: ${LOCAL_EXECUTOR_BOOTSTRAP_TOKEN:-}
       EXECUTOR_IMAGE: ${EXECUTOR_IMAGE:-orgsdk-job:local}
       EXECUTION_NETWORK: ${COMPOSE_PROJECT_NAME:-orgsdk-bun}_default

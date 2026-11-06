@@ -68,7 +68,7 @@ async function workerFixture() {
           cwd: workspace,
           env: {
             PATH: process.env.PATH ?? "",
-            DJANGO_URL: server.url.toString(),
+            ORGSDK_SERVER_URL: server.url.toString(),
             EXECUTOR_AGENT_DIR: directory,
           },
           stdin: "pipe",

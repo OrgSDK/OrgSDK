@@ -101,13 +101,13 @@ Extract responsibilities before a file reaches the limit. Explicit and unsafe
 `any` are banned across the server, tooling and tests. Accept `unknown` at external
 boundaries and validate it. Do not suppress rules or add unchecked assertions.
 
-`bun run check` runs formatting, lint, types and migration drift checks.
-`bun test server` exercises the server independently of the frontend. Full product
+`npm run check:server` runs formatting, lint, types and migration drift checks.
+`bun test server` exercises the server integration tests independently of the frontend. Full product
 checks additionally include the separate frontend and executor projects. Do not
 use personal installation data in tests.
 
 If VS Code reports unsafe assignments of "error typed" values after files or
-exports move, compare with `bun run check`. When that check passes, run
+exports move, compare with `npm run check:server`. When that check passes, run
 **ESLint: Restart ESLint Server** to refresh the editor's cross-file type cache.
 TypeScript-ESLint documents this [stale editor diagnostics issue](https://typescript-eslint.io/troubleshooting/typed-linting/#editor-eslint-reports-become-out-of-date-after-file-changes).
 If the diagnostic persists, inspect its underlying TypeScript/import error;

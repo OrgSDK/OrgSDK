@@ -35,11 +35,11 @@ export class Runner {
   async event(kind: string, data: unknown): Promise<void> {
     const pending = this.events
       .then(() =>
-        this.client.request(
-          `/internal/execution/v1/runs/${this.job.run_id}/events/`,
-          "POST",
-          { sequence: ++this.sequence, kind, data },
-        ),
+        this.client.publishEvent(this.job.run_id, {
+          sequence: ++this.sequence,
+          kind,
+          data,
+        }),
       )
       .then(() => undefined);
     this.events = pending.catch(() => undefined);
@@ -48,7 +48,7 @@ export class Runner {
 
   private async approval(prompt: string): Promise<boolean> {
     let approval = approvalSchema.parse(
-      await this.client.product("approvals/", "POST", {
+      await this.client.createApproval({
         run: this.job.run_id,
         prompt,
       }),
@@ -60,16 +60,14 @@ export class Runner {
     while (approval.status === "pending") {
       this.signal.throwIfAborted();
       await sleep(1000);
-      approval = approvalSchema.parse(
-        await this.client.product(`approvals/${approval.id}/`),
-      );
+      approval = approvalSchema.parse(await this.client.approval(approval.id));
     }
     if (approval.status !== "approved")
       throw new Error("Approval denied or interrupted");
     return true;
   }
 
-  private builtins(agent: Agent): SandboxFunction[] {
+  private builtins(): SandboxFunction[] {
     let fileFunctions: SandboxFunction[] | undefined;
     const files = ["readFile", "writeFile", "listFiles", "removeFile"].map(
       (name): SandboxFunction => ({
@@ -100,26 +98,12 @@ export class Runner {
         name: "saveArtifact",
         calling: "positional",
         handler: (name: unknown, content: unknown) =>
-          this.client.product("artifacts/", "POST", {
+          this.client.saveArtifact({
             run: this.job.run_id,
             name: z.string().parse(name),
             content: z.string().parse(content),
           }),
       },
-      ...(agent.resources === undefined && this.job.operation !== "code"
-        ? [
-            {
-              name: "saveMemory",
-              calling: "positional",
-              handler: (title: unknown, content: unknown) =>
-                this.client.product("documents/", "POST", {
-                  kind: "memory",
-                  title: z.string().parse(title),
-                  content: z.string().parse(content),
-                }),
-            } satisfies SandboxFunction,
-          ]
-        : []),
       {
         name: "delegate",
         calling: "positional",
@@ -152,7 +136,7 @@ export class Runner {
         );
     }
     const executor = new SandboxExecutor();
-    executor.registerBuiltins(this.builtins(agent));
+    executor.registerBuiltins(this.builtins());
     executor.registerMultiple(
       await loadPlugins(agent.plugins, this.client, agent.id),
     );

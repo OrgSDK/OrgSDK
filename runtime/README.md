@@ -1,6 +1,6 @@
 # Persistent project executor
 
-The `@orgsdk/executor` npm package provides `orgsdk-executor`. Install it with `npm install -g @orgsdk/executor@0.1.0` for an independently managed runner. The `@orgsdk/cli` platform package already includes its local executor. Linux with Node 22.22.0+ and npm is required. Bun 1.4 remains an optional source-development runtime; installed JavaScript workers do not require Bun on PATH. Docker execution additionally requires Docker with `--mount volume-subpath` support, a built executor image, and network access to the OrgSDK application.
+The `@orgsdk/executor` npm package provides `orgsdk-executor`. Install it with `npm install -g @orgsdk/executor` for an independently managed runner. The `@orgsdk/cli` platform package already includes its local executor. Linux with Node 22.22.0+ and npm is required. Bun 1.4 remains an optional source-development runtime; installed JavaScript workers do not require Bun on PATH. Docker execution additionally requires Docker with `--mount volume-subpath` support, a built executor image, and network access to the OrgSDK application.
 
 Create an executor identity for the chosen project in the application. Register using its token on stdin (or `EXECUTOR_TOKEN`), without placing the token in command history:
 
@@ -9,7 +9,7 @@ orgsdk-executor register --url http://localhost:8080 --data /path/to/private-run
 orgsdk-executor start --data /path/to/private-runner
 ```
 
-Registration saves the token in `registration.json` with mode 0600. Without `--data` or `EXECUTOR_DATA_DIR`, data lives at `$XDG_DATA_HOME/orgsdk/executor` (default `~/.local/share/orgsdk/executor`), independently of the package installation directory. Docker is the default mode. Configure `EXECUTOR_IMAGE`, `EXECUTION_NETWORK`, and `EXECUTOR_DATA_VOLUME`; set `--data` to the mounted volume root so it contains `agents/<agent-id>`. Docker jobs mount only their own agent subdirectory at `/agent`, use `/agent/workspace` as their working directory, and receive only their run capability through stdin. Other agents and registration files are not mounted. The managed installation runs `orgsdk-executor manage` (or `node dist/supervisor.js`) with `DJANGO_URL` and `LOCAL_EXECUTOR_BOOTSTRAP_TOKEN`. Each identity has one serial worker; revoked identities stop and remain stopped while the same revoked registration is advertised. Bootstrap omissions stop active workers; a later explicit re-enable or replacement identity starts a new worker. Transient startup failures retry with a bounded delay.
+Registration saves the token in `registration.json` with mode 0600. Without `--data` or `EXECUTOR_DATA_DIR`, data lives at `$XDG_DATA_HOME/orgsdk/executor` (default `~/.local/share/orgsdk/executor`), independently of the package installation directory. Docker is the default mode. Configure `EXECUTOR_IMAGE`, `EXECUTION_NETWORK`, and `EXECUTOR_DATA_VOLUME`; set `--data` to the mounted volume root so it contains `agents/<agent-id>`. Docker jobs mount only their own agent subdirectory at `/agent`, use `/agent/workspace` as their working directory, and receive only their run capability through stdin. Other agents and registration files are not mounted. The managed installation runs `orgsdk-executor manage` (or `node dist/supervisor.js`) with `ORGSDK_SERVER_URL` and `LOCAL_EXECUTOR_BOOTSTRAP_TOKEN`. Each identity has one serial worker; revoked identities stop and remain stopped while the same revoked registration is advertised. Bootstrap omissions stop active workers; a later explicit re-enable or replacement identity starts a new worker. Transient startup failures retry with a bounded delay.
 
 Use `start --mode host` explicitly to run child jobs using the current OS account, its PATH and HOME. Host mode can use installed command-line tools and their account configuration; it is appropriate only for trusted plugins. It filters bootstrap, token, password, API key and credential environment variables from child jobs. Plugin code still receives only snapshot-authorized product credentials through the run capability. Host processes retain OS account filesystem access. Host validation/test workers receive only the allowlisted source, SDK metadata, test fixtures and output schema, run in a disposable directory, and have no product capability or project mount. Their OS account can still access host files; Docker provides the OS isolation boundary. Docker is the default isolation boundary.
 
@@ -49,8 +49,8 @@ Docker mode also needs Docker
 Engine. Extract the installer from the tarball and run it as root:
 
 ```sh
-tar -xzf orgsdk-executor-0.1.0.tgz package/scripts/install-service.sh
-sudo bash package/scripts/install-service.sh "$PWD/orgsdk-executor-0.1.0.tgz" researcher docker
+tar -xzf orgsdk-executor-0.1.1.tgz package/scripts/install-service.sh
+sudo bash package/scripts/install-service.sh "$PWD/orgsdk-executor-0.1.1.tgz" researcher docker
 ```
 
 The installer creates `/opt/orgsdk-executor`, the `orgsdk-researcher` system
@@ -95,7 +95,7 @@ Browser's engine is a runner prerequisite. The optional `Dockerfile.chromium` in
 
 ```sh
 docker build -t orgsdk-job:chromium -f runtime/Dockerfile.chromium runtime
-make EXECUTOR_JOB_IMAGE=orgsdk-job:chromium executor
+EXECUTOR_IMAGE=orgsdk-job:chromium orgsdk-executor start --mode docker
 ```
 
 Independently managed executors can select that image using `EXECUTOR_IMAGE`. Standard executors remain unchanged. Host-mode runners need matching Chromium at `PLAYWRIGHT_BROWSERS_PATH`.
@@ -109,4 +109,4 @@ bun --no-env-file runtime/scripts/verify-plugin-releases.ts \
 
 Use `--catalog /path/releases.json --bundle-root /path/bundles` before publication. Add `--render-pdf` when the matching engine is provisioned to exercise real PDF output. Every package is checksum-verified, installed in temporary `orgsdk-platform-test` project storage, and loaded to compare its exported tools to the catalog. Data Tools is exercised through the VM action interface. This does not prove provider OAuth setup or live external writes.
 
-The retained `DJANGO_URL` executor setting is the application base URL for protocol compatibility. Point it at the application server, for example `http://127.0.0.1:8080`. The server binary does not include or start the executor.
+`ORGSDK_SERVER_URL` is the executor's application base URL. Point it at the application server, for example `http://127.0.0.1:8080`. The server binary does not include or start the executor. Separately managed executors must configure `ORGSDK_SERVER_URL` when upgrading; the platform CLI and managed development command supply it automatically.

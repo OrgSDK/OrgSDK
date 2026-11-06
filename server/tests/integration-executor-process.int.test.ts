@@ -31,7 +31,7 @@ test("a separate existing executor process runs code against the Bun API", async
         cwd: resolve("runtime"),
         env: {
           PATH: globalThis.process.env.PATH!,
-          DJANGO_URL: f.origin,
+          ORGSDK_SERVER_URL: f.origin,
           EXECUTOR_AGENT_DIR: join(f.dir, "project"),
         },
         stdin: "pipe",

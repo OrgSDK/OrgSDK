@@ -84,7 +84,7 @@ async function childProcess(entry, args, input, environment = {}) {
       cwd: join(agentDirectory, "workspace"),
       env: {
         PATH: process.env.PATH,
-        DJANGO_URL: base,
+        ORGSDK_SERVER_URL: base,
         EXECUTOR_AGENT_DIR: agentDirectory,
         ...environment,
       },
