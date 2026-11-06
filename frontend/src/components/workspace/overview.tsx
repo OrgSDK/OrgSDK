@@ -156,7 +156,7 @@ export function Overview({
               value={String(data.projects.length)}
               hint={`${String(data.plugins.length)} installed plugins`}
               onClick={() => {
-                navigate("connections");
+                navigate("work");
               }}
             />
           </section>

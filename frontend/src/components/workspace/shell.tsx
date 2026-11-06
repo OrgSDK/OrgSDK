@@ -40,6 +40,8 @@ export function WorkspaceShell({
       return;
     }
     wasOpen.current = true;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     close.current?.focus();
     const onKey = (event: KeyboardEvent): void => {
       if (event.defaultPrevented) return;
@@ -62,6 +64,7 @@ export function WorkspaceShell({
     };
     addEventListener("keydown", onKey);
     return () => {
+      document.body.style.overflow = previousOverflow;
       removeEventListener("keydown", onKey);
     };
   }, [open]);
