@@ -64,6 +64,7 @@ export class Client {
     return this.#request(
       `/internal/execution/v1/runs/${identifier(runId)}/heartbeat/`,
       "POST",
+      {},
     );
   }
 
