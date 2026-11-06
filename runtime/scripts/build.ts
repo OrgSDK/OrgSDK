@@ -8,8 +8,8 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const source = join(root, "src");
 const output = join(root, "dist");
 
-async function sourceFiles(directory) {
-  const files = [];
+async function sourceFiles(directory: string): Promise<string[]> {
+  const files: string[] = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
     if (entry.isDirectory() && entry.name !== "testing")

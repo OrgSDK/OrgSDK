@@ -27,25 +27,21 @@ if (command === "--help" || !command) {
     "orgsdk-executor register --url URL [--data DIR] (token: EXECUTOR_TOKEN or stdin)\norgsdk-executor start [--mode docker|host] [--data DIR]\norgsdk-executor install --agent ID --manifest FILE [--file bundled.mjs] [--data DIR]\norgsdk-executor package-plugin --directory CHECKOUT --output DIR [--embed-dependencies package,...] [--license FILE]\norgsdk-executor manage [--mode docker|host] (bootstrap manager)",
   );
 } else if (command === "--version") {
-  console.log("0.1.0");
+  console.log("0.1.1");
 } else if (command === "register") {
   const base = z
     .string()
     .url()
-    .parse(option("url") || process.env.DJANGO_URL);
+    .parse(option("url") || process.env.ORGSDK_SERVER_URL);
   const token = z
     .string()
     .min(32)
     .parse(process.env.EXECUTOR_TOKEN || (await readStdin()).trim());
   const registration = z.object({ id: z.string(), agent_id: z.string() }).parse(
-    await new Client(base, token).request(
-      "/internal/execution/v1/register/",
-      "POST",
-      {
-        protocol_version: 3,
-        capabilities: ["action", "code", "validate", "test"],
-      },
-    ),
+    await new Client(base, token).register({
+      protocol_version: 3,
+      capabilities: ["action", "code", "validate", "test"],
+    }),
   );
   await mkdir(data, { recursive: true, mode: 0o700 });
   await writeFile(

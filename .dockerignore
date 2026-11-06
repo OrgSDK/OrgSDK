@@ -35,3 +35,5 @@ frontend/out
 runtime/node_modules
 
 apps/actions/bundled_plugins.json
+
+frontend/public/monaco

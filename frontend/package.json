@@ -1,22 +1,23 @@
 {
   "name": "orgsdk-platform-frontend",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.22.0"
   },
   "scripts": {
-    "dev": "next dev --hostname 0.0.0.0",
+    "dev": "next dev",
     "build": "next build",
     "format": "prettier --write .",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "check": "node scripts/monaco-assets.mjs --check && npm test && prettier --check . && eslint && tsc --noEmit",
-    "dev:all": "concurrently --kill-others --names bun,next \"bun --watch ../server/index.ts\" \"next dev --hostname 0.0.0.0\"",
-    "test": "bun test tests",
-    "predev": "node scripts/monaco-assets.mjs",
-    "prebuild": "node scripts/monaco-assets.mjs"
+    "check": "tsx scripts/monaco-assets.ts --check && npm test && prettier --check . && eslint && tsc --noEmit",
+    "test": "npm run test:unit && npm run test:integration",
+    "predev": "tsx scripts/monaco-assets.ts",
+    "prebuild": "tsx scripts/monaco-assets.ts",
+    "test:unit": "bun ../scripts/test.ts unit tests",
+    "test:integration": "bun ../scripts/test.ts integration tests"
   },
   "dependencies": {
     "@babel/parser": "^7.29.9",
@@ -25,12 +26,12 @@
     "@radix-ui/react-alert-dialog": "^1.2.1",
     "@radix-ui/react-select": "^2.4.1",
     "@radix-ui/react-slot": "^1.5.0",
-    "@trpc/client": "^11.19.0",
+    "@trpc/client": "^11.24.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.8.0",
     "monaco-editor": "^0.52.2",
-    "next": "16.4.2",
+    "next": "16.4.5",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-markdown": "^10.1.0",
@@ -45,13 +46,16 @@
     "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "concurrently": "^10.0.6",
-    "eslint": "^10.13.0",
-    "eslint-config-next": "16.4.2",
+    "eslint": "^10.14.0",
+    "eslint-config-next": "16.4.5",
     "eslint-plugin-unicorn": "^78.0.0",
     "prettier": "^3.9.10",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.71.2"
+    "typescript-eslint": "^8.71.2",
+    "tsx": "^4.23.15"
+  },
+  "overrides": {
+    "minimatch@>=7": "^11.0.1"
   }
 }

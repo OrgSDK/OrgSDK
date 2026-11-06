@@ -56,7 +56,7 @@ export async function runAgent(
   }
   const client = new Client(base, registration.token, signal);
   try {
-    await client.request("/internal/execution/v1/register/", "POST", {
+    await client.register({
       protocol_version: 3,
       capabilities: ["action", "code", "validate", "test"],
       agent_id: agentId,
@@ -73,7 +73,7 @@ export async function runAgent(
     try {
       const config = z
         .object({ agent_id: z.string(), plugins: z.array(pluginSchema) })
-        .parse(await client.request("/internal/execution/v1/configuration/"));
+        .parse(await client.configuration());
       if (config.agent_id !== agentId)
         throw new Error("Executor agent configuration mismatch");
       for (const plugin of config.plugins) {
@@ -85,10 +85,7 @@ export async function runAgent(
           );
         }
       }
-      const claimed = await client.request(
-        "/internal/execution/v1/claim/",
-        "POST",
-      );
+      const claimed = await client.claim();
       if (!claimed) {
         await sleep(2000, undefined, { signal }).catch(() => undefined);
         continue;
@@ -137,7 +134,7 @@ export async function runAgent(
               "--workdir",
               "/agent/workspace",
               "-e",
-              `DJANGO_URL=${base}`,
+              `ORGSDK_SERVER_URL=${base}`,
               "-e",
               "EXECUTOR_AGENT_DIR=/agent",
               z.string().min(1).parse(process.env.EXECUTOR_IMAGE),
@@ -176,12 +173,7 @@ export async function runAgent(
           try {
             const state = z
               .object({ cancel_requested: z.boolean() })
-              .parse(
-                await control.request(
-                  `/internal/execution/v1/runs/${job.run_id}/heartbeat/`,
-                  "POST",
-                ),
-              );
+              .parse(await control.heartbeat(job.run_id));
             if (!state.cancel_requested && !signal.aborted) return;
           } catch {
             /* Revoked leases stop execution. */
@@ -215,7 +207,7 @@ export async function runAgent(
 export async function manage(
   mode: "docker" | "host" = "docker",
 ): Promise<void> {
-  const base = z.string().url().parse(process.env.DJANGO_URL);
+  const base = z.string().url().parse(process.env.ORGSDK_SERVER_URL);
   const bootstrap = new Client(
     base,
     z.string().min(32).parse(process.env.LOCAL_EXECUTOR_BOOTSTRAP_TOKEN),
@@ -237,9 +229,7 @@ export async function manage(
     try {
       const response = z
         .object({ registrations: z.array(registrationSchema) })
-        .parse(
-          await bootstrap.request("/internal/execution/v1/bootstrap/", "POST"),
-        );
+        .parse(await bootstrap.bootstrap());
       const active = new Set(
         response.registrations.map((item) => item.agent_id),
       );

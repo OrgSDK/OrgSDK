@@ -5,7 +5,7 @@ import { jobSchema } from "./contract";
 import { Runner } from "./runner";
 
 const job = jobSchema.parse(JSON.parse(await readStdin()));
-const base = z.string().url().parse(process.env.DJANGO_URL);
+const base = z.string().url().parse(process.env.ORGSDK_SERVER_URL);
 const controller = new AbortController();
 const client = new Client(base, job.capability, controller.signal);
 const control = new Client(base, job.capability);
@@ -17,12 +17,7 @@ let stopped = false;
 const timer = setInterval(() => {
   void (async () => {
     try {
-      const state = heartbeat.parse(
-        await control.request(
-          `/internal/execution/v1/runs/${job.run_id}/heartbeat/`,
-          "POST",
-        ),
-      );
+      const state = heartbeat.parse(await control.heartbeat(job.run_id));
       if (
         state.cancel_requested ||
         ["failed", "interrupted", "cancelled"].includes(state.status)
@@ -39,15 +34,14 @@ const deadline = setTimeout(
 );
 try {
   const output = await new Runner(job, client, controller.signal).run();
-  await control.request(
-    `/internal/execution/v1/runs/${job.run_id}/complete/`,
-    "POST",
-    { status: "succeeded", output: { result: output } },
-  );
+  await control.complete(job.run_id, {
+    status: "succeeded",
+    output: { result: output },
+  });
   stopped = true;
 } catch (error) {
   await control
-    .request(`/internal/execution/v1/runs/${job.run_id}/complete/`, "POST", {
+    .complete(job.run_id, {
       status: controller.signal.aborted ? "cancelled" : "failed",
       error: error instanceof Error ? error.message : "Execution failed",
     })

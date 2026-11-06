@@ -15,7 +15,7 @@ export async function verifySessionStartupFailure(
     const {SessionProcess} = await import(${JSON.stringify(moduleUrl)});
     let exits = 0;
     const session = new SessionProcess({id:crypto.randomUUID(),generation:1,mode:"docker",workspaceDirectory:"/tmp"}, {event(){}, async call(){}, exit(){exits++;}});
-    await assert.rejects(session.initialize([],1000), /ENOENT|Session worker exited/);
+    await assert.rejects(session.initialize([],1000), error => error.code === "ENOENT" || /Session worker exited/.test(error.message));
     await session.stop();
     assert.equal(exits,1);
     console.log("Missing Docker startup was caught and cleaned up");
@@ -24,7 +24,8 @@ export async function verifySessionStartupFailure(
     process.execPath,
     ["--input-type=module", "--eval", script],
     {
-      env: { PATH: "" },
+      // Bun treats an empty PATH as the default search path. Use an absent directory.
+      env: { PATH: join(packageDirectory, "missing-bin") },
       stdio: ["ignore", "pipe", "pipe"],
     },
   );

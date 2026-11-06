@@ -37,7 +37,7 @@ test("isolated Docker command grants no production network, mount, credentials o
   expect(command).toContain("--security-opt=no-new-privileges");
   expect(command).toContain("/executor/src/isolated-worker.ts");
   expect(command.join(" ")).not.toMatch(
-    /\/agent|DJANGO_URL|TOKEN|SECRET|host-gateway/,
+    /\/agent|ORGSDK_SERVER_URL|TOKEN|SECRET|host-gateway/,
   );
 });
 

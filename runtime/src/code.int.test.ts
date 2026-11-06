@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "bun:test";
 import { jobSchema, type Job } from "./contract";
-import { Client } from "./client";
+import { Client, type RunEvent, type ProjectDataOperation } from "./client";
 import { Runner } from "./runner";
 import { traceValue } from "./engine/sandbox/trace";
 
@@ -174,7 +174,7 @@ test("trace serialization handles cycles, errors and bigints", () => {
 
 test("cancellation does not hang while flushing an unavailable event endpoint", async () => {
   class StalledClient extends Client {
-    override async request(): Promise<unknown> {
+    override async publishEvent(): Promise<unknown> {
       return new Promise(() => undefined);
     }
   }
@@ -269,12 +269,22 @@ test("Runner persists files across runs and routes project data without provider
   const root = await mkdtemp(join(tmpdir(), "orgsdk-project-runner-"));
   const calls: Array<{ path: string; body: unknown }> = [];
   class ProjectClient extends Client {
-    override async request(path: string, _method = "GET", body?: unknown) {
-      calls.push({ path, body });
-      if (path.endsWith("/project-data/"))
-        return { items: [{ id: "table" }], next_offset: null };
-      if (path.endsWith("/events/")) return undefined;
-      throw new Error(`Unexpected request ${path}`);
+    override async projectData(
+      operation: ProjectDataOperation,
+      params: Record<string, unknown>,
+    ) {
+      calls.push({
+        path: "/internal/execution/v1/product/project-data/",
+        body: { operation, ...params },
+      });
+      return { items: [{ id: "table" }], next_offset: null };
+    }
+    override async publishEvent(runId: string, event: RunEvent) {
+      calls.push({
+        path: `/internal/execution/v1/runs/${runId}/events/`,
+        body: event,
+      });
+      return undefined;
     }
   }
   const client = new ProjectClient("http://fixture", "token");
@@ -351,12 +361,11 @@ test("one-off code queries an agent-owned plugin through its VM namespace", asyn
   const clientPath = Bun.resolveSync("./client.ts", import.meta.dir);
   const script = `
     import { Runner } from ${JSON.stringify(runnerPath)};
-    import { Client } from ${JSON.stringify(clientPath)};
+    import { Client, type RunEvent, type ProjectDataOperation } from ${JSON.stringify(clientPath)};
     const requests = [];
     class EventsOnlyClient extends Client {
-      async request(path, method, body) {
-        requests.push({path, method, body});
-        if (!path.endsWith('/events/')) throw new Error('Unexpected capability request: ' + path);
+      async publishEvent(runId, body) {
+        requests.push({path: "/internal/execution/v1/runs/" + runId + "/events/", method: "POST", body});
       }
     }
     globalThis.fetch = () => { throw new Error('Unexpected provider or network request'); };

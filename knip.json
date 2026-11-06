@@ -1,0 +1,49 @@
+{
+  "$schema": "https://unpkg.com/knip/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/*.ts",
+        "bin/*.mjs",
+        "server/tests/*.test.ts",
+        "e2e/*.ts",
+        "server/tests/platform-contract-probe.ts",
+        "server/tests/platform-http-contract.ts"
+      ],
+      "project": [
+        "server/**/*.ts",
+        "scripts/*.ts",
+        "bin/*.mjs",
+        "e2e/*.ts",
+        "*.ts",
+        "*.mjs"
+      ],
+      "ignoreDependencies": ["pino"]
+    },
+    "runtime": {
+      "entry": [
+        "src/cli.ts",
+        "src/supervisor.ts",
+        "src/worker.ts",
+        "src/isolated-worker.ts",
+        "src/sessions/index.ts",
+        "src/sessions/worker.ts",
+        "src/**/*.test.ts",
+        "scripts/*.{ts,mjs}",
+        "bin/*.mjs",
+        "src/engine/sandbox/index.ts"
+      ],
+      "project": ["src/**/*.{ts,mjs}", "scripts/*.{ts,mjs}", "bin/*.mjs"]
+    },
+    "frontend": {
+      "entry": ["scripts/*.ts", "tests/*.mjs"],
+      "project": [
+        "src/**/*.{ts,tsx,css}",
+        "scripts/*.ts",
+        "tests/*.mjs",
+        "*.ts",
+        "*.mjs"
+      ]
+    }
+  }
+}

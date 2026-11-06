@@ -1,6 +1,6 @@
 # Execution sessions
 
-`SessionManager` is a standalone execution module. It keeps one worker/container alive across TypeScript cells, with a stable session ID and an increasing event cursor. It has no Django, REST, MCP or frontend wiring, and the existing code/action workers do not import it.
+`SessionManager` is a standalone execution module. It keeps one worker/container alive across TypeScript cells, with a stable session ID and an increasing event cursor. It has no application, MCP or frontend wiring, and the existing code/action workers do not import it.
 
 ## Reading the implementation
 
@@ -142,11 +142,11 @@ cd runtime
 bun run check
 
 # Real container reuse and forced termination, using an existing job image.
-ORGSDK_SESSION_DOCKER_TEST=1 bun test src/sessions/docker.test.ts
+ORGSDK_SESSION_DOCKER_TEST=1 bun test src/sessions/docker.int.test.ts
 
 # Test a freshly built job image without a development source mount.
 ORGSDK_SESSION_DOCKER_TEST=1 ORGSDK_SESSION_PACKAGED_TEST=1 \
-  EXECUTOR_IMAGE=your-test-image bun test src/sessions/docker.test.ts
+  EXECUTOR_IMAGE=your-test-image bun test src/sessions/docker.int.test.ts
 ```
 
 The Docker test is opt-in so ordinary runtime tests do not require a running daemon. It checks container identity across three cells, variable reuse, persistent files, an external kill after `await`, archive retention and container removal. Process tests cover cursors, duplicate submission, scope, reset, cancellation, deadlines, worker loss and current-cell authority; kernel tests cover lexical and TypeScript semantics.

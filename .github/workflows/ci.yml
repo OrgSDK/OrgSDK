@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   source:
-    name: Source quality and Bun unit tests
+    name: Source quality, unit and integration tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -27,8 +27,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.0"
-      - run: make install
-      - run: make check
+      - run: npm run setup
+      - run: npm run check
+      - run: npm run test:dev
 
   runtime:
     name: Runtime (${{ matrix.label }})
@@ -73,20 +74,20 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.0"
-      - run: make install
+      - run: npm run setup
       - name: Shared server contract in the selected runtime
-        run: bun test server/tests/platform-contract.test.ts
+        run: bun test server/tests/platform-contract.int.test.ts
       - name: CLI tests in the selected runtime
         run: ${{ matrix.cli-test }}
       - run: npm run build:npm
       - run: npm pack --ignore-scripts
       - name: Installed platform and runner in the selected runtime
-        run: npm run ${{ matrix.distribution-test }} -- ./orgsdk-cli-0.1.0.tgz
+        run: npm run ${{ matrix.distribution-test }} -- ./orgsdk-cli-*.tgz
       - name: Installed executor contract in the selected runtime
         run: npm --prefix runtime run smoke:${{ matrix.runtime }}
       - run: bunx playwright install --with-deps chromium
       - name: Browser suite with platform and workers in the selected runtime
-        run: make e2e
+        run: npm run e2e
       - uses: actions/upload-artifact@v4
         if: matrix.upload
         with:
@@ -111,12 +112,12 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.0"
-      - run: make install
+      - run: npm run setup
       - run: bunx playwright install --with-deps chromium
-      - run: make build
-      - run: ORGSDK_TEST_BINARY=dist/orgsdk bun test server/tests/database-history.test.ts
-      - run: ORGSDK_E2E_BINARY=dist/orgsdk make e2e
-      - run: scripts/smoke-binary.sh
+      - run: npm run build
+      - run: ORGSDK_TEST_BINARY=dist/orgsdk bun test server/tests/database-history.int.test.ts
+      - run: ORGSDK_E2E_BINARY=dist/orgsdk npm run e2e
+      - run: npm run smoke:binary
 
   check:
     if: always()

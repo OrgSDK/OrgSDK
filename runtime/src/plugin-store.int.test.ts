@@ -50,7 +50,7 @@ test("plugin releases persist per agent and verify cached bytes", async () => {
 test("host child environment excludes supervisor credentials", () => {
   process.env.LOCAL_EXECUTOR_BOOTSTRAP_TOKEN = "bootstrap-fixture";
   process.env.EXECUTOR_TOKEN = "executor-fixture";
-  const env = jobEnvironment("http://django", "/agent", true);
+  const env = jobEnvironment("http://platform", "/agent", true);
   expect(env.LOCAL_EXECUTOR_BOOTSTRAP_TOKEN).toBeUndefined();
   expect(env.EXECUTOR_TOKEN).toBeUndefined();
   expect(env.PATH).toBe(process.env.PATH);

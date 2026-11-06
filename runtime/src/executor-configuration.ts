@@ -48,7 +48,7 @@ export function jobEnvironment(
     ...inherited,
     PATH: process.env.PATH || "",
     HOME: host ? process.env.HOME || agentPath : agentPath,
-    DJANGO_URL: base,
+    ORGSDK_SERVER_URL: base,
     EXECUTOR_AGENT_DIR: agentPath,
   } as Record<string, string>;
 }

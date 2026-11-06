@@ -71,7 +71,7 @@ async function main() {
   env.LOCAL_EXECUTOR_BOOTSTRAP_TOKEN = await bootstrapToken(options.data);
   env.EXECUTOR_DATA_DIR ||= join(options.data, "executor");
   const address = localAddress(options.host, options.port);
-  env.DJANGO_URL = address;
+  env.ORGSDK_SERVER_URL = address;
   if (options.mode === "host") {
     console.log(
       "Local executor: project code runs with your current user's host privileges. Use trusted code and clients only.",

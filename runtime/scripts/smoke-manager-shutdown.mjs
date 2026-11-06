@@ -88,7 +88,7 @@ export async function verifyManagerShutdown(packageDirectory, runtimeLabel) {
       {
         env: {
           PATH: process.env.PATH,
-          DJANGO_URL: `http://127.0.0.1:${server.address().port}`,
+          ORGSDK_SERVER_URL: `http://127.0.0.1:${server.address().port}`,
           LOCAL_EXECUTOR_BOOTSTRAP_TOKEN: token,
           EXECUTOR_DATA_DIR: directory,
         },

@@ -63,7 +63,7 @@ export async function prepareExecutor(
           cwd: dirname(workerPath),
           env: {
             PATH: process.env.PATH ?? "",
-            DJANGO_URL: origin,
+            ORGSDK_SERVER_URL: origin,
             EXECUTOR_AGENT_DIR: directory,
           },
           stdio: ["pipe", "pipe", "pipe"],

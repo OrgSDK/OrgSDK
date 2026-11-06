@@ -2,25 +2,25 @@
 
 Tracking: [Node.js distribution issue #7](https://github.com/OrgSDK/OrgSDK/issues/7).
 
-The platform package is `@orgsdk/cli@0.1.0`. Its `orgsdk` command supervises the platform and separate HTTP executor. The independently installable runner is `@orgsdk/executor@0.1.0`. Both packages use public access on the npm registry. Builds and checks do not publish packages.
+The platform package is `@orgsdk/cli`. Its `orgsdk` command supervises the platform and separate HTTP executor. The independently installable runner is `@orgsdk/executor`. Both packages use public access on the npm registry. The source package version is `0.1.1`; builds, checks and source merges do not publish packages. Commands containing `VERSION` require a selected published version.
 
 On Linux with Node.js 22.22.0 or newer:
 
 ```sh
-npm install -g @orgsdk/cli@0.1.0
+npm install -g @orgsdk/cli
 orgsdk start
 ```
 
-The platform already includes its local executor. Install `@orgsdk/executor@0.1.0` separately only when managing a runner independently.
+The platform already includes its local executor. Install `@orgsdk/executor` separately only when managing a runner independently.
 
 ## Build and install
 
-Use Linux, Node.js 22.22.0 or newer, npm, and Bun 1.4 for development and the existing test suite. `make install` installs the locked development dependencies. `npm run build:npm` builds Next.js, the portable server and JavaScript executor workers. `npm pack --ignore-scripts` packs the completed build; plain `npm pack` runs that build itself.
+Use Linux, Node.js 22.22.0 or newer, npm, and Bun 1.4 for development and the existing test suite. `npm run setup` installs the locked development dependencies. `npm run build:npm` builds Next.js, the portable server and JavaScript executor workers. `npm pack --ignore-scripts` packs the completed build; plain `npm pack` runs that build itself.
 
 Install the tarball into a separate directory or globally:
 
 ```sh
-npm install -g ./orgsdk-cli-0.1.0.tgz
+npm install -g ./orgsdk-cli-0.1.1.tgz
 orgsdk start
 ```
 
@@ -44,9 +44,9 @@ Before upgrading, stop OrgSDK and preserve the database, matching encryption key
 
 ## Verification
 
-`npm run test:distribution -- ./orgsdk-cli-0.1.0.tgz` installs the real tarball into an empty temporary directory. Use `npm run test:distribution -- @orgsdk/cli@0.1.0` to install from the public registry instead. The application and runner are launched with a path containing only Node.js. `npm run test:distribution:bun -- ./orgsdk-cli-0.1.0.tgz` runs the same acceptance assertions with Bun. These tests exercise frontend and Monaco assets, setup, login, automatic executor registration, code, validation, reusable action tests/execution, persistent files across restart, migration, backup, cancellation and graceful shutdown. They use disposable account and installation data.
+`npm run test:distribution -- ./orgsdk-cli-0.1.1.tgz` installs the real tarball into an empty temporary directory. Use `npm run test:distribution -- @orgsdk/cli@VERSION` to install from the public registry instead. The application and runner are launched with a path containing only Node.js. `npm run test:distribution:bun -- ./orgsdk-cli-0.1.1.tgz` runs the same acceptance assertions with Bun. These tests exercise frontend and Monaco assets, setup, login, automatic executor registration, code, validation, reusable action tests/execution, persistent files across restart, migration, backup, cancellation and graceful shutdown. They use disposable account and installation data.
 
-Verify the independent registry runner with `npm --prefix runtime run smoke:node -- @orgsdk/executor@0.1.0`. Use `smoke:bun` for the matching Bun assertions. An explicit tarball argument tests that exact artifact without rebuilding it.
+Verify the independent registry runner with `npm --prefix runtime run smoke:node -- @orgsdk/executor@VERSION`. Use `smoke:bun` for the matching Bun assertions. An explicit tarball argument tests that exact artifact without rebuilding it.
 
 CI separates source quality, runtime behavior and standalone executable checks:
 
@@ -58,15 +58,15 @@ CI separates source quality, runtime behavior and standalone executable checks:
 
 The pinned Node.js 22.22.0 lane checks the declared minimum. The Node.js 24 lane follows patch updates within that maintained major. This matrix does not run every unit test under Node.js: the full unit suites remain on Bun, while the shared contract and integration assertions exercise both product runtimes. The required `check` aggregator runs even when a dependency fails and requires every quality, runtime and standalone job to succeed.
 
-After `npm run build:npm`, select the platform and execution-worker runtime for the browser suite with `ORGSDK_E2E_RUNTIME=node ORGSDK_E2E_ENTRY=dist/server/index.js make e2e` or replace `node` with `bun`. The executor package has matching `npm --prefix runtime run smoke:node` and `npm --prefix runtime run smoke:bun` commands. They pack and install the same JavaScript artifact, then assert CLI registration, persistent project files, plugins, validation/tests, durable sessions, cancellation and shutdown under the selected runtime. The Node smoke removes Bun from PATH.
+After `npm run build:npm`, select the platform and execution-worker runtime for the browser suite with `ORGSDK_E2E_RUNTIME=node ORGSDK_E2E_ENTRY=dist/server/index.js npm run e2e` or replace `node` with `bun`. The executor package has matching `npm --prefix runtime run smoke:node` and `npm --prefix runtime run smoke:bun` commands. They pack and install the same JavaScript artifact, then assert CLI registration, persistent project files, plugins, validation/tests, durable sessions, cancellation and shutdown under the selected runtime. The Node smoke removes Bun from PATH.
 
-`make check` retains source checks. `make build`, compiled database tests, `ORGSDK_E2E_BINARY=dist/orgsdk make e2e`, and `scripts/smoke-binary.sh` retain the Bun standalone checks. Passing Linux checks does not establish other operating systems or architectures as supported.
+`npm run check` retains source checks. `npm run build`, compiled database tests, `ORGSDK_E2E_BINARY=dist/orgsdk npm run e2e`, and `npm run smoke:binary` retain the Bun standalone checks. Passing Linux checks does not establish other operating systems or architectures as supported.
 
 ## Release procedure
 
 Release requires maintainer authorization separately from implementation. Select a checked commit on `main` and an unused version, update both manifests and lockfiles, and record installation/upgrade notes. Authenticate with an npm account authorized for `@orgsdk`; interactive publication can require browser authentication and a second factor. Do not commit tokens.
 
-1. Run `make install`, `make check`, `npm run build:npm` and the runtime/browser CI matrix.
+1. Run `npm run setup`, `npm run check`, `npm run build:npm` and the runtime/browser CI matrix.
 2. Pack the completed platform with `npm pack --ignore-scripts` and the executor with `npm pack ./runtime --ignore-scripts`. Review both tarballs, including the retained license and runtime provenance. Exclude installation data, credentials, source tests and fixtures.
 3. Run `npm run test:distribution -- ./orgsdk-cli-VERSION.tgz` and `npm --prefix runtime run smoke:node -- /absolute/path/orgsdk-executor-VERSION.tgz` against the exact release artifacts. Retain their SHA512 integrity values.
 4. Publish each reviewed tarball with `npm publish ./PACKAGE.tgz --access public --ignore-scripts`. Publishing the tarball avoids rebuilding after verification. If one package succeeds and another fails, verify the published package and retry only the missing package; npm versions cannot be overwritten.
