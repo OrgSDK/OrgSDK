@@ -2,9 +2,12 @@ import { createHash } from "node:crypto";
 import { RESERVED_FUNCTION_KEYS } from "../engine/plugins/namespace";
 import type { ApprovedTool, RemoteTool } from "./contract";
 
+/** Only the stable name-to-alias history is needed from previous catalogues. */
+export type ToolAlias = Pick<ApprovedTool, "name" | "alias">;
+
 export function approveTools(
   tools: RemoteTool[],
-  previous: ApprovedTool[],
+  previous: ToolAlias[],
 ): ApprovedTool[] {
   const existing = new Map(previous.map((tool) => [tool.name, tool.alias]));
   const claimed = new Set(previous.map((tool) => tool.alias));

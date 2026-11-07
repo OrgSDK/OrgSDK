@@ -4,7 +4,7 @@ import {
   headerSchema,
   transportSchema,
 } from "../../runtime/src/mcp/contract";
-export const connectionInput = z.strictObject({
+export const connectionInputSchema = z.strictObject({
   project: z.uuid(),
   slug: z
     .string()
@@ -15,7 +15,13 @@ export const connectionInput = z.strictObject({
   auth_mode: z.enum(["none", "headers", "oauth"]).default("none"),
   headers: headerSchema.optional(),
 });
-export const connectionUpdate = connectionInput
-  .omit({ project: true, slug: true })
-  .partial()
-  .extend({ id: z.uuid() });
+// Declared explicitly: deriving from connectionInputSchema with .partial()
+// would keep the create-time defaults, so an omitted auth_mode/transport would
+// parse as "none"/"auto" and silently reset the connection's authentication.
+export const connectionUpdateSchema = z.strictObject({
+  id: z.uuid(),
+  endpoint: endpointSchema.optional(),
+  transport: transportSchema.optional(),
+  auth_mode: z.enum(["none", "headers", "oauth"]).optional(),
+  headers: headerSchema.optional(),
+});

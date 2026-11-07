@@ -47,7 +47,7 @@ export const acceptProcedure = browserManagerProcedure
         );
       }
       const history = Object.entries(connection.aliases).map(
-        ([name, alias]) => ({ name, alias, inputSchema: {} }),
+        ([name, alias]) => ({ name, alias }),
       );
       const catalogue = approveTools(connection.candidate.tools, history);
       const revision = connection.revision + 1;

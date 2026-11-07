@@ -3,24 +3,27 @@ import { browserManagerProcedure } from "../../procedures";
 import { eq } from "drizzle-orm";
 import { inTransaction } from "../../../db/transaction";
 import { mcpConnections, plugins } from "../../../db/schema";
-import { connectionUpdate } from "../../../mcp/schemas";
+import { connectionUpdateSchema } from "../../../mcp/schemas";
 import { cancelConnectionRuns, mcpConnection } from "../../../mcp/connections";
 import { createHeaderCredential } from "../../../mcp/headers";
+import { discardMcpCredential } from "../../../mcp/credentials";
+import { pluginsRepository } from "../../../repositories/plugins";
 import { recordAudit } from "../../../repositories/audit";
 import { ServiceError } from "../../../shared/errors";
 import { now } from "../../../shared/records";
 
 export const updateProcedure = browserManagerProcedure
-  .input(connectionUpdate)
+  .input(connectionUpdateSchema)
   .mutation(({ ctx, input }) =>
     inTransaction(ctx, (transaction) => {
       assertCurrentPluginManager(transaction);
+      const plugin = pluginsRepository(transaction).find(input.id);
       const connection = mcpConnection(transaction, input.id);
       const endpoint = input.endpoint ?? connection.endpoint;
       const authMode = input.auth_mode ?? connection.authMode;
       const credentialId =
         authMode === "headers" && input.headers
-          ? createHeaderCredential(transaction, input.id, input.headers)
+          ? createHeaderCredential(transaction, plugin.slug, input.headers)
           : undefined;
       const resetAuth =
         endpoint !== connection.endpoint || authMode !== connection.authMode;
@@ -30,6 +33,8 @@ export const updateProcedure = browserManagerProcedure
           "Enter replacement authentication headers for this endpoint.",
         );
       }
+      const replacedCredential =
+        credentialId || resetAuth ? plugin.credentialId : null;
       cancelConnectionRuns(transaction, input.id);
       transaction.db
         .update(mcpConnections)
@@ -59,6 +64,7 @@ export const updateProcedure = browserManagerProcedure
         })
         .where(eq(plugins.id, input.id))
         .run();
+      discardMcpCredential(transaction, replacedCredential);
       recordAudit(transaction, "plugin", input.id, "connection.updated");
       return { id: input.id };
     }),

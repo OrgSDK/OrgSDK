@@ -2,7 +2,7 @@ import { assertCurrentPluginManager } from "../../../plugins/validation";
 import { browserManagerProcedure } from "../../procedures";
 import { inTransaction } from "../../../db/transaction";
 import { mcpConnections, plugins } from "../../../db/schema";
-import { connectionInput } from "../../../mcp/schemas";
+import { connectionInputSchema } from "../../../mcp/schemas";
 import { createHeaderCredential } from "../../../mcp/headers";
 import { projectsRepository } from "../../../repositories/projects";
 import { pluginsRepository } from "../../../repositories/plugins";
@@ -13,7 +13,7 @@ import { ServiceError } from "../../../shared/errors";
 import { digest } from "../../../shared/security";
 
 export const createProcedure = browserManagerProcedure
-  .input(connectionInput)
+  .input(connectionInputSchema)
   .mutation(({ ctx, input }) =>
     inTransaction(ctx, (transaction) => {
       assertCurrentPluginManager(transaction);

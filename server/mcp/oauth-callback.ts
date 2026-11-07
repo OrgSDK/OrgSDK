@@ -12,6 +12,7 @@ import { inTransaction } from "../db/transaction";
 import { requireManager, requireUser } from "../shared/authorization";
 import { assertCurrentPluginManager } from "../plugins/validation";
 import { mcpConnection, cancelConnectionRuns } from "./connections";
+import { discardMcpCredential } from "./credentials";
 import { oauthProvider, oauthStateSchema } from "./oauth-state";
 import { oauthFetch } from "./oauth-network";
 import { decrypt, digest, encrypt } from "../shared/security";
@@ -101,6 +102,11 @@ export async function finishMcpOAuth(
       );
     }
     cancelConnectionRuns(transaction, state.plugin);
+    const previousCredential = transaction.db
+      .select({ credentialId: plugins.credentialId })
+      .from(plugins)
+      .where(eq(plugins.id, state.plugin))
+      .get();
     const credential = transaction.db
       .insert(credentials)
       .values({
@@ -129,6 +135,7 @@ export async function finishMcpOAuth(
       })
       .where(eq(mcpConnections.pluginId, state.plugin))
       .run();
+    discardMcpCredential(transaction, previousCredential?.credentialId ?? null);
     recordAudit(transaction, "plugin", state.plugin, "credential.connected");
     return plugin;
   });

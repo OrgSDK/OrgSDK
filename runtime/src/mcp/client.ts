@@ -12,6 +12,7 @@ import {
   connectionSchema,
   discoverySchema,
   remoteToolSchema,
+  type ApprovedTool,
   type McpConnection,
   type Discovery,
 } from "./contract";
@@ -30,6 +31,7 @@ export class McpRuntime {
   private challenge: string | undefined;
   private selected: "streamable-http" | "sse" = "streamable-http";
   private controller = new AbortController();
+  private validators = new Map<string, (data: unknown) => boolean>();
   readonly signal: AbortSignal;
   readonly connection: McpConnection;
   constructor(
@@ -165,25 +167,32 @@ export class McpRuntime {
       clearTimeout(timer);
     }
   }
+  private inputValidator(tool: ApprovedTool): (data: unknown) => boolean {
+    const cached = this.validators.get(tool.alias);
+    if (cached) {
+      return cached;
+    }
+    const dialect = String(tool.inputSchema.$schema);
+    const validatorClass = dialect.includes("draft-07")
+      ? AjvDraft7
+      : dialect.includes("2019-09")
+        ? Ajv2019
+        : Ajv;
+    const validate = new validatorClass({
+      strict: false,
+      validateFormats: false,
+      allErrors: false,
+    }).compile(tool.inputSchema);
+    this.validators.set(tool.alias, validate);
+    return validate;
+  }
   async call(alias: string, args: unknown): Promise<unknown> {
     const tool = this.connection.tools.find(
       (candidate) => candidate.alias === alias,
     );
     if (!tool) throw new Error("Tool is outside the approved MCP catalogue");
     try {
-      const SchemaValidator = String(tool.inputSchema.$schema).includes(
-        "draft-07",
-      )
-        ? AjvDraft7
-        : String(tool.inputSchema.$schema).includes("2019-09")
-          ? Ajv2019
-          : Ajv;
-      const validate = new SchemaValidator({
-        strict: false,
-        validateFormats: false,
-        allErrors: false,
-      }).compile(tool.inputSchema);
-      if (!validate(args))
+      if (!this.inputValidator(tool)(args))
         throw new Error("Arguments do not match the MCP tool input schema");
       const client = await this.ready();
       const result = await client.callTool(

@@ -45,8 +45,9 @@ function privateAddress(address: string): boolean {
 }
 export async function checkOAuthDestination(address: string, endpoint: string) {
   const url = new URL(endpointSchema.parse(address));
+  const endpointUrl = new URL(endpointSchema.parse(endpoint));
   const host = url.hostname.replace(/^\[|\]$/g, "");
-  const endpointHost = new URL(endpoint).hostname.replace(/^\[|\]$/g, "");
+  const endpointHost = endpointUrl.hostname.replace(/^\[|\]$/g, "");
   if (loopback(endpointHost) && loopback(host)) {
     return;
   }
@@ -56,7 +57,7 @@ export async function checkOAuthDestination(address: string, endpoint: string) {
       "OAuth endpoints must use public HTTPS; loopback is supported for local MCP servers.",
     );
   }
-  if (url.origin === new URL(endpoint).origin) {
+  if (url.origin === endpointUrl.origin) {
     return;
   }
   const addresses = isIP(host)

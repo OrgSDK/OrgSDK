@@ -6,6 +6,7 @@ import {
   runs,
   workspaces,
   projects,
+  credentials,
 } from "../db/schema";
 import { rpcFixture } from "./rpc-fixture";
 
@@ -194,6 +195,52 @@ test("connections and credentials cannot cross workspace or plugin boundaries", 
         }),
       ).rejects.toThrow(/not found/i),
     );
+  } finally {
+    fixture.close();
+  }
+});
+test("replaced and removed connections delete their connection-owned credentials", async () => {
+  const fixture = rpcFixture();
+  try {
+    const caller = fixture.caller();
+    const plugin = await caller.plugins.mcp.create({
+      project: fixture.project.id,
+      slug: "cred-tools",
+      endpoint: "https://mcp.example.test/tools",
+      auth_mode: "headers",
+      headers: { Authorization: "Bearer first-secret" },
+    });
+    const boundCredential = () =>
+      fixture.store.db
+        .select({ credentialId: plugins.credentialId })
+        .from(plugins)
+        .where(eq(plugins.id, plugin.id))
+        .get()?.credentialId;
+    const storedCredential = (id: string) =>
+      fixture.store.db
+        .select({ id: credentials.id })
+        .from(credentials)
+        .where(eq(credentials.id, id))
+        .get();
+    const original = boundCredential();
+    if (!original) {
+      throw new Error("Header credential missing after create");
+    }
+    await caller.plugins.mcp.update({
+      id: plugin.id,
+      headers: { Authorization: "Bearer second-secret" },
+    });
+    const replacement = boundCredential();
+    if (!replacement) {
+      throw new Error("Header credential missing after update");
+    }
+    expect(replacement).not.toBe(original);
+    expect(storedCredential(original)).toBeUndefined();
+    expect((await caller.plugins.mcp.get({ id: plugin.id })).authMode).toBe(
+      "headers",
+    );
+    await caller.plugins.delete({ id: plugin.id });
+    expect(storedCredential(replacement)).toBeUndefined();
   } finally {
     fixture.close();
   }

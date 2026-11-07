@@ -3,6 +3,8 @@ import type { FetchLike } from "@modelcontextprotocol/client";
 import { checkOAuthDestination } from "./oauth-destination";
 import { ServiceError } from "../shared/errors";
 
+const protectedResourcePath = "/.well-known/oauth-protected-resource";
+
 export function oauthFetch(
   endpoint: string,
   suppliedResource?: unknown,
@@ -14,7 +16,8 @@ export function oauthFetch(
     if (
       suppliedResource &&
       url.origin === origin &&
-      url.pathname.includes("/.well-known/oauth-protected-resource")
+      (url.pathname === protectedResourcePath ||
+        url.pathname.startsWith(`${protectedResourcePath}/`))
     ) {
       return Response.json(suppliedResource);
     }
