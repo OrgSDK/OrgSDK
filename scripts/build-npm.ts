@@ -3,6 +3,7 @@ import { cp, mkdir, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { build } from "esbuild";
+import { writeThirdPartyNotices } from "./third-party-notices";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 process.chdir(root);
@@ -33,6 +34,7 @@ await cp("runtime/dist", "dist/runtime", { recursive: true });
 for (const filename of ["LICENSE", "PROVENANCE.md", "README.md"]) {
   await cp(`runtime/${filename}`, `dist/runtime/${filename}`);
 }
+await writeThirdPartyNotices();
 console.log(
   "Built npm distribution: platform, frontend, migrations and Node.js executor.",
 );

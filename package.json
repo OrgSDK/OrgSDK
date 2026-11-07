@@ -87,6 +87,7 @@
     "bin/supervision.mjs",
     "dist/server/",
     "dist/runtime/",
+    "dist/THIRD_PARTY_NOTICES.txt",
     "docs/npm-distribution.md",
     "docs/remote-mcp.md",
     "runtime/README.md",

@@ -1,4 +1,5 @@
 import { verifyPackagedMcp } from "./distribution-mcp.ts";
+import { verifyThirdPartyNotices } from "./verify-third-party-notices";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -50,6 +51,9 @@ try {
     ],
     directory,
   ).success();
+  await verifyThirdPartyNotices(
+    join(installed, "node_modules/@orgsdk/cli/dist/THIRD_PARTY_NOTICES.txt"),
+  );
   const cli = join(installed, "node_modules/@orgsdk/cli/bin/orgsdk.mjs");
   const minimalEnv = { PATH: runtimePath, HOME: directory };
   assert.match(
@@ -87,6 +91,12 @@ try {
   );
   const port = await availablePort();
   installation = await startInstallation(cli, directory, port, runtimePath);
+  assert.equal(
+    (await fetch(`${installation.origin}/third-party-licenses/mcp-client.txt`))
+      .status,
+    404,
+    "Legacy license assets remain in the npm release",
+  );
   let rpc = api(installation.origin);
   const health = z
     .object({ runtime: z.string() })

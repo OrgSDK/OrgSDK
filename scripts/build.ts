@@ -1,5 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
+import { writeThirdPartyNotices } from "./third-party-notices";
 
 const frontend = Bun.spawn(["npm", "--prefix", "frontend", "run", "build"], {
   stdout: "inherit",
@@ -10,6 +11,7 @@ if ((await frontend.exited) !== 0) {
 }
 
 await mkdir("dist", { recursive: true });
+await writeThirdPartyNotices();
 const result = await Bun.build({
   entrypoints: ["./server/index.ts"],
   target: "bun",
@@ -35,4 +37,4 @@ if (!result.success) {
   }
   throw new Error("Executable build failed");
 }
-console.log("Built dist/orgsdk with the complete static frontend");
+console.log("Built dist/orgsdk and dist/THIRD_PARTY_NOTICES.txt");

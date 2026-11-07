@@ -92,33 +92,6 @@ await saveGenerated(
     { parser: "typescript" },
   ),
 );
-const licenseDirectory = new URL(
-  "../public/third-party-licenses/",
-  import.meta.url,
-);
-await mkdir(licenseDirectory, { recursive: true });
-for (const packageName of ["zod", "monaco-editor"]) {
-  await saveGenerated(
-    new URL(`${packageName}.txt`, licenseDirectory),
-    await readFile(
-      new URL(`../node_modules/${packageName}/LICENSE`, import.meta.url),
-      "utf8",
-    ),
-  );
-}
-for (const packageName of ["client", "core"]) {
-  await saveGenerated(
-    new URL(`mcp-${packageName}.txt`, licenseDirectory),
-    await readFile(
-      new URL(
-        `../../node_modules/@modelcontextprotocol/${packageName}/LICENSE`,
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-}
-
 const libraries: Record<string, string> = {};
 async function collectZod(directory: URL, relative = "") {
   const entries = await readdir(directory, { withFileTypes: true });
