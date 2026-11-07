@@ -66,7 +66,7 @@ After `npm run build:npm`, select the platform and execution-worker runtime for 
 
 ## Release procedure
 
-Release requires maintainer authorization separately from implementation. Select a checked commit on `main` and an unused version, update both manifests and lockfiles, and record installation/upgrade notes. Authenticate with an npm account authorized for `@orgsdk`; interactive publication can require browser authentication and a second factor. Do not commit tokens.
+Release requires maintainer authorization separately from implementation. First complete the [develop-to-main release workflow](release-workflow.md), including version and changelog review. Select that checked commit on `main` and record installation/upgrade notes. Authenticate with an npm account authorized for `@orgsdk`; interactive publication can require browser authentication and a second factor. Do not commit tokens.
 
 1. Run `npm run setup`, `npm run check`, `npm run build:npm` and the runtime/browser CI matrix.
 2. Pack the completed platform with `npm pack --ignore-scripts` and the executor with `npm pack ./runtime --ignore-scripts`. Review both tarballs, including the retained license and runtime provenance. Exclude installation data, credentials, source tests and fixtures.
