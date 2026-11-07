@@ -108,6 +108,22 @@ export function runCapability(ctx: AppContext, expectedId?: string): Run {
   ) {
     throw new HttpError(401, "Run authority was revoked.");
   }
+  if (run.operation === "mcp_discover") {
+    const path = new URL(ctx.request.url).pathname;
+    if (
+      !/^\/internal\/execution\/v1\/(credentials\/[^/]+\/|runs\/[^/]+\/(heartbeat|events|complete)\/)$/.test(
+        path,
+      )
+    ) {
+      throw new HttpError(
+        403,
+        "Discovery jobs cannot execute product capabilities.",
+      );
+    }
+    if (member.role !== "owner" && member.role !== "admin") {
+      throw new HttpError(403, "Connection manager access was revoked.");
+    }
+  }
   const isolated = run.operation === "validate" || run.operation === "test";
   const path = new URL(ctx.request.url).pathname;
   if (

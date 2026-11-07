@@ -12,11 +12,32 @@ const agentsSchema = z.array(
       .object({ tables: resourceGrant, documents: resourceGrant })
       .optional(),
     plugins: z
-      .array(z.object({ credential_id: z.string().nullable().optional() }))
+      .array(
+        z.object({
+          credential_id: z.string().nullable().optional(),
+          distribution: z.string().optional(),
+          mcp: z.object({ id: z.uuid() }).optional(),
+        }),
+      )
       .default([]),
   }),
 );
 
 export function snapshotAgents(snapshot: JsonObject) {
   return agentsSchema.parse(snapshot.agents ?? []);
+}
+
+export function snapshotUsesMcp(snapshot: JsonObject) {
+  const sdk = z
+    .object({
+      plugins: z.array(z.object({ kind: z.string().optional() })).optional(),
+    })
+    .safeParse(snapshot.sdk);
+  return (
+    snapshotAgents(snapshot).some((agent) =>
+      agent.plugins.some((plugin) => plugin.distribution === "mcp"),
+    ) ||
+    (sdk.success &&
+      sdk.data.plugins?.some((plugin) => plugin.kind === "mcp")) === true
+  );
 }

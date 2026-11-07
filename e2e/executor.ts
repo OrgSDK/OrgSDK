@@ -10,6 +10,7 @@ import { testClient } from "./fixtures";
 export async function prepareExecutor(
   page: Page,
   projectId: string,
+  protocolVersion = 3,
 ): Promise<{ execute: (runId: string) => Promise<void> }> {
   const client = await testClient(page);
   const origin = new URL(page.url()).origin;
@@ -22,7 +23,14 @@ export async function prepareExecutor(
     `${origin}/internal/execution/v1/register/`,
     {
       headers,
-      data: { protocol_version: 3, capabilities: ["action", "code"] },
+      data: {
+        protocol_version: protocolVersion,
+        capabilities: [
+          "action",
+          "code",
+          ...(protocolVersion >= 4 ? ["mcp_discover"] : []),
+        ],
+      },
     },
   );
   if (response.status() !== 200) {

@@ -14,6 +14,9 @@ export function pluginsFor(ctx: ServiceContext, worker: Executor) {
       ),
     )
     .all()
+    .filter(
+      (plugin) => plugin.distribution !== "mcp" || worker.protocolVersion >= 4,
+    )
     .map((plugin) => ({
       slug: plugin.slug,
       version: plugin.version,

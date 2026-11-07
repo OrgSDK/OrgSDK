@@ -1,3 +1,4 @@
+import { verifyPackagedMcp } from "./distribution-mcp.ts";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -206,6 +207,7 @@ try {
   assert.deepEqual((await waitForRun(rpc, queuedAction.id)).output, {
     result: 42,
   });
+  await verifyPackagedMcp(rpc, project.id);
   const keyBefore = await readFile(join(directory, "data/encryption.key"));
   const stoppedOrigin = installation.origin;
   await installation.stop();

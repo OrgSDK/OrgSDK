@@ -1,3 +1,4 @@
+import { mcpExecutionSecret } from "../mcp/oauth-refresh";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import type { AppDependencies } from "../application";
@@ -65,6 +66,9 @@ export async function executionSecret(
   credential: Credential,
   fetcher: Fetcher = fetch,
 ): Promise<Record<string, unknown>> {
+  if (credential.provider === "mcp-oauth") {
+    return mcpExecutionSecret(store, credential);
+  }
   if (!provider(credential.provider)) {
     return recordSecretVersion(
       z

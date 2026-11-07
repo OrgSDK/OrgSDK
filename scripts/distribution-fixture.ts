@@ -145,8 +145,9 @@ export function api(origin: string) {
     }
     const payload: unknown = await response.json();
     assert(response.ok, `${procedure}: ${JSON.stringify(payload)}`);
-    return z.object({ result: z.object({ data: z.unknown() }) }).parse(payload)
-      .result.data;
+    return z
+      .object({ result: z.object({ data: z.unknown().optional() }) })
+      .parse(payload).result.data;
   };
 }
 

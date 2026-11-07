@@ -46,6 +46,12 @@ export function assertPluginReferences(
   if (!credential) {
     throw new ServiceError("NOT_FOUND", "Credential not found.");
   }
+  if (credential.provider.startsWith("mcp-") && distribution !== "mcp") {
+    throw new ServiceError(
+      "BAD_REQUEST",
+      "MCP credentials belong to their connection.",
+    );
+  }
   if (
     distribution === "external" &&
     credential.provider !== metadata.auth?.provider
