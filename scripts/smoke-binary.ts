@@ -31,10 +31,7 @@ try {
   if (!(await fetch(`${address}/monaco/vs/loader.js`)).ok) {
     throw new Error("Standalone executable did not serve Monaco.");
   }
-  if (
-    (await fetch(`${address}/third-party-licenses/mcp-client.txt`)).status !==
-    404
-  ) {
+  if ((await fetch(`${address}/third-party-licenses/zod.txt`)).status !== 404) {
     throw new Error("Legacy license assets remain in the standalone release.");
   }
   console.log(

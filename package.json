@@ -18,7 +18,7 @@
     "format:check": "prettier --check server scripts/*.ts bin/*.mjs e2e knip.json package.json tsconfig.json playwright.config.ts eslint.config.mjs drizzle.config.ts",
     "e2e": "bun scripts/e2e.ts",
     "lint": "eslint --max-warnings=0",
-    "check": "npm run license:check && npm run check:server && npm run deadcode && npm --prefix runtime run typecheck && npm run test:cli && npm test && npm --prefix frontend run check && npm --prefix frontend run build",
+    "check": "npm run release:check && npm run test:release && npm run license:check && npm run check:server && npm run deadcode && npm --prefix runtime run typecheck && npm run test:cli && npm test && npm --prefix frontend run check && npm --prefix frontend run build",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun server/index.ts migrate",
     "db:check": "bun scripts/check-migrations.ts",
@@ -40,7 +40,11 @@
     "container:backup": "bun scripts/compose.ts backup",
     "container:restore": "bun scripts/compose.ts restore",
     "smoke:binary": "bun scripts/smoke-binary.ts",
-    "test:dev": "bun --no-env-file scripts/dev-smoke.ts"
+    "test:dev": "bun --no-env-file scripts/dev-smoke.ts",
+    "release:check": "tsx scripts/release.ts check",
+    "release:plan": "tsx scripts/release.ts plan",
+    "release:prepare": "tsx scripts/release.ts prepare",
+    "test:release": "bun test scripts/release.test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.4.0",

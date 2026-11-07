@@ -92,8 +92,7 @@ try {
   const port = await availablePort();
   installation = await startInstallation(cli, directory, port, runtimePath);
   assert.equal(
-    (await fetch(`${installation.origin}/third-party-licenses/mcp-client.txt`))
-      .status,
+    (await fetch(`${installation.origin}/third-party-licenses/zod.txt`)).status,
     404,
     "Legacy license assets remain in the npm release",
   );
