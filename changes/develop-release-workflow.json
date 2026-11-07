@@ -1,0 +1,5 @@
+{
+  "type": "patch",
+  "category": "changed",
+  "summary": "Collect reviewed changes on develop and prepare versioned CLI and executor releases with an aggregated changelog."
+}

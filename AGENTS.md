@@ -1,6 +1,6 @@
 # Development checks
 
-- Follow `CONTRIBUTING.md`: use an issue-linked feature branch and pull request targeting `main`. Keep unrelated changes separate. Do not push directly to main, merge, publish or deploy without authorization.
+- Follow `CONTRIBUTING.md`: use an issue-linked feature branch and pull request targeting `develop` with a changelog fragment in `changes/`. Keep unrelated changes separate. Do not push directly to main or develop. Each PR requires maintainer review and explicit approval before merge; publication and deployment require separate authorization. Follow `docs/release-workflow.md` for release preparation and develop-to-main promotion.
 - Use Node.js 22.22+ for the Linux npm distribution and Bun 1.4 for source tests and the standalone executable. `npm run setup` uses the npm lockfiles in the root, frontend and runtime. Run `npm run check`, `npm run e2e`, and `npm run build` as appropriate. Browser tests use an isolated temporary data directory. Never point test fixtures at a personal installation.
 - Next.js owns the static application, account and setup pages. The portable server serves the static export and owns native tRPC, MCP, SQLite, authentication and maintenance. Keep frontend types and API behavior aligned; do not treat historical Django-generated OpenAPI files as a live contract.
 - Preserve Tailwind conventions and established product UI. Protect navigation context and unsaved edits. Use `playwright-cli` directly for browser tasks.
