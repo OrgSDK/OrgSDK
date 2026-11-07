@@ -36,6 +36,7 @@ export const isolatedInputSchema = z
           .array(
             z
               .object({
+                kind: z.string().optional(),
                 namespace: z.string().nullable(),
                 available: z.boolean(),
                 metadata_complete: z.boolean().optional(),
@@ -43,10 +44,22 @@ export const isolatedInputSchema = z
                   .array(
                     z
                       .object({
+                        inputSchema: z.record(z.string(), z.json()).optional(),
+                        outputSchema: z
+                          .record(z.string(), z.json())
+                          .nullable()
+                          .optional(),
                         name: z.string(),
                         parameters: z
                           .array(
                             z.object({
+                              inputSchema: z
+                                .record(z.string(), z.json())
+                                .optional(),
+                              outputSchema: z
+                                .record(z.string(), z.json())
+                                .nullable()
+                                .optional(),
                               name: z.string(),
                               type: z.string(),
                               optional: z.boolean().optional(),

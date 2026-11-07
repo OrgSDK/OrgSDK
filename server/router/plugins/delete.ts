@@ -1,3 +1,4 @@
+import { cancelConnectionRuns } from "../../mcp/connections";
 import { browserManagerProcedure } from "../procedures";
 import { and, eq } from "drizzle-orm";
 import { inTransaction } from "../../db/transaction";
@@ -11,6 +12,7 @@ export const deleteProcedure = browserManagerProcedure
   .mutation(({ ctx, input }) => {
     inTransaction(ctx, (transaction) => {
       assertCurrentPluginManager(transaction);
+      cancelConnectionRuns(transaction, input.id);
       const deletedPlugin = transaction.db
         .delete(plugins)
         .where(

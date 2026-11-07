@@ -9,6 +9,7 @@ import { Client } from "./client";
 import { SandboxExecutor } from "./engine/sandbox/executor";
 import type { SandboxFunction } from "./engine/sandbox/types";
 import { loadPlugins } from "./plugins";
+import { mcpPlugin } from "./mcp/functions";
 
 import {
   TRACE_LIMIT,
@@ -137,9 +138,17 @@ export class Runner {
     }
     const executor = new SandboxExecutor();
     executor.registerBuiltins(this.builtins());
+    const remote = agent.plugins
+      .filter((plugin) => plugin.distribution === "mcp")
+      .map((plugin) => mcpPlugin(plugin, this.client, this.signal));
     executor.registerMultiple(
-      await loadPlugins(agent.plugins, this.client, agent.id),
+      await loadPlugins(
+        agent.plugins.filter((plugin) => plugin.distribution !== "mcp"),
+        this.client,
+        agent.id,
+      ),
     );
+    executor.registerMultiple(remote.flatMap((entry) => entry.functions));
     let pending = Promise.resolve();
     let eventCount = 0;
     let eventBytes = 0;
@@ -204,6 +213,7 @@ export class Runner {
       const output = result.result ?? null;
       return output;
     } finally {
+      await Promise.all(remote.map((entry) => entry.runtime.close()));
       // A failed/cancelled run must not wait for a full queue of slow HTTP calls.
       let timer: ReturnType<typeof setTimeout> | undefined;
       let onAbort: (() => void) | undefined;
@@ -235,6 +245,23 @@ export class Runner {
         "Unsupported operation: built-in chat has been retired; use external-client code or actions",
       );
     const agent = this.agent(this.job.snapshot.root_agent_id);
+    if (this.job.operation === "mcp_discover") {
+      const plugin = agent.plugins[0];
+      if (
+        this.job.protocol_version !== 4 ||
+        !plugin ||
+        agent.plugins.length !== 1 ||
+        plugin.distribution !== "mcp" ||
+        !this.job.snapshot.mcp_discovery
+      )
+        throw new Error("Invalid MCP discovery job");
+      const remote = mcpPlugin(plugin, this.client, this.signal);
+      try {
+        return await remote.runtime.discover();
+      } finally {
+        await remote.runtime.close();
+      }
+    }
     return this.action(
       agent,
       z.string().parse(this.job.snapshot.source),

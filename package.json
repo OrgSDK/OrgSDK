@@ -47,6 +47,7 @@
     "test:release": "bun test scripts/release.test.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
     "@node-rs/argon2": "^2.2.2",
     "@trpc/server": "^11.24.0",
     "ajv": "^8.17.1",
@@ -61,20 +62,21 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/server": "2.4.0",
     "@playwright/test": "^1.65.0",
+    "@trpc/client": "^11.24.0",
     "@types/better-sqlite3": "^9.6.0",
     "@types/bun": "^1.4.4",
+    "@types/http-proxy": "^1.17.17",
     "@types/nodemailer": "^8.0.2",
     "drizzle-kit": "^0.31.0",
     "eslint": "^10.14.0",
     "eslint-plugin-unicorn": "^79.0.0",
+    "http-proxy": "^1.18.1",
     "knip": "^6.44.1",
     "prettier": "^3.9.10",
-    "typescript-eslint": "^8.72.1",
-    "@trpc/client": "^11.24.0",
-    "http-proxy": "^1.18.1",
-    "@types/http-proxy": "^1.17.17",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "typescript-eslint": "^8.72.1"
   },
   "version": "0.1.1",
   "description": "Local OrgSDK platform and code executor",
@@ -91,6 +93,7 @@
     "dist/runtime/",
     "dist/THIRD_PARTY_NOTICES.txt",
     "docs/npm-distribution.md",
+    "docs/remote-mcp.md",
     "runtime/README.md",
     "README.md",
     "LICENSE"

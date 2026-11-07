@@ -1,3 +1,4 @@
+import { completeDiscovery } from "../mcp/connections";
 import { and, eq } from "drizzle-orm";
 import * as t from "../db/schema";
 import type { AppContext } from "../http/context";
@@ -129,6 +130,14 @@ export function handleRunUpdate(
       );
     }
     return new Response(null, { status: 204 });
+  }
+  if (run.operation === "mcp_discover" && !run.cancelRequested) {
+    completeDiscovery(
+      ctx,
+      run,
+      object(output) ? output.result : undefined,
+      body.status === "succeeded",
+    );
   }
   const pending = ctx.db
     .select()

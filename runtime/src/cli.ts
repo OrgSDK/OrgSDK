@@ -39,8 +39,8 @@ if (command === "--help" || !command) {
     .parse(process.env.EXECUTOR_TOKEN || (await readStdin()).trim());
   const registration = z.object({ id: z.string(), agent_id: z.string() }).parse(
     await new Client(base, token).register({
-      protocol_version: 3,
-      capabilities: ["action", "code", "validate", "test"],
+      protocol_version: 4,
+      capabilities: ["action", "code", "validate", "test", "mcp_discover"],
     }),
   );
   await mkdir(data, { recursive: true, mode: 0o700 });

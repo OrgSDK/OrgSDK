@@ -14,12 +14,15 @@ export function register(
   const capabilities = body.capabilities;
   if (
     typeof version !== "number" ||
-    ![1, 2, 3].includes(version) ||
+    ![1, 2, 3, 4].includes(version) ||
     !Array.isArray(capabilities) ||
     capabilities.some(
       (cap: unknown) =>
-        !["action", "code", "validate", "test"].includes(String(cap)),
+        !["action", "code", "validate", "test", "mcp_discover"].includes(
+          String(cap),
+        ),
     ) ||
+    (version < 4 && capabilities.includes("mcp_discover")) ||
     (version < 2 && capabilities.includes("code")) ||
     (version < 3 &&
       capabilities.some((cap: string) => ["validate", "test"].includes(cap)))

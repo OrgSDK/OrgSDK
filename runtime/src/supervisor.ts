@@ -57,8 +57,8 @@ export async function runAgent(
   const client = new Client(base, registration.token, signal);
   try {
     await client.register({
-      protocol_version: 3,
-      capabilities: ["action", "code", "validate", "test"],
+      protocol_version: 4,
+      capabilities: ["action", "code", "validate", "test", "mcp_discover"],
       agent_id: agentId,
     });
   } catch (error) {
@@ -77,6 +77,7 @@ export async function runAgent(
       if (config.agent_id !== agentId)
         throw new Error("Executor agent configuration mismatch");
       for (const plugin of config.plugins) {
+        if (plugin.distribution === "mcp") continue;
         try {
           await installPlugin(plugin, agentId, undefined, signal);
         } catch (error) {

@@ -1,3 +1,4 @@
+import { assertMcpCredential } from "../mcp/connections";
 import { snapshotAgents } from "../projects/snapshot-schema";
 import { inTransaction } from "../db/transaction";
 import { and, eq } from "drizzle-orm";
@@ -35,6 +36,9 @@ export async function serveCredential(
       .get();
     if (!credential) {
       throw new HttpError(404, "Credential not found.");
+    }
+    if (credential.provider.startsWith("mcp-")) {
+      assertMcpCredential(ctx, run, credential.id);
     }
     return { run, credential };
   };

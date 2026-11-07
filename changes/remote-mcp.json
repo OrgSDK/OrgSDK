@@ -1,0 +1,5 @@
+{
+  "type": "minor",
+  "category": "added",
+  "summary": "Connect compatible remote HTTP MCP servers as project plugins with reviewed tools, executor calls and managed authentication."
+}
