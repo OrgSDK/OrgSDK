@@ -1,0 +1,5 @@
+{
+  "type": "patch",
+  "category": "changed",
+  "summary": "Generate third-party notices in release artifacts instead of tracking and serving individual frontend license files."
+}

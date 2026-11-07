@@ -25,6 +25,8 @@ Install Bun 1.4, Node.js 22.22.0 or newer and npm, then run `npm run setup` and 
 
 To build the npm package, run `npm run build:npm`, then `npm pack --ignore-scripts`. The tarball includes the platform JavaScript, frontend, migrations and executor workers. `npm pack` without `--ignore-scripts` builds those assets automatically. Use `npm run test:distribution -- ./orgsdk-cli-0.1.1.tgz` to install and verify the actual tarball with temporary data and a Node-only runtime path. Replace the tarball argument with `@orgsdk/cli@VERSION` to verify the registry release.
 
+Both release builds generate `dist/THIRD_PARTY_NOTICES.txt` from the installed dependencies. It is included in the npm tarball; distribute it alongside `dist/orgsdk` when sharing the standalone executable. The notice text is generated during packaging and is not stored in the source tree or served as frontend assets.
+
 The Drizzle schema is the source of truth. Startup applies pending generated migrations to `orgsdk.sqlite3`, and the executable embeds the migration files. Start the initial installation in an empty data directory. This is a greenfield schema without compatibility with the earlier experimental database.
 
 For development, run `npm run setup` once, then `npm run dev`. This starts the API with reload, Next.js with HMR, and the separate host executor. Open `http://localhost:3000`; development data stays in `.runtime/dev` within this checkout. Ctrl+C stops the managed processes and their workers. See [local development](docs/development.md) for ports, configuration, test groups and cleanup commands.
