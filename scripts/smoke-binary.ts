@@ -1,9 +1,11 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { startChild, stopChildren, waitForHealth } from "./dev-process";
+import { verifyThirdPartyNotices } from "./verify-third-party-notices";
 
 const binary = resolve(process.argv[2] ?? "dist/orgsdk");
+await verifyThirdPartyNotices(join(dirname(binary), "THIRD_PARTY_NOTICES.txt"));
 const directory = await mkdtemp(join(tmpdir(), "orgsdk-binary-"));
 const port = process.env.ORGSDK_SMOKE_PORT ?? "18785";
 const address = `http://127.0.0.1:${port}`;
@@ -29,8 +31,11 @@ try {
   if (!(await fetch(`${address}/monaco/vs/loader.js`)).ok) {
     throw new Error("Standalone executable did not serve Monaco.");
   }
+  if ((await fetch(`${address}/third-party-licenses/zod.txt`)).status !== 404) {
+    throw new Error("Legacy license assets remain in the standalone release.");
+  }
   console.log(
-    "Standalone executable served health, HTML and Monaco with an empty working directory and PATH.",
+    "Standalone release includes third-party notices and serves health, HTML and Monaco with an empty working directory and PATH.",
   );
 } finally {
   await stopChildren([child]);
