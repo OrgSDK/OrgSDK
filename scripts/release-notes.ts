@@ -43,7 +43,10 @@ export function readRelease(root: string) {
       readJson(join(root, directory, "package-lock.json")),
     ),
   }));
-  const currentVersion = packages[0].manifest.version;
+  const currentVersion = packages[0]?.manifest.version;
+  if (!currentVersion) {
+    throw new Error("Missing platform package version");
+  }
   for (const { directory, manifest, lock } of packages) {
     if (
       [manifest.version, lock.version, lock.packages[""].version].some(
@@ -71,7 +74,11 @@ export function readRelease(root: string) {
   if (!numbers.every(Number.isSafeInteger)) {
     throw new Error("Version components must be safe integers");
   }
-  numbers[bump] += 1;
+  const component = numbers[bump];
+  if (component === undefined || !Number.isSafeInteger(component + 1)) {
+    throw new Error("Cannot increment this version component");
+  }
+  numbers[bump] = component + 1;
   for (let index = bump + 1; index < numbers.length; index += 1) {
     numbers[index] = 0;
   }
@@ -101,9 +108,12 @@ export function checkReleasePolicy(root: string, base: string, head: string) {
     const firstDifference = after.findIndex(
       (part, index) => part !== before[index],
     );
+    const newComponent = after[firstDifference];
+    const oldComponent = before[firstDifference];
     if (
-      firstDifference < 0 ||
-      after[firstDifference] <= before[firstDifference]
+      newComponent === undefined ||
+      oldComponent === undefined ||
+      newComponent <= oldComponent
     ) {
       throw new Error("A release must increase the package version");
     }
