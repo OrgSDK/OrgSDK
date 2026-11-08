@@ -74,3 +74,5 @@ If local account recovery is needed, an administrator with access to the server 
 For an HTTPS reverse proxy, set `ORGSDK_PUBLIC_ORIGIN` to the public HTTPS origin, preserve the public Host header, and keep the backend reachable through that trusted proxy. The application uses the explicit origin for CSRF and Secure cookies; it ignores forwarded scheme and host headers. Health checks and authenticated internal executor routes keep their direct service address.
 
 The prior Django implementation and its management commands are retained in Git history. The Django admin interface is retired; use the application settings and account pages. The frontend uses native tRPC throughout, with input and output types inferred directly from the Bun server router. Application REST compatibility routes and OpenAPI snapshots have been removed.
+
+Remote HTTP MCP servers can also be connected as project plugins. See [Remote MCP connections](docs/remote-mcp.md) for tool review, authentication, execution and compatibility boundaries.

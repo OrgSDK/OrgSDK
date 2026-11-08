@@ -1,3 +1,4 @@
+import { ServiceError } from "../../shared/errors";
 import { credentials } from "../../db/schema";
 import { credentialPublicFields } from "../../credentials/queries";
 import { inTransaction } from "../../db/transaction";
@@ -9,6 +10,12 @@ import { browserManagerProcedure } from "../procedures";
 export const createProcedure = browserManagerProcedure
   .input(credentialCreateSchema)
   .mutation(({ ctx, input }) => {
+    if (input.provider.startsWith("mcp-")) {
+      throw new ServiceError(
+        "BAD_REQUEST",
+        "Manage MCP credentials from project plugins.",
+      );
+    }
     const encryptedSecret = ctx.secrets.encrypt(JSON.stringify(input.secret));
     return inTransaction(ctx, (transaction) => {
       const credential = transaction.db

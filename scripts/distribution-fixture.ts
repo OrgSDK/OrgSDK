@@ -113,6 +113,10 @@ export async function startInstallation(
   }
 }
 
+const rpcResultSchema = z.object({
+  result: z.object({ data: z.unknown().optional() }),
+});
+
 export function api(origin: string) {
   const cookies = new Map<string, string>();
   return async (
@@ -145,8 +149,7 @@ export function api(origin: string) {
     }
     const payload: unknown = await response.json();
     assert(response.ok, `${procedure}: ${JSON.stringify(payload)}`);
-    return z.object({ result: z.object({ data: z.unknown() }) }).parse(payload)
-      .result.data;
+    return rpcResultSchema.parse(payload).result.data;
   };
 }
 

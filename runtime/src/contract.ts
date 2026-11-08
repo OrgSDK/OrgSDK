@@ -1,7 +1,9 @@
 import { z } from "zod";
+import { connectionSchema } from "./mcp/contract";
 
 export const pluginSchema = z.object({
-  distribution: z.enum(["inline", "external"]).optional(),
+  distribution: z.enum(["inline", "external", "mcp"]).optional(),
+  mcp: connectionSchema.optional(),
   package_url: z.string().optional(),
   configuration: z.record(z.string(), z.unknown()).optional(),
   credential_provider: z.string().nullable().optional(),
@@ -31,16 +33,29 @@ export const agentSchema = z.object({
 });
 export const jobSchema = z
   .object({
-    protocol_version: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    protocol_version: z.union([
+      z.literal(1),
+      z.literal(2),
+      z.literal(3),
+      z.literal(4),
+    ]),
     run_id: z.string().uuid(),
     workspace_id: z.number(),
     actor_id: z.number(),
-    operation: z.enum(["action", "chat", "code", "validate", "test"]),
+    operation: z.enum([
+      "action",
+      "chat",
+      "code",
+      "validate",
+      "test",
+      "mcp_discover",
+    ]),
     capability: z.string(),
     inputs: z.record(z.string(), z.unknown()),
     deadline: z.string(),
     lease_seconds: z.number(),
     snapshot: z.object({
+      mcp_discovery: connectionSchema.optional(),
       agents: z.array(agentSchema),
       root_agent_id: z.string(),
       validation_mode: z.enum(["legacy", "semantic"]).optional(),
@@ -62,14 +77,27 @@ export const jobSchema = z
       configuration_revision: z.string().optional(),
     }),
   })
-  .refine((job) => job.operation !== "code" || job.protocol_version === 2, {
-    message: "Code execution requires protocol version 2",
-  })
+  .refine(
+    (job) =>
+      job.protocol_version === 4 ||
+      (job.operation !== "mcp_discover" &&
+        !job.snapshot.mcp_discovery &&
+        !job.snapshot.agents.some((agent) =>
+          agent.plugins.some((plugin) => plugin.distribution === "mcp"),
+        )),
+    { message: "MCP connections require protocol version 4" },
+  )
+  .refine(
+    (job) => job.operation !== "code" || [2, 4].includes(job.protocol_version),
+    {
+      message: "Code execution requires protocol version 2",
+    },
+  )
   .refine(
     (job) =>
       (!["validate", "test"].includes(job.operation) &&
         job.snapshot.validation_mode !== "semantic") ||
-      job.protocol_version === 3,
+      [3, 4].includes(job.protocol_version),
     { message: "Semantic validation and tests require protocol version 3" },
   );
 export type Job = z.infer<typeof jobSchema>;

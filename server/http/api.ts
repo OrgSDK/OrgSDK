@@ -1,3 +1,4 @@
+import { finishMcpOAuth, callbackSchema } from "../mcp/oauth-callback";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { ZodError } from "zod";
 import { handleMcp } from "../api/mcp";
@@ -34,6 +35,22 @@ async function dispatch(context: AppContext, path: string): Promise<Response> {
   }
   if (path === "/oauth/callback" && context.request.method === "GET") {
     return handleOAuthCallback(context);
+  }
+  if (path === "/oauth/mcp/callback" && context.request.method === "GET") {
+    const connected = await finishMcpOAuth(
+      context,
+      callbackSchema.parse(
+        Object.fromEntries(new URL(context.request.url).searchParams),
+      ),
+    );
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: `/plugins/?project=${connected.project}`,
+        "Cache-Control": "no-store",
+        "Referrer-Policy": "no-referrer",
+      },
+    });
   }
   if (path === "/mcp/") {
     checkCsrf(context);
