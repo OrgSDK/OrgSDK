@@ -4,6 +4,19 @@ import { checkOAuthDestination } from "./oauth-destination";
 import { ServiceError } from "../shared/errors";
 
 const protectedResourcePath = "/.well-known/oauth-protected-resource";
+const oauthErrorSchema = z.object({
+  error: z.enum([
+    "invalid_request",
+    "invalid_client",
+    "invalid_grant",
+    "unauthorized_client",
+    "unsupported_grant_type",
+    "invalid_scope",
+    "access_denied",
+    "server_error",
+    "temporarily_unavailable",
+  ]),
+});
 
 export function oauthFetch(
   endpoint: string,
@@ -50,21 +63,9 @@ export function oauthFetch(
     if (response.status >= 400) {
       let code = "server_error";
       try {
-        const parsed = z
-          .object({
-            error: z.enum([
-              "invalid_request",
-              "invalid_client",
-              "invalid_grant",
-              "unauthorized_client",
-              "unsupported_grant_type",
-              "invalid_scope",
-              "access_denied",
-              "server_error",
-              "temporarily_unavailable",
-            ]),
-          })
-          .safeParse(JSON.parse(Buffer.concat(chunks).toString()));
+        const parsed = oauthErrorSchema.safeParse(
+          JSON.parse(Buffer.concat(chunks).toString()),
+        );
         if (parsed.success) {
           code = parsed.data.error;
         }

@@ -22,17 +22,16 @@ const agentsSchema = z.array(
       .default([]),
   }),
 );
+const sdkPluginsSchema = z.object({
+  plugins: z.array(z.object({ kind: z.string().optional() })).optional(),
+});
 
 export function snapshotAgents(snapshot: JsonObject) {
   return agentsSchema.parse(snapshot.agents ?? []);
 }
 
 export function snapshotUsesMcp(snapshot: JsonObject) {
-  const sdk = z
-    .object({
-      plugins: z.array(z.object({ kind: z.string().optional() })).optional(),
-    })
-    .safeParse(snapshot.sdk);
+  const sdk = sdkPluginsSchema.safeParse(snapshot.sdk);
   return (
     snapshotAgents(snapshot).some((agent) =>
       agent.plugins.some((plugin) => plugin.distribution === "mcp"),

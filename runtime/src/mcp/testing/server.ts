@@ -1,6 +1,10 @@
 import { serve } from "bun";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import { jsonRpcRequestSchema } from "./schemas";
+
+const toolInputSchema = z.object({ query: z.string() });
+const toolOutputSchema = z.object({ found: z.string() });
 
 export function mcpFixture(
   options: {
@@ -22,8 +26,8 @@ export function mcpFixture(
         "search_records",
         {
           description: "Find a synthetic record",
-          inputSchema: z.object({ query: z.string() }),
-          outputSchema: z.object({ found: z.string() }),
+          inputSchema: toolInputSchema,
+          outputSchema: toolOutputSchema,
         },
         async ({ query }) => {
           calls++;
@@ -68,25 +72,23 @@ export function mcpFixture(
           headers: { "www-authenticate": "Bearer" },
         });
       if (request.method === "POST") {
-        const body = z
-          .object({ method: z.string().optional() })
-          .parse(await request.clone().json());
+        const message = jsonRpcRequestSchema.parse(
+          await request.clone().json(),
+        );
         requests.push({
-          method: body.method ?? "",
+          method: message.method,
           authorization: request.headers.get("authorization"),
         });
-        if (options.disconnect && body.method === "tools/call") {
+        if (options.disconnect && message.method === "tools/call") {
           calls++;
           void server.stop(true);
           return new Response(null, { status: 503 });
         }
 
-        if (options.legacy && body.method === "server/discover")
+        if (options.legacy && message.method === "server/discover")
           return Response.json({
             jsonrpc: "2.0",
-            id: z
-              .object({ id: z.unknown() })
-              .parse(await request.clone().json()).id,
+            id: message.id,
             error: { code: -32601, message: "Method not found" },
           });
       }

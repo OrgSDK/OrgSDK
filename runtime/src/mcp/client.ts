@@ -18,6 +18,8 @@ import {
 } from "./contract";
 import { endpointFetch, redactMcp } from "./network";
 
+const argumentsSchema = z.record(z.string(), z.unknown());
+
 export class McpRuntime {
   private client?: Client;
   private opening?: Promise<void>;
@@ -198,7 +200,7 @@ export class McpRuntime {
       const result = await client.callTool(
         {
           name: tool.name,
-          arguments: z.record(z.string(), z.unknown()).parse(args),
+          arguments: argumentsSchema.parse(args),
         },
         {
           signal: this.signal,

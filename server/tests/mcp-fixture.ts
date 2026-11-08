@@ -5,6 +5,13 @@ import { Client } from "../../runtime/src/client";
 import { jobSchema, type Job } from "../../runtime/src/contract";
 import { mcpFixture } from "../../runtime/src/mcp/testing/server";
 
+const createdConnectionSchema = z.object({ id: z.uuid() });
+const discoveryRunSchema = z.object({ run: z.uuid() });
+const succeededRunSchema = z.object({
+  status: z.literal("succeeded"),
+  output: z.object({ result: z.unknown() }),
+});
+
 export async function connectedMcpFixture() {
   const application = await fixture();
   const remote = mcpFixture({ token: "synthetic-mcp-secret" });
@@ -14,7 +21,7 @@ export async function connectedMcpFixture() {
     protocol_version: 4,
     capabilities: ["code", "action", "test", "validate", "mcp_discover"],
   });
-  const connection = z.object({ id: z.uuid() }).parse(
+  const connection = createdConnectionSchema.parse(
     await application.data(
       "plugins.mcp.create",
       {
@@ -51,23 +58,18 @@ export async function connectedMcpFixture() {
       if (exit !== 0) {
         throw new Error(`MCP worker failed: ${diagnostic}`);
       }
-      const completed = z
-        .object({
-          status: z.literal("succeeded"),
-          output: z.object({ result: z.unknown() }),
-        })
-        .parse(await application.data("runs.get", { id: job.run_id }));
+      const completed = succeededRunSchema.parse(
+        await application.data("runs.get", { id: job.run_id }),
+      );
       return completed.output.result;
     } finally {
       clearTimeout(timer);
     }
   }
   async function discover() {
-    const result = z
-      .object({ run: z.uuid() })
-      .parse(
-        await application.data("plugins.mcp.discover", connection, "mutation"),
-      );
+    const result = discoveryRunSchema.parse(
+      await application.data("plugins.mcp.discover", connection, "mutation"),
+    );
     const job = jobSchema.parse(await worker.claim());
     await execute(job);
     return { run: result.run, job };

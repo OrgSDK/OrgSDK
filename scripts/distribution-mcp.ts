@@ -4,13 +4,16 @@ import { z } from "zod";
 import { type api, runSchema, waitForRun } from "./distribution-fixture.ts";
 import { mcpSmokeServer } from "./mcp-smoke-server.ts";
 
+const createdConnectionSchema = z.object({ id: z.uuid() });
+const discoveryRunSchema = z.object({ run: z.uuid() });
+
 export async function verifyPackagedMcp(
   rpc: ReturnType<typeof api>,
   project: string,
 ) {
   const server = await mcpSmokeServer();
   try {
-    const connection = z.object({ id: z.uuid() }).parse(
+    const connection = createdConnectionSchema.parse(
       await rpc(
         "plugins.mcp.create",
         {
@@ -23,9 +26,9 @@ export async function verifyPackagedMcp(
         true,
       ),
     );
-    const discovery = z
-      .object({ run: z.uuid() })
-      .parse(await rpc("plugins.mcp.discover", connection, true));
+    const discovery = discoveryRunSchema.parse(
+      await rpc("plugins.mcp.discover", connection, true),
+    );
     await waitForRun(rpc, discovery.run);
     assert.equal(server.calls, 0);
     await rpc(

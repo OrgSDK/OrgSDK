@@ -25,3 +25,14 @@ export const connectionUpdateSchema = z.strictObject({
   auth_mode: z.enum(["none", "headers", "oauth"]).optional(),
   headers: headerSchema.optional(),
 });
+export const catalogueAcceptSchema = z.strictObject({
+  id: z.uuid(),
+  run: z.uuid(),
+  tools: z.array(z.string()).max(1000),
+});
+export const oauthBeginSchema = z.strictObject({
+  id: z.uuid(),
+  client_id: z.string().max(2000).optional(),
+  client_secret: z.string().max(4000).optional(),
+  client_metadata_url: z.string().url().optional(),
+});

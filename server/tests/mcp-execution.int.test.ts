@@ -5,6 +5,10 @@ import { Client } from "../../runtime/src/client";
 import { validateCode } from "../../runtime/src/validate-code";
 import { connectedMcpFixture } from "./mcp-fixture";
 
+const savedActionSchema = z.object({ action: z.uuid() });
+const createdRunSchema = z.object({ id: z.uuid() });
+const createdCredentialSchema = z.object({ id: z.uuid() });
+
 const source =
   'return await customerTools.searchRecords({ query: "example" });';
 test("MCP connection reviews tools, exposes SDK, executes code and a saved action with traces", async () => {
@@ -44,7 +48,7 @@ test("MCP connection reviews tools, exposes SDK, executes code and a saved actio
     const events = await fixture.data("runs.events", { id: job.run_id });
     expect(JSON.stringify(events)).toContain("searchRecords");
     expect(JSON.stringify(events)).not.toContain("synthetic-mcp-secret");
-    const saved = z.object({ action: z.uuid() }).parse(
+    const saved = savedActionSchema.parse(
       await fixture.data(
         "actions.saveAction",
         {
@@ -80,7 +84,7 @@ test("MCP snapshots stay immutable, revocation cancels jobs, old workers cannot 
   const fixture = await connectedMcpFixture();
   try {
     await fixture.accept((await fixture.discover()).run);
-    const created = z.object({ id: z.uuid() }).parse(
+    const created = createdRunSchema.parse(
       await fixture.data(
         "runs.create",
         {
@@ -128,15 +132,13 @@ test("MCP snapshots stay immutable, revocation cancels jobs, old workers cannot 
 test("discovery authority cannot execute product operations or obtain another credential", async () => {
   const fixture = await connectedMcpFixture();
   try {
-    const foreign = z
-      .object({ id: z.uuid() })
-      .parse(
-        await fixture.data(
-          "credentials.create",
-          { name: "other", provider: "test", secret: { token: "other" } },
-          "mutation",
-        ),
-      );
+    const foreign = createdCredentialSchema.parse(
+      await fixture.data(
+        "credentials.create",
+        { name: "other", provider: "test", secret: { token: "other" } },
+        "mutation",
+      ),
+    );
     await fixture.data("plugins.mcp.discover", fixture.connection, "mutation");
     const job = jobSchema.parse(await fixture.worker.claim());
     const client = new Client(fixture.origin, job.capability);

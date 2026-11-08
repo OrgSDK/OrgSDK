@@ -1,9 +1,9 @@
-import { z } from "zod";
 import { auth, discoverOAuthServerInfo } from "@modelcontextprotocol/client";
 import { browserSessionManagerProcedure } from "../../procedures";
 import { oauthAttempts } from "../../../db/schema";
 import { inTransaction } from "../../../db/transaction";
 import { mcpConnection } from "../../../mcp/connections";
+import { oauthBeginSchema } from "../../../mcp/schemas";
 import { oauthProvider, type OAuthState } from "../../../mcp/oauth-state";
 import { checkOAuthDestination } from "../../../mcp/oauth-destination";
 import { oauthFetch } from "../../../mcp/oauth-network";
@@ -13,14 +13,7 @@ import { ServiceError } from "../../../shared/errors";
 import { callbackOrigin } from "../../../oauth/providers";
 
 export const beginOAuthProcedure = browserSessionManagerProcedure
-  .input(
-    z.strictObject({
-      id: z.uuid(),
-      client_id: z.string().max(2000).optional(),
-      client_secret: z.string().max(4000).optional(),
-      client_metadata_url: z.string().url().optional(),
-    }),
-  )
+  .input(oauthBeginSchema)
   .mutation(async ({ ctx, input }) => {
     const connection = mcpConnection(ctx, input.id);
     if (connection.authMode !== "oauth") {

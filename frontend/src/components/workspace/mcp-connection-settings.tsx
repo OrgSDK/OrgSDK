@@ -1,10 +1,16 @@
 "use client";
 import { useEffect, useState, type ReactNode } from "react";
-import { z } from "zod";
 import { trpc, type RouterOutputs } from "../../api/trpc";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
+import {
+  authModeOptions,
+  authModeSchema,
+  customHeadersSchema,
+  transportOptions,
+  transportSchema,
+} from "./mcp-connection-options";
 
 type Connection = RouterOutputs["plugins"]["mcp"]["get"];
 export function McpConnectionSettings({
@@ -137,14 +143,14 @@ export function McpConnectionSettings({
             className="field"
             value={auth}
             onChange={(event) => {
-              setAuth(
-                z.enum(["none", "headers", "oauth"]).parse(event.target.value),
-              );
+              setAuth(authModeSchema.parse(event.target.value));
             }}
           >
-            <option value="none">No authentication</option>
-            <option value="headers">Token or custom headers</option>
-            <option value="oauth">Sign in with OAuth</option>
+            {authModeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </label>
         {auth === "headers" ? (
@@ -182,16 +188,14 @@ export function McpConnectionSettings({
             className="field"
             value={transport}
             onChange={(event) => {
-              setTransport(
-                z
-                  .enum(["auto", "streamable-http", "sse"])
-                  .parse(event.target.value),
-              );
+              setTransport(transportSchema.parse(event.target.value));
             }}
           >
-            <option value="auto">Automatic</option>
-            <option value="streamable-http">Streamable HTTP</option>
-            <option value="sse">Legacy HTTP/SSE</option>
+            {transportOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </label>
         <Button
@@ -199,7 +203,7 @@ export function McpConnectionSettings({
           onClick={() => {
             void perform(async () => {
               const custom = headers.trim()
-                ? z.record(z.string(), z.string()).parse(JSON.parse(headers))
+                ? customHeadersSchema.parse(JSON.parse(headers))
                 : {};
               await trpc.plugins.mcp.update.mutate({
                 id: connection.pluginId,

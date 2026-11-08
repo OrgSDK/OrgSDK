@@ -5,6 +5,11 @@ import type { SandboxFunction } from "../engine/sandbox/types";
 import { McpRuntime } from "./client";
 import { connectionSchema, headerSchema } from "./contract";
 
+const executionSecretSchema = z.object({
+  headers: z.unknown(),
+  expires_at: z.number().optional(),
+});
+
 export function mcpPlugin(plugin: Plugin, client: Client, signal: AbortSignal) {
   const connection = connectionSchema.parse(plugin.mcp);
   let cached:
@@ -15,9 +20,9 @@ export function mcpPlugin(plugin: Plugin, client: Client, signal: AbortSignal) {
       if (!plugin.credential_id) return {};
       if (cached && cached.expiresAt > Date.now() + 60_000)
         return cached.headers;
-      const secret = z
-        .object({ headers: z.unknown(), expires_at: z.number().optional() })
-        .parse(await client.secret(plugin.credential_id));
+      const secret = executionSecretSchema.parse(
+        await client.secret(plugin.credential_id),
+      );
       cached = {
         headers: headerSchema.parse(secret.headers),
         expiresAt: secret.expires_at ?? Number.POSITIVE_INFINITY,

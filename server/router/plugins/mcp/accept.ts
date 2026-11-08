@@ -1,9 +1,9 @@
 import { assertCurrentPluginManager } from "../../../plugins/validation";
-import { z } from "zod";
-import { eq } from "drizzle-orm";
 import { browserManagerProcedure } from "../../procedures";
+import { eq } from "drizzle-orm";
 import { inTransaction } from "../../../db/transaction";
 import { mcpConnections, plugins } from "../../../db/schema";
+import { catalogueAcceptSchema } from "../../../mcp/schemas";
 import { cancelConnectionRuns, mcpConnection } from "../../../mcp/connections";
 import { approveTools } from "../../../../runtime/src/mcp/aliases";
 import { recordAudit } from "../../../repositories/audit";
@@ -12,13 +12,7 @@ import { digest } from "../../../shared/security";
 import { ServiceError } from "../../../shared/errors";
 
 export const acceptProcedure = browserManagerProcedure
-  .input(
-    z.strictObject({
-      id: z.uuid(),
-      run: z.uuid(),
-      tools: z.array(z.string()).max(1000),
-    }),
-  )
+  .input(catalogueAcceptSchema)
   .mutation(({ ctx, input }) =>
     inTransaction(ctx, (transaction) => {
       assertCurrentPluginManager(transaction);

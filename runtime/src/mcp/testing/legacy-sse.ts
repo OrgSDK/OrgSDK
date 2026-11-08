@@ -1,5 +1,5 @@
 import { serve } from "bun";
-import { z } from "zod";
+import { jsonRpcRequestSchema } from "./schemas";
 
 export function legacySseFixture() {
   let stream: ReadableStreamDefaultController<Uint8Array> | undefined;
@@ -31,12 +31,7 @@ export function legacySseFixture() {
       }
       if (url.pathname !== "/messages" || request.method !== "POST")
         return new Response(null, { status: 405 });
-      const message = z
-        .object({
-          id: z.union([z.string(), z.number()]).optional(),
-          method: z.string(),
-        })
-        .parse(await request.json());
+      const message = jsonRpcRequestSchema.parse(await request.json());
       requests.push(message.method);
       if (message.id === undefined) return new Response(null, { status: 202 });
       const result =

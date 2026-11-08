@@ -1,6 +1,12 @@
 import { createServer } from "node:http";
 import { z } from "zod";
 
+const jsonRpcRequestSchema = z.object({
+  id: z.union([z.string(), z.number()]).optional(),
+  method: z.string(),
+  params: z.unknown().optional(),
+});
+
 /** Ordinary legacy Streamable HTTP, served independently of the installed SDK. */
 export async function mcpSmokeServer() {
   let calls = 0;
@@ -18,13 +24,7 @@ export async function mcpSmokeServer() {
       for await (const chunk of request) {
         body += String(chunk);
       }
-      const message = z
-        .object({
-          id: z.union([z.string(), z.number()]).optional(),
-          method: z.string(),
-          params: z.unknown().optional(),
-        })
-        .parse(JSON.parse(body));
+      const message = jsonRpcRequestSchema.parse(JSON.parse(body));
       if (message.id === undefined) {
         response.writeHead(202).end();
         return;
