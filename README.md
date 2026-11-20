@@ -19,11 +19,17 @@ Use `orgsdk server` to run only the platform, or `orgsdk executor --help` to reg
 
 See [distribution and verification](docs/npm-distribution.md) for pinned installation, upgrades, recovery and release checks.
 
+## Browser discovery sessions
+
+Use an external MCP client to iterate on a live browser with persistent TypeScript variables, then validate, test and replay the steps as a versioned action. See the [local browser session guide](docs/browser-sessions.md) for setup, example cells and a reproducible end-to-end check.
+
 ## Build and run locally
 
 Install Bun 1.4, Node.js 22.22.0 or newer and npm, then run `npm run setup` and `npm run build`. Start `dist/orgsdk` and open `http://127.0.0.1:8080`. The executable embeds the frontend, including Monaco, and does not require Bun or Node at runtime. `HOST`, `PORT`, and `ORGSDK_DATA_DIR` configure listening and storage. The default data directory is `~/.local/share/orgsdk`.
 
-To build the npm package, run `npm run build:npm`, then `npm pack --ignore-scripts`. The tarball includes the platform JavaScript, frontend, migrations and executor workers. `npm pack` without `--ignore-scripts` builds those assets automatically. Use `npm run test:distribution -- ./orgsdk-cli-0.1.1.tgz` to install and verify the actual tarball with temporary data and a Node-only runtime path. Replace the tarball argument with `@orgsdk/cli@VERSION` to verify the registry release.
+To build the npm package, run `npm run build:npm`, then `npm pack --ignore-scripts`. The tarball includes the platform JavaScript, frontend, migrations and executor workers. `npm pack` without `--ignore-scripts` builds those assets automatically. Use `npm run test:distribution -- ./orgsdk-cli-0.2.0.tgz` to install and verify the actual tarball with temporary data and a Node-only runtime path. Replace the tarball argument with `@orgsdk/cli@VERSION` to verify the registry release.
+
+Both release builds generate `dist/THIRD_PARTY_NOTICES.txt` from the installed dependencies. It is included in the npm tarball; distribute it alongside `dist/orgsdk` when sharing the standalone executable. The notice text is generated during packaging and is not stored in the source tree or served as frontend assets.
 
 The Drizzle schema is the source of truth. Startup applies pending generated migrations to `orgsdk.sqlite3`, and the executable embeds the migration files. Start the initial installation in an empty data directory. This is a greenfield schema without compatibility with the earlier experimental database.
 
@@ -72,3 +78,5 @@ If local account recovery is needed, an administrator with access to the server 
 For an HTTPS reverse proxy, set `ORGSDK_PUBLIC_ORIGIN` to the public HTTPS origin, preserve the public Host header, and keep the backend reachable through that trusted proxy. The application uses the explicit origin for CSRF and Secure cookies; it ignores forwarded scheme and host headers. Health checks and authenticated internal executor routes keep their direct service address.
 
 The prior Django implementation and its management commands are retained in Git history. The Django admin interface is retired; use the application settings and account pages. The frontend uses native tRPC throughout, with input and output types inferred directly from the Bun server router. Application REST compatibility routes and OpenAPI snapshots have been removed.
+
+Remote HTTP MCP servers can also be connected as project plugins. See [Remote MCP connections](docs/remote-mcp.md) for tool review, authentication, execution and compatibility boundaries.

@@ -15,4 +15,7 @@ Record results and any remaining limitations here.
 
 ## Release
 
+- [ ] Feature/fix PR targets `develop` and includes a new `changes/*.json` fragment, or this is a documented release-preparation/promotion PR
+- [ ] Maintainer review and explicit approval received before merge
+
 State any upgrade steps or follow-up release work. Merge and release are separate maintainer decisions.

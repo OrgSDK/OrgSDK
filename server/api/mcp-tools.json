@@ -65,6 +65,142 @@
     "mutates": true
   },
   {
+    "name": "open_session",
+    "description": "Start a persistent TypeScript session on the project runner. Poll get_run for output.result with id, generation, sequence and cursor. One session per project. Use execute_cell to retain variables and helpers between calls.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": ["project", "idempotency_key"],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
+    "name": "execute_cell",
+    "description": "Queue one TypeScript cell in your open session. Poll get_run, check output.result.cell.status and use its sequence for the next cell. Reuse the same cell_id on retry. Earlier declarations remain in scope. Use get_project_sdk for reviewed project tool names.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "cell_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expected_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "after": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inputs": {
+          "type": "object"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "project",
+        "session_id",
+        "cell_id",
+        "generation",
+        "expected_sequence",
+        "source",
+        "idempotency_key"
+      ],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
+    "name": "read_session",
+    "description": "Read your session status, sequence and events after an exclusive cursor. Poll get_run for output.result. Continue from nextCursor when hasMore is true.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "after": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": ["project", "session_id", "idempotency_key"],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
+    "name": "close_session",
+    "description": "Stop your session worker and retain its history. Poll get_run for completion. To replay the workflow later, save self-contained source with save_action and test it with run_tests.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": ["project", "session_id", "idempotency_key"],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
     "name": "get_run_events",
     "description": "Poll ordered run events using an after-sequence cursor.",
     "inputSchema": {

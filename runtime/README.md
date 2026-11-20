@@ -15,7 +15,7 @@ Use `start --mode host` explicitly to run child jobs using the current OS accoun
 
 Project workspace files and installed plugin releases survive runs. No run cleanup deletes the agent folder. Plugins install under `agents/<id>/plugins/<slug>/<sha256>/plugin.mjs`; historical pinned versions remain available to retries. Current enabled configuration is fetched before each claim. External clients own reasoning and coordination. The runtime executes action, code, validation and test jobs only; built-in chat and reasoning delegation are retired. Existing `agents/<id>` storage paths and `--agent` install arguments identify retained project IDs.
 
-The separate [execution session module](src/sessions/README.md) supports successive cells in one live worker, stable session IDs, cursor-based events and retained history after close or expiry. It is an internal module and is not connected to the existing executor job loop or public APIs.
+[Execution sessions](src/sessions/README.md) keep successive cells in one live worker, with stable session IDs, cursor-based events and retained history after close or expiry. The executor advertises session support during registration and handles authenticated session commands in its project job loop.
 
 ## External plugins
 
@@ -49,8 +49,8 @@ Docker mode also needs Docker
 Engine. Extract the installer from the tarball and run it as root:
 
 ```sh
-tar -xzf orgsdk-executor-0.1.1.tgz package/scripts/install-service.sh
-sudo bash package/scripts/install-service.sh "$PWD/orgsdk-executor-0.1.1.tgz" researcher docker
+tar -xzf orgsdk-executor-0.2.0.tgz package/scripts/install-service.sh
+sudo bash package/scripts/install-service.sh "$PWD/orgsdk-executor-0.2.0.tgz" researcher docker
 ```
 
 The installer creates `/opt/orgsdk-executor`, the `orgsdk-researcher` system
@@ -110,3 +110,5 @@ bun --no-env-file runtime/scripts/verify-plugin-releases.ts \
 Use `--catalog /path/releases.json --bundle-root /path/bundles` before publication. Add `--render-pdf` when the matching engine is provisioned to exercise real PDF output. Every package is checksum-verified, installed in temporary `orgsdk-platform-test` project storage, and loaded to compare its exported tools to the catalog. Data Tools is exercised through the VM action interface. This does not prove provider OAuth setup or live external writes.
 
 `ORGSDK_SERVER_URL` is the executor's application base URL. Point it at the application server, for example `http://127.0.0.1:8080`. The server binary does not include or start the executor. Separately managed executors must configure `ORGSDK_SERVER_URL` when upgrading; the platform CLI and managed development command supply it automatically.
+
+Protocol 4 adds project-owned remote MCP discovery and execution over Streamable HTTP or legacy HTTP/SSE. Connections and reviewed tool schemas are supplied in immutable jobs; authentication headers are retrieved using run-scoped credentials. Each run owns and closes its connections. No stdio servers are launched. See the platform [remote MCP guide](../docs/remote-mcp.md).

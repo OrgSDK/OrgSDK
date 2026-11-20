@@ -59,6 +59,7 @@ export function runOperationLabel(operation: Run["operation"]): string {
   const labels: Record<Run["operation"], string> = {
     chat: "Chat task",
     code: "Code execution",
+    session: "Execution session",
     action: "Action run",
     validate: "Code validation",
     test: "Action tests",

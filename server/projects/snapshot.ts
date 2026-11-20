@@ -1,3 +1,4 @@
+import { mcpSnapshot } from "../mcp/connections";
 import type { JsonObject } from "../db/types";
 import { type ServiceContext } from "../application";
 import { pluginQueries } from "../plugins/queries";
@@ -5,13 +6,8 @@ import { projectsRepository } from "../repositories/projects";
 import { object } from "../shared/contracts";
 import { digest } from "../shared/security";
 import { pluginNamespace } from "./plugin-namespace";
-export function projectSnapshot(
-  ctx: ServiceContext,
-  projectId: string,
-  operation = "code",
-) {
+export function projectConfiguration(ctx: ServiceContext, projectId: string) {
   const project = projectsRepository(ctx).find(projectId);
-  const restricted = operation === "validate" || operation === "test";
   const resources = {
     tables: { read: project.readableTables, write: project.writableTables },
     documents: {
@@ -23,6 +19,9 @@ export function projectSnapshot(
     ctx.db,
     project.workspaceId,
   ).listEnabledForProject(projectId);
+  const sdkRevision = installed.some((plugin) => plugin.distribution === "mcp")
+    ? 4
+    : 3;
   const plugins = installed.map((plugin) => ({
     slug: plugin.slug,
     version: plugin.version,
@@ -34,7 +33,24 @@ export function projectSnapshot(
     configuration: plugin.configuration,
     package_url: plugin.packageUrl,
     contract_version: 1,
+    ...(plugin.distribution === "mcp"
+      ? { mcp: mcpSnapshot(ctx, plugin.id) }
+      : {}),
   }));
+  const revision = digest(
+    JSON.stringify({ sdk_revision: sdkRevision, plugins, resources }),
+  );
+  return { project, resources, installed, sdkRevision, plugins, revision };
+}
+
+export function projectSnapshot(
+  ctx: ServiceContext,
+  projectId: string,
+  operation = "code",
+) {
+  const { project, resources, installed, sdkRevision, plugins, revision } =
+    projectConfiguration(ctx, projectId);
+  const restricted = operation === "validate" || operation === "test";
   const selected = {
     id: project.id,
     name: project.name,
@@ -45,9 +61,6 @@ export function projectSnapshot(
     resources,
     documents: [],
   };
-  const revision = digest(
-    JSON.stringify({ sdk_revision: 3, plugins, resources }),
-  );
   const namespaces = installed.map((plugin) => pluginNamespace(plugin.slug));
   const sdkPlugins = installed.map((plugin, pluginIndex) => {
     const namespace = namespaces[pluginIndex];
@@ -56,9 +69,20 @@ export function projectSnapshot(
       namespaces.filter(
         (candidateNamespace) => candidateNamespace === namespace,
       ).length === 1;
-    const tools =
-      plugin.distribution === "external" &&
-      Array.isArray(plugin.releaseMetadata?.tools)
+    const remote = plugins[pluginIndex]?.mcp;
+    const tools: unknown[] | null = remote
+      ? remote.tools.map((tool) => ({
+          name: tool.alias,
+          description: tool.description ?? "",
+          parameters: [],
+          calling: "named",
+          inputSchema: tool.inputSchema,
+          outputSchema: tool.outputSchema ?? null,
+          remote_name: tool.name,
+          returnType: "unknown",
+        }))
+      : plugin.distribution === "external" &&
+          Array.isArray(plugin.releaseMetadata?.tools)
         ? plugin.releaseMetadata.tools
         : null;
     return {
@@ -67,6 +91,7 @@ export function projectSnapshot(
       slug: plugin.slug,
       version: plugin.version,
       digest: plugin.digest,
+      ...(remote ? { kind: "mcp" } : {}),
       metadata_complete:
         !!available &&
         !!tools &&
@@ -103,6 +128,9 @@ export function projectSnapshot(
                       "returns",
                       "returnType",
                       "calling",
+                      "inputSchema",
+                      "outputSchema",
+                      "remote_name",
                     ].includes(key),
                   ),
                 );
@@ -112,8 +140,8 @@ export function projectSnapshot(
   });
   const sdk = {
     project: project.id,
-    protocol_version: 2,
-    sdk_revision: 3,
+    protocol_version: sdkRevision === 4 ? 4 : 2,
+    sdk_revision: sdkRevision,
     configuration_revision: revision,
     resources,
     plugins: sdkPlugins,
@@ -172,7 +200,7 @@ export function projectSnapshot(
   return {
     agents: [runAgent],
     root_agent_id: project.id,
-    sdk_revision: 3,
+    sdk_revision: sdkRevision,
     configuration_revision: revision,
     sdk,
   };

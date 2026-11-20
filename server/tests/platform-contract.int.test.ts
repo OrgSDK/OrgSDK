@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { build } from "esbuild";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { z } from "zod";
@@ -20,16 +21,18 @@ test.each(runtimes)(
     );
     try {
       const entry = join(directory, "probe.mjs");
-      const build = await Bun.build({
-        entrypoints: [resolve("server/tests/platform-contract-probe.ts")],
+      await build({
+        entryPoints: { probe: "server/tests/platform-contract-probe.ts" },
         outdir: directory,
-        naming: "probe.mjs",
-        target: "node",
+        outExtension: { ".js": ".mjs" },
+        bundle: true,
+        platform: "node",
+        target: "node22.22",
+        format: "esm",
         splitting: true,
         packages: "external",
-        external: ["bun:sqlite", "better-sqlite3", "@node-rs/argon2"],
+        external: ["bun:*"],
       });
-      expect(build.success).toBe(true);
       cpSync(migrationsFolder, join(directory, "migrations"), {
         recursive: true,
       });

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sessionCommandSchema } from "../../runtime/src/session-job-contract";
 const identifier = z.uuid();
 const jsonObject = z.record(z.string(), z.json());
 export const runIdSchema = z.strictObject({ id: identifier });
@@ -15,6 +16,14 @@ export const createRunSchema = z.strictObject({
   input_schema: jsonObject.optional(),
   output_schema: jsonObject.optional(),
 });
+export const sessionRunSchema = createRunSchema
+  .pick({
+    project: true,
+    idempotency_key: true,
+    source: true,
+    inputs: true,
+  })
+  .extend({ session: sessionCommandSchema });
 export const validateCodeSchema = createRunSchema.omit({ operation: true });
 export const retryRunSchema = z.strictObject({
   id: identifier,
@@ -31,6 +40,11 @@ export const streamRunSchema = z.strictObject({
   id: identifier,
   after: z.number().int().nonnegative().default(0),
 });
-export type CreateRunInput = z.infer<typeof createRunSchema>;
+export type CreateRunInput =
+  | z.infer<typeof createRunSchema>
+  | (Omit<z.infer<typeof createRunSchema>, "operation"> & {
+      operation: "session";
+      session: z.infer<typeof sessionCommandSchema>;
+    });
 export type RetryRunInput = z.infer<typeof retryRunSchema>;
 export type PromoteRunInput = z.infer<typeof promoteRunSchema>;

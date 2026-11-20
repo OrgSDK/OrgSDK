@@ -1,0 +1,19 @@
+# Changelog
+
+## 0.2.0
+
+### Added
+
+- Iterate on TypeScript in a persistent project session through MCP and reuse the resulting code in tested actions.
+- Connect compatible remote HTTP MCP servers as project plugins with reviewed tools, executor calls and managed authentication.
+
+### Changed
+
+- Collect reviewed changes on develop and prepare versioned CLI and executor releases with an aggregated changelog.
+- Generate third-party notices in release artifacts instead of tracking and serving individual frontend license files.
+
+### Upgrading
+
+Stop the application and back up its database, matching encryption key and executor project files. Start 0.2.0 with the same data directory to apply migration `0003_remote-mcp`. The CLI includes the local executor. Upgrade independently managed runners to `@orgsdk/executor@0.2.0` before opening a session, and rebuild Docker job images from the same release when using Docker mode. Tools discovered on a remote MCP server become available to a project after review and enablement.
+
+Release notes are collected from reviewed changes on `develop`. Earlier releases predate this changelog.

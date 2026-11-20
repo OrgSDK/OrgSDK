@@ -1,3 +1,4 @@
+import { mcpRouter } from "./mcp";
 import { router } from "../procedures";
 import { listProcedure } from "./list";
 import { getProcedure } from "./get";
@@ -7,6 +8,7 @@ import { deleteProcedure } from "./delete";
 import { catalogProcedure } from "./catalog";
 import { marketplaceProcedure } from "./marketplace";
 export const pluginsRouter = router({
+  mcp: mcpRouter,
   list: listProcedure,
   get: getProcedure,
   create: createProcedure,

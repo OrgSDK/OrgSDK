@@ -8,10 +8,14 @@ import { requireWorkspace } from "../shared/authorization";
 import { HttpError, input, json } from "../http/responses";
 import definitions from "./mcp-tools.json";
 
-const scopes: Record<string, string> = {
+const scopes: Record<string, string | string[]> = {
   list_projects: "catalog:read",
   get_project_sdk: "catalog:read",
   execute_code: "code:execute",
+  open_session: "code:execute",
+  execute_cell: "code:execute",
+  read_session: ["code:execute", "runs:read"],
+  close_session: "code:execute",
   get_run_events: "runs:read",
   cancel_run: "runs:cancel",
   list_actions: "catalog:read",
@@ -35,9 +39,14 @@ const tools = definitions.map((definition) => ({
   validate: validator.compile(definition.inputSchema),
 }));
 function permitted(ctx: AppContext, name: string) {
-  return (
-    !ctx.token || (!!scopes[name] && ctx.token.scopes.includes(scopes[name]!))
-  );
+  const token = ctx.token;
+  if (!token) {
+    return true;
+  }
+  const required = scopes[name];
+  return Array.isArray(required)
+    ? required.every((scope) => token.scopes.includes(scope))
+    : required !== undefined && token.scopes.includes(required);
 }
 
 export async function handleMcp(ctx: AppContext): Promise<Response | null> {
@@ -149,7 +158,16 @@ export async function handleMcp(ctx: AppContext): Promise<Response | null> {
                 : cause.code === "FORBIDDEN"
             )
               ? "Permission denied. Check client scopes and project grants."
-              : "Request rejected. Check resource IDs, input fields and execution limits.",
+              : cause instanceof TRPCError &&
+                  cause.code === "PRECONDITION_FAILED" &&
+                  [
+                    "open_session",
+                    "execute_cell",
+                    "read_session",
+                    "close_session",
+                  ].includes(tool.name)
+                ? cause.message
+                : "Request rejected. Check resource IDs, input fields and execution limits.",
           },
         ],
         isError: true,

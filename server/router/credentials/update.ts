@@ -21,6 +21,26 @@ export const updateProcedure = browserManagerProcedure
           }),
     };
     return inTransaction(ctx, (transaction) => {
+      const existing = transaction.db
+        .select({ provider: credentials.provider })
+        .from(credentials)
+        .where(
+          and(
+            eq(credentials.workspaceId, ctx.workspace.id),
+            eq(credentials.id, input.id),
+          ),
+        )
+        .get();
+      if (
+        input.provider?.startsWith("mcp-") ||
+        (existing?.provider.startsWith("mcp-") &&
+          (input.provider !== undefined || input.secret !== undefined))
+      ) {
+        throw new ServiceError(
+          "BAD_REQUEST",
+          "Manage MCP credentials from project plugins.",
+        );
+      }
       const credential = transaction.db
         .update(credentials)
         .set({ ...changes, updatedAt: now() })

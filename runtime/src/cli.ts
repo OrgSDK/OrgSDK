@@ -8,9 +8,15 @@ import { Client } from "./client";
 import { manage, registrationSchema, runAgent } from "./supervisor";
 import { installPlugin } from "./plugin-store";
 import { pluginSchema } from "./contract";
+import { registerExecutor } from "./register-executor";
 import { packagePlugin } from "./package-plugin";
 
 const { command, option } = executorArguments(process.argv.slice(2));
+const registerResponseSchema = z.object({
+  id: z.string(),
+  agent_id: z.string(),
+});
+const modeSchema = z.enum(["docker", "host"]);
 const data = resolve(
   option("data") ||
     process.env.EXECUTOR_DATA_DIR ||
@@ -37,11 +43,8 @@ if (command === "--help" || !command) {
     .string()
     .min(32)
     .parse(process.env.EXECUTOR_TOKEN || (await readStdin()).trim());
-  const registration = z.object({ id: z.string(), agent_id: z.string() }).parse(
-    await new Client(base, token).register({
-      protocol_version: 3,
-      capabilities: ["action", "code", "validate", "test"],
-    }),
+  const registration = registerResponseSchema.parse(
+    await registerExecutor(new Client(base, token)),
   );
   await mkdir(data, { recursive: true, mode: 0o700 });
   await writeFile(
@@ -63,10 +66,10 @@ if (command === "--help" || !command) {
   await runAgent(
     config.base,
     config,
-    z.enum(["docker", "host"]).parse(option("mode") || "docker"),
+    modeSchema.parse(option("mode") || "docker"),
   );
 } else if (command === "manage")
-  await manage(z.enum(["docker", "host"]).parse(option("mode") || "docker"));
+  await manage(modeSchema.parse(option("mode") || "docker"));
 else if (command === "package-plugin")
   await packagePlugin(
     z.string().parse(option("directory")),

@@ -1,26 +1,20 @@
-import {
-  developmentSourceArguments,
-  agentMountArguments,
-  jobEnvironment,
-} from "./executor-configuration";
 export {
   developmentSourceArguments,
   agentMountArguments,
   jobEnvironment,
 } from "./executor-configuration";
-import {
-  isEntrypoint,
-  spawnProcess,
-  stopHostProcess,
-  workerCommand,
-} from "./process-runtime";
+import { isEntrypoint } from "./process-runtime";
 import { setTimeout as sleep } from "node:timers/promises";
+import { developmentSourceArguments } from "./executor-configuration";
+import { SessionJobs } from "./session-job";
+import { spawnJob } from "./spawn-job";
 import { runIsolatedJob } from "./isolated-actions";
 import { chown } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { Client } from "./client";
 import { jobSchema, pluginSchema } from "./contract";
+import { registerExecutor } from "./register-executor";
 import {
   agentDirectory,
   installPlugin,
@@ -56,11 +50,7 @@ export async function runAgent(
   }
   const client = new Client(base, registration.token, signal);
   try {
-    await client.register({
-      protocol_version: 3,
-      capabilities: ["action", "code", "validate", "test"],
-      agent_id: agentId,
-    });
+    await registerExecutor(client, agentId);
   } catch (error) {
     if (
       signal.aborted ||
@@ -69,139 +59,112 @@ export async function runAgent(
       return;
     throw error;
   }
-  while (!signal.aborted) {
-    try {
-      const config = z
-        .object({ agent_id: z.string(), plugins: z.array(pluginSchema) })
-        .parse(await client.configuration());
-      if (config.agent_id !== agentId)
-        throw new Error("Executor agent configuration mismatch");
-      for (const plugin of config.plugins) {
-        try {
-          await installPlugin(plugin, agentId, undefined, signal);
-        } catch (error) {
-          console.error(
-            `Plugin ${plugin.slug} installation failed; claimed jobs will report the error: ${error instanceof Error ? error.message : "installation failed"}`,
-          );
-        }
-      }
-      const claimed = await client.claim();
-      if (!claimed) {
-        await sleep(2000, undefined, { signal }).catch(() => undefined);
-        continue;
-      }
-      if (signal.aborted) return;
-      const job = jobSchema.parse(claimed);
-      if (job.snapshot.root_agent_id !== agentId)
-        throw new Error("Claimed job belongs to another agent");
-      if (["validate", "test"].includes(job.operation)) {
-        await runIsolatedJob(
-          job,
-          base,
-          developmentSourceArguments(),
-          signal,
-          mode,
-        );
-        continue;
-      }
-      const name = `orgsdk-job-${job.run_id}`;
-      const command =
-        mode === "host"
-          ? workerCommand(import.meta.url, "./worker")
-          : [
-              "docker",
-              "run",
-              "--add-host",
-              "host.docker.internal:host-gateway",
-              "--rm",
-              "-i",
-              "--name",
-              name,
-              "--network",
-              z.string().min(1).parse(process.env.EXECUTION_NETWORK),
-              "--read-only",
-              "--tmpfs",
-              "/tmp:rw,noexec,nosuid,size=128m",
-              "--cap-drop=ALL",
-              "--security-opt=no-new-privileges",
-              "--pids-limit=128",
-              "--memory=512m",
-              "--cpus=1",
-              "--user",
-              `${process.getuid?.() || 1000}:${process.getgid?.() || 1000}`,
-              ...agentMountArguments(agentId, directory),
-              ...developmentSourceArguments(),
-              "--workdir",
-              "/agent/workspace",
-              "-e",
-              `ORGSDK_SERVER_URL=${base}`,
-              "-e",
-              "EXECUTOR_AGENT_DIR=/agent",
-              z.string().min(1).parse(process.env.EXECUTOR_IMAGE),
-            ];
-      const child = spawnProcess(command, {
-        cwd: join(directory, "workspace"),
-        detached: mode === "host" && process.platform !== "win32",
-        env: jobEnvironment(base, directory, mode === "host"),
-        stdout: "ignore",
-        stderr: "ignore",
-      });
-      child.stdin.write(JSON.stringify(job));
-      child.stdin.end();
-      const kill = () => {
-        if (mode === "host") stopHostProcess(child);
-        else
-          void spawnProcess(["docker", "kill", name], {
-            stdout: "ignore",
-            stderr: "ignore",
-          }).exited;
-      };
-      signal.addEventListener("abort", kill, { once: true });
-      if (signal.aborted) kill();
-      const deadline = setTimeout(
-        kill,
-        Math.max(0, Math.min(3_600_000, Date.parse(job.deadline) - Date.now())),
-      );
-      const jobLifetime = new AbortController();
-      const control = new Client(
-        base,
-        job.capability,
-        AbortSignal.any([signal, jobLifetime.signal]),
-      );
-      const monitor = setInterval(() => {
-        void (async () => {
-          try {
-            const state = z
-              .object({ cancel_requested: z.boolean() })
-              .parse(await control.heartbeat(job.run_id));
-            if (!state.cancel_requested && !signal.aborted) return;
-          } catch {
-            /* Revoked leases stop execution. */
-          }
-          if (!jobLifetime.signal.aborted) kill();
-        })();
-      }, 10_000);
+  let sessions: SessionJobs | undefined;
+  try {
+    while (!signal.aborted) {
       try {
-        await child.exited;
-      } finally {
-        // A completed worker may leave unref'ed plugin helpers in its process group.
-        if (mode === "host") stopHostProcess(child);
-        jobLifetime.abort();
-        clearInterval(monitor);
-        clearTimeout(deadline);
-        signal.removeEventListener("abort", kill);
+        const config = z
+          .object({
+            agent_id: z.string(),
+            plugins: z.array(pluginSchema),
+          })
+          .parse(await client.configuration());
+        if (config.agent_id !== agentId)
+          throw new Error("Executor agent configuration mismatch");
+        for (const plugin of config.plugins) {
+          if (plugin.distribution === "mcp") continue;
+          try {
+            await installPlugin(plugin, agentId, undefined, signal);
+          } catch (error) {
+            console.error(
+              `Plugin ${plugin.slug} installation failed; claimed jobs will report the error: ${error instanceof Error ? error.message : "installation failed"}`,
+            );
+          }
+        }
+        const claimed = await client.claim();
+        if (!claimed) {
+          await sleep(2000, undefined, { signal }).catch(() => undefined);
+          continue;
+        }
+        if (signal.aborted) return;
+        const job = jobSchema.parse(claimed);
+        if (job.snapshot.root_agent_id !== agentId)
+          throw new Error("Claimed job belongs to another agent");
+        if (["validate", "test"].includes(job.operation)) {
+          await runIsolatedJob(
+            job,
+            base,
+            developmentSourceArguments(),
+            signal,
+            mode,
+          );
+          continue;
+        }
+        if (job.operation === "session") {
+          sessions ??= new SessionJobs({ base, agentId, directory, mode });
+          await sessions.run(job, signal);
+          continue;
+        }
+        const { child, kill } = spawnJob({
+          base,
+          agentId,
+          directory,
+          mode,
+          name: `orgsdk-job-${job.run_id}`,
+        });
+        child.stdin.end(JSON.stringify(job));
+        signal.addEventListener("abort", kill, { once: true });
+        if (signal.aborted) kill();
+        const deadline = setTimeout(
+          kill,
+          Math.max(
+            0,
+            Math.min(3_600_000, Date.parse(job.deadline) - Date.now()),
+          ),
+        );
+        const jobLifetime = new AbortController();
+        const control = new Client(
+          base,
+          job.capability,
+          AbortSignal.any([signal, jobLifetime.signal]),
+        );
+        const monitor = setInterval(() => {
+          void (async () => {
+            try {
+              const state = z
+                .object({ cancel_requested: z.boolean() })
+                .parse(await control.heartbeat(job.run_id));
+              if (!state.cancel_requested && !signal.aborted) return;
+            } catch {
+              /* Revoked leases stop execution. */
+            }
+            if (!jobLifetime.signal.aborted) kill();
+          })();
+        }, 10_000);
+        try {
+          await child.exited;
+        } finally {
+          // A completed worker may leave unref'ed plugin helpers in its process group.
+          if (mode === "host") kill();
+          jobLifetime.abort();
+          clearInterval(monitor);
+          clearTimeout(deadline);
+          signal.removeEventListener("abort", kill);
+        }
+      } catch (error) {
+        if (
+          signal.aborted ||
+          (error instanceof Error && /API (401|403)/.test(error.message))
+        )
+          return;
+        console.error(
+          error instanceof Error ? error.message : "Executor failure",
+        );
+        await sleep(2000, undefined, { signal }).catch(() => undefined);
       }
-    } catch (error) {
-      if (
-        signal.aborted ||
-        (error instanceof Error && /API (401|403)/.test(error.message))
-      )
-        return;
-      console.error(
-        error instanceof Error ? error.message : "Executor failure",
-      );
-      await sleep(2000, undefined, { signal }).catch(() => undefined);
     }
+  } finally {
+    await sessions?.dispose();
   }
 }
 export async function manage(

@@ -2,7 +2,7 @@
 
 Tracking: [Node.js distribution issue #7](https://github.com/OrgSDK/OrgSDK/issues/7).
 
-The platform package is `@orgsdk/cli`. Its `orgsdk` command supervises the platform and separate HTTP executor. The independently installable runner is `@orgsdk/executor`. Both packages use public access on the npm registry. The source package version is `0.1.1`; builds, checks and source merges do not publish packages. Commands containing `VERSION` require a selected published version.
+The platform package is `@orgsdk/cli`. Its `orgsdk` command supervises the platform and separate HTTP executor. The independently installable runner is `@orgsdk/executor`. Both packages use public access on the npm registry. The source package version is `0.2.0`; builds, checks and source merges do not publish packages. Commands containing `VERSION` require a selected published version.
 
 On Linux with Node.js 22.22.0 or newer:
 
@@ -17,10 +17,12 @@ The platform already includes its local executor. Install `@orgsdk/executor` sep
 
 Use Linux, Node.js 22.22.0 or newer, npm, and Bun 1.4 for development and the existing test suite. `npm run setup` installs the locked development dependencies. `npm run build:npm` builds Next.js, the portable server and JavaScript executor workers. `npm pack --ignore-scripts` packs the completed build; plain `npm pack` runs that build itself.
 
+Both platform builds generate `dist/THIRD_PARTY_NOTICES.txt` from the installed MCP client/core, Monaco and Zod packages. Package names and versions are recorded, identical license texts are grouped, and upstream license contents are preserved. The platform npm tarball includes the generated file. Ship it alongside the standalone executable; the individual notice files are not frontend assets or tracked source files. The standalone smoke and npm installation tests verify the release notice file.
+
 Install the tarball into a separate directory or globally:
 
 ```sh
-npm install -g ./orgsdk-cli-0.1.1.tgz
+npm install -g ./orgsdk-cli-0.2.0.tgz
 orgsdk start
 ```
 
@@ -44,7 +46,7 @@ Before upgrading, stop OrgSDK and preserve the database, matching encryption key
 
 ## Verification
 
-`npm run test:distribution -- ./orgsdk-cli-0.1.1.tgz` installs the real tarball into an empty temporary directory. Use `npm run test:distribution -- @orgsdk/cli@VERSION` to install from the public registry instead. The application and runner are launched with a path containing only Node.js. `npm run test:distribution:bun -- ./orgsdk-cli-0.1.1.tgz` runs the same acceptance assertions with Bun. These tests exercise frontend and Monaco assets, setup, login, automatic executor registration, code, validation, reusable action tests/execution, persistent files across restart, migration, backup, cancellation and graceful shutdown. They use disposable account and installation data.
+`npm run test:distribution -- ./orgsdk-cli-0.2.0.tgz` installs the real tarball into an empty temporary directory. Use `npm run test:distribution -- @orgsdk/cli@VERSION` to install from the public registry instead. The application and runner are launched with a path containing only Node.js. `npm run test:distribution:bun -- ./orgsdk-cli-0.2.0.tgz` runs the same acceptance assertions with Bun. These tests exercise frontend and Monaco assets, setup, login, automatic executor registration, code, validation, reusable action tests/execution, persistent files across restart, migration, backup, cancellation and graceful shutdown. They use disposable account and installation data.
 
 Verify the independent registry runner with `npm --prefix runtime run smoke:node -- @orgsdk/executor@VERSION`. Use `smoke:bun` for the matching Bun assertions. An explicit tarball argument tests that exact artifact without rebuilding it.
 
@@ -64,7 +66,7 @@ After `npm run build:npm`, select the platform and execution-worker runtime for 
 
 ## Release procedure
 
-Release requires maintainer authorization separately from implementation. Select a checked commit on `main` and an unused version, update both manifests and lockfiles, and record installation/upgrade notes. Authenticate with an npm account authorized for `@orgsdk`; interactive publication can require browser authentication and a second factor. Do not commit tokens.
+Release requires maintainer authorization separately from implementation. First complete the [develop-to-main release workflow](release-workflow.md), including version and changelog review. Select that checked commit on `main` and record installation/upgrade notes. Authenticate with an npm account authorized for `@orgsdk`; interactive publication can require browser authentication and a second factor. Do not commit tokens.
 
 1. Run `npm run setup`, `npm run check`, `npm run build:npm` and the runtime/browser CI matrix.
 2. Pack the completed platform with `npm pack --ignore-scripts` and the executor with `npm pack ./runtime --ignore-scripts`. Review both tarballs, including the retained license and runtime provenance. Exclude installation data, credentials, source tests and fixtures.

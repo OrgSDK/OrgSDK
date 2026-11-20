@@ -1,9 +1,9 @@
 name: Checks
 on:
   push:
-    branches: [main, "codex/**"]
+    branches: [main, develop, "codex/**"]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 permissions:
   contents: read
 concurrency:
@@ -16,6 +16,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "22.22.0"

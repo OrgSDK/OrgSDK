@@ -1,4 +1,5 @@
 {
+  "version": "0.2.0",
   "name": "@orgsdk/cli",
   "publishConfig": {
     "access": "public",
@@ -18,11 +19,12 @@
     "format:check": "prettier --check server scripts/*.ts bin/*.mjs e2e knip.json package.json tsconfig.json playwright.config.ts eslint.config.mjs drizzle.config.ts",
     "e2e": "bun scripts/e2e.ts",
     "lint": "eslint --max-warnings=0",
-    "check": "npm run license:check && npm run check:server && npm run deadcode && npm --prefix runtime run typecheck && npm run test:cli && npm test && npm --prefix frontend run check && npm --prefix frontend run build",
+    "check": "npm run release:check && npm run test:release && npm run license:check && npm run check:server && npm run deadcode && npm --prefix runtime run typecheck && npm run test:cli && npm test && npm --prefix frontend run check && npm --prefix frontend run build",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun server/index.ts migrate",
     "db:check": "bun scripts/check-migrations.ts",
     "build:npm": "tsx scripts/build-npm.ts",
+    "test:browser-agent": "bun --no-env-file scripts/browser-agent-smoke.ts",
     "test:cli": "node --test bin/*.test.mjs",
     "test:distribution": "esbuild scripts/distribution-smoke.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/distribution-smoke.mjs && node dist/distribution-smoke.mjs",
     "test:distribution:bun": "esbuild scripts/distribution-smoke.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/distribution-smoke.mjs && bun dist/distribution-smoke.mjs",
@@ -40,9 +42,14 @@
     "container:backup": "bun scripts/compose.ts backup",
     "container:restore": "bun scripts/compose.ts restore",
     "smoke:binary": "bun scripts/smoke-binary.ts",
-    "test:dev": "bun --no-env-file scripts/dev-smoke.ts"
+    "test:dev": "bun --no-env-file scripts/dev-smoke.ts",
+    "release:check": "tsx scripts/release.ts check",
+    "release:plan": "tsx scripts/release.ts plan",
+    "release:prepare": "tsx scripts/release.ts prepare",
+    "test:release": "bun test scripts/release.test.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
     "@node-rs/argon2": "^2.2.2",
     "@trpc/server": "^11.24.0",
     "ajv": "^8.17.1",
@@ -57,22 +64,22 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/server": "2.4.0",
     "@playwright/test": "^1.65.0",
+    "@trpc/client": "^11.24.0",
     "@types/better-sqlite3": "^9.6.0",
     "@types/bun": "^1.4.4",
+    "@types/http-proxy": "^1.17.17",
     "@types/nodemailer": "^8.0.2",
     "drizzle-kit": "^0.31.0",
     "eslint": "^10.14.0",
     "eslint-plugin-unicorn": "^79.0.0",
+    "http-proxy": "^1.18.1",
     "knip": "^6.44.1",
     "prettier": "^3.9.10",
-    "typescript-eslint": "^8.72.1",
-    "@trpc/client": "^11.24.0",
-    "http-proxy": "^1.18.1",
-    "@types/http-proxy": "^1.17.17",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "typescript-eslint": "^8.72.1"
   },
-  "version": "0.1.1",
   "description": "Local OrgSDK platform and code executor",
   "license": "SEE LICENSE IN LICENSE",
   "bin": {
@@ -85,7 +92,10 @@
     "bin/supervision.mjs",
     "dist/server/",
     "dist/runtime/",
+    "dist/THIRD_PARTY_NOTICES.txt",
     "docs/npm-distribution.md",
+    "docs/remote-mcp.md",
+    "docs/browser-sessions.md",
     "runtime/README.md",
     "README.md",
     "LICENSE"

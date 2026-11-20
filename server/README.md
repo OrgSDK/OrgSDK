@@ -136,3 +136,5 @@ expose the same synchronous Drizzle operations and immediate transaction behavio
 The Node npm build keeps the driver modules in lazy chunks; otherwise the Bun
 driver import can be evaluated before runtime selection. The standalone Bun build
 uses the Bun driver exclusively and embeds its assets and migrations.
+
+`mcp/` owns outbound project-connection contracts, encrypted OAuth state/refresh and access revocation. Its management procedures live in `router/plugins/mcp/`; tool discovery and calls execute on the runner, separate from the inbound agent MCP endpoint. See [remote MCP](../docs/remote-mcp.md).

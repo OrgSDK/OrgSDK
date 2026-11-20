@@ -113,6 +113,10 @@ export async function startInstallation(
   }
 }
 
+const rpcResultSchema = z.object({
+  result: z.object({ data: z.unknown().optional() }),
+});
+
 export function api(origin: string) {
   const cookies = new Map<string, string>();
   return async (
@@ -145,8 +149,7 @@ export function api(origin: string) {
     }
     const payload: unknown = await response.json();
     assert(response.ok, `${procedure}: ${JSON.stringify(payload)}`);
-    return z.object({ result: z.object({ data: z.unknown() }) }).parse(payload)
-      .result.data;
+    return rpcResultSchema.parse(payload).result.data;
   };
 }
 
@@ -165,7 +168,9 @@ export async function waitForRun(
   for (let attempt = 0; attempt < 200; attempt++) {
     const run = runSchema.parse(await rpc("runs.get", { id }));
     if (
-      ["succeeded", "failed", "cancelled", "timed_out"].includes(run.status)
+      ["succeeded", "failed", "cancelled", "interrupted", "timed_out"].includes(
+        run.status,
+      )
     ) {
       assert.equal(run.status, expected, JSON.stringify(run));
       return run;

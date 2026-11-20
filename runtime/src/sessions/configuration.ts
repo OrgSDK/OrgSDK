@@ -7,6 +7,7 @@ export interface SessionManagerOptions {
   mode?: "docker" | "host";
   image?: string;
   sourceDirectory?: string;
+  workspaceVolume?: { name: string; subpath: string };
   functions?: SessionFunction[];
   idleTimeoutMs?: number;
   cellTimeoutMs?: number;
@@ -20,6 +21,7 @@ export interface SessionManagerOptions {
 }
 
 export interface OpenSession extends SessionScope {
+  functions?: SessionFunction[];
   workspaceDirectory: string;
   configurationRevision: string;
 }

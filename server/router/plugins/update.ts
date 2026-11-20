@@ -1,3 +1,4 @@
+import { cancelConnectionRuns, mcpConnection } from "../../mcp/connections";
 import { browserManagerProcedure } from "../procedures";
 import { pluginChangesSchema } from "../../plugins/schemas";
 import { isDeepStrictEqual } from "node:util";
@@ -31,6 +32,20 @@ export const updateProcedure = browserManagerProcedure
   .mutation(async ({ ctx: context, input }) => {
     const { id, ...changes } = input;
     const originalPlugin = pluginsRepository(context).find(id);
+    if (originalPlugin.distribution === "mcp") {
+      if (Object.keys(changes).some((key) => key !== "enabled")) {
+        throw new ServiceError(
+          "BAD_REQUEST",
+          "Use MCP connection settings to change this plugin.",
+        );
+      }
+      if (changes.enabled && !mcpConnection(context, id).enabledTools.length) {
+        throw new ServiceError(
+          "BAD_REQUEST",
+          "Review and enable tools before enabling this connection.",
+        );
+      }
+    }
     if (changes.project && changes.project !== originalPlugin.projectId) {
       throw new ServiceError("BAD_REQUEST", "Reinstall plugins to move them.");
     }
@@ -67,6 +82,9 @@ export const updateProcedure = browserManagerProcedure
           "CONFLICT",
           "The plugin changed while loading its release. Reload and retry.",
         );
+      }
+      if (plugin.distribution === "mcp" && changes.enabled === false) {
+        cancelConnectionRuns(transaction, id);
       }
       const credentialId =
         changes.credential === undefined
@@ -115,7 +133,7 @@ export const updateProcedure = browserManagerProcedure
               ? (metadata.description ?? plugin.description)
               : optionalDescription(changes.description, plugin.description),
           digest:
-            plugin.distribution === "external"
+            plugin.distribution !== "inline"
               ? (metadata.digest ?? plugin.digest)
               : digest(source),
           packageUrl:

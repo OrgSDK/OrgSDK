@@ -22,6 +22,13 @@
       "when": 1793158961136,
       "tag": "0002_trpc_transport",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1794026305054,
+      "tag": "0003_remote-mcp",
+      "breakpoints": true
     }
   ]
 }
