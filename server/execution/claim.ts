@@ -59,7 +59,9 @@ export function claim(ctx: AppContext, worker: Executor): Response {
       continue;
     }
     const protocol =
-      run.operation === "mcp_discover" || snapshotUsesMcp(run.snapshot)
+      run.operation === "session" ||
+      run.operation === "mcp_discover" ||
+      snapshotUsesMcp(run.snapshot)
         ? 4
         : ["validate", "test"].includes(run.operation) ||
             run.snapshot.validation_mode === "semantic"

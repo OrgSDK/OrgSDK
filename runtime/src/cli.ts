@@ -8,6 +8,7 @@ import { Client } from "./client";
 import { manage, registrationSchema, runAgent } from "./supervisor";
 import { installPlugin } from "./plugin-store";
 import { pluginSchema } from "./contract";
+import { registerExecutor } from "./register-executor";
 import { packagePlugin } from "./package-plugin";
 
 const { command, option } = executorArguments(process.argv.slice(2));
@@ -43,10 +44,7 @@ if (command === "--help" || !command) {
     .min(32)
     .parse(process.env.EXECUTOR_TOKEN || (await readStdin()).trim());
   const registration = registerResponseSchema.parse(
-    await new Client(base, token).register({
-      protocol_version: 4,
-      capabilities: ["action", "code", "validate", "test", "mcp_discover"],
-    }),
+    await registerExecutor(new Client(base, token)),
   );
   await mkdir(data, { recursive: true, mode: 0o700 });
   await writeFile(

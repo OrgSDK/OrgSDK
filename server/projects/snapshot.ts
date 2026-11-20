@@ -6,13 +6,8 @@ import { projectsRepository } from "../repositories/projects";
 import { object } from "../shared/contracts";
 import { digest } from "../shared/security";
 import { pluginNamespace } from "./plugin-namespace";
-export function projectSnapshot(
-  ctx: ServiceContext,
-  projectId: string,
-  operation = "code",
-) {
+export function projectConfiguration(ctx: ServiceContext, projectId: string) {
   const project = projectsRepository(ctx).find(projectId);
-  const restricted = operation === "validate" || operation === "test";
   const resources = {
     tables: { read: project.readableTables, write: project.writableTables },
     documents: {
@@ -42,6 +37,20 @@ export function projectSnapshot(
       ? { mcp: mcpSnapshot(ctx, plugin.id) }
       : {}),
   }));
+  const revision = digest(
+    JSON.stringify({ sdk_revision: sdkRevision, plugins, resources }),
+  );
+  return { project, resources, installed, sdkRevision, plugins, revision };
+}
+
+export function projectSnapshot(
+  ctx: ServiceContext,
+  projectId: string,
+  operation = "code",
+) {
+  const { project, resources, installed, sdkRevision, plugins, revision } =
+    projectConfiguration(ctx, projectId);
+  const restricted = operation === "validate" || operation === "test";
   const selected = {
     id: project.id,
     name: project.name,
@@ -52,9 +61,6 @@ export function projectSnapshot(
     resources,
     documents: [],
   };
-  const revision = digest(
-    JSON.stringify({ sdk_revision: sdkRevision, plugins, resources }),
-  );
   const namespaces = installed.map((plugin) => pluginNamespace(plugin.slug));
   const sdkPlugins = installed.map((plugin, pluginIndex) => {
     const namespace = namespaces[pluginIndex];
@@ -63,8 +69,7 @@ export function projectSnapshot(
       namespaces.filter(
         (candidateNamespace) => candidateNamespace === namespace,
       ).length === 1;
-    const remote =
-      plugin.distribution === "mcp" ? mcpSnapshot(ctx, plugin.id) : null;
+    const remote = plugins[pluginIndex]?.mcp;
     const tools: unknown[] | null = remote
       ? remote.tools.map((tool) => ({
           name: tool.alias,

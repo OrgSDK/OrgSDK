@@ -43,6 +43,7 @@ export async function verifyManagerShutdown(packageDirectory, runtimeLabel) {
   ];
   let helperPid;
   let bootstrapRequests = 0;
+  const registeredCapabilities = [];
   let blockedBootstrap;
   let claimed = 0;
   let manager;
@@ -61,6 +62,18 @@ export async function verifyManagerShutdown(packageDirectory, runtimeLabel) {
       response.end(
         JSON.stringify({ registrations: [{ agent_id: "project", token }] }),
       );
+    } else if (request.url.endsWith("/register/")) {
+      registeredCapabilities.push(body.capabilities);
+      if (body.capabilities.includes("session")) {
+        response.statusCode = 400;
+        response.end(
+          JSON.stringify({
+            detail: "Unsupported executor protocol or capability.",
+          }),
+        );
+      } else {
+        response.end(JSON.stringify({ id: "executor", agent_id: "project" }));
+      }
     } else if (request.url.endsWith("/configuration/")) {
       response.end(JSON.stringify({ agent_id: "project", plugins: [] }));
     } else if (request.url.endsWith("/claim/")) {
@@ -109,6 +122,10 @@ export async function verifyManagerShutdown(packageDirectory, runtimeLabel) {
       blockedBootstrap,
       `Manager did not reach blocked bootstrap: ${errors}`,
     );
+    assert.deepEqual(registeredCapabilities, [
+      ["action", "code", "validate", "test", "mcp_discover", "session"],
+      ["action", "code", "validate", "test", "mcp_discover"],
+    ]);
     assert.equal(
       await readFile(join(agent, "workspace/started"), "utf8"),
       "yes",

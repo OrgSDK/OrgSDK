@@ -15,7 +15,7 @@ Use `start --mode host` explicitly to run child jobs using the current OS accoun
 
 Project workspace files and installed plugin releases survive runs. No run cleanup deletes the agent folder. Plugins install under `agents/<id>/plugins/<slug>/<sha256>/plugin.mjs`; historical pinned versions remain available to retries. Current enabled configuration is fetched before each claim. External clients own reasoning and coordination. The runtime executes action, code, validation and test jobs only; built-in chat and reasoning delegation are retired. Existing `agents/<id>` storage paths and `--agent` install arguments identify retained project IDs.
 
-The separate [execution session module](src/sessions/README.md) supports successive cells in one live worker, stable session IDs, cursor-based events and retained history after close or expiry. It is an internal module and is not connected to the existing executor job loop or public APIs.
+[Execution sessions](src/sessions/README.md) keep successive cells in one live worker, with stable session IDs, cursor-based events and retained history after close or expiry. The executor advertises session support during registration and handles authenticated session commands in its project job loop.
 
 ## External plugins
 

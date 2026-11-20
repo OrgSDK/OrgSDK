@@ -168,7 +168,9 @@ export async function waitForRun(
   for (let attempt = 0; attempt < 200; attempt++) {
     const run = runSchema.parse(await rpc("runs.get", { id }));
     if (
-      ["succeeded", "failed", "cancelled", "timed_out"].includes(run.status)
+      ["succeeded", "failed", "cancelled", "interrupted", "timed_out"].includes(
+        run.status,
+      )
     ) {
       assert.equal(run.status, expected, JSON.stringify(run));
       return run;

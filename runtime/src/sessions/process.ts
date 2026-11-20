@@ -15,11 +15,12 @@ export interface SessionProcessOptions {
   workspaceDirectory: string;
   image?: string;
   sourceDirectory?: string;
+  workspaceVolume?: { name: string; subpath: string };
 }
 
 export function sessionCommand(options: SessionProcessOptions): string[] {
   if (options.mode === "host")
-    return workerCommand(import.meta.url, "./worker");
+    return workerCommand(import.meta.url, "./worker-guard");
   for (const path of [
     options.workspaceDirectory,
     options.sourceDirectory,
@@ -47,7 +48,9 @@ export function sessionCommand(options: SessionProcessOptions): string[] {
     "--user",
     `${process.getuid?.() || 1000}:${process.getgid?.() || 1000}`,
     "--mount",
-    `type=bind,src=${options.workspaceDirectory},dst=/project/workspace`,
+    options.workspaceVolume
+      ? `type=volume,src=${options.workspaceVolume.name},dst=/project/workspace,volume-subpath=${options.workspaceVolume.subpath}`
+      : `type=bind,src=${options.workspaceDirectory},dst=/project/workspace`,
     ...(options.sourceDirectory
       ? [
           "--mount",
@@ -60,7 +63,7 @@ export function sessionCommand(options: SessionProcessOptions): string[] {
     "bun",
     options.image ?? process.env.EXECUTOR_IMAGE ?? "orgsdk-job:dev",
     "--no-env-file",
-    "/executor/src/sessions/worker.ts",
+    "/executor/src/sessions/worker-guard.ts",
   ];
 }
 

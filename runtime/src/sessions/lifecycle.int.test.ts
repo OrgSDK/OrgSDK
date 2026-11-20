@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { rename, unlink, writeFile } from "node:fs/promises";
 import { createSessionFixture, scope } from "./testing/session-fixture";
 
 test("external deadlines kill code looping after await and retain the full accepted history", async () => {
@@ -200,6 +201,30 @@ test("worker death preserves source and logs and marks memory lost without repla
     await expect(fixture.run("return response;")).rejects.toMatchObject({
       code: "session_unavailable",
     });
+  } finally {
+    await fixture.cleanup();
+  }
+}, 15_000);
+
+test("a failed terminal history write releases residency after the storage error", async () => {
+  const fixture = await createSessionFixture();
+  const backup = fixture.historyDirectory + "-backup";
+  try {
+    await rename(fixture.historyDirectory, backup);
+    await writeFile(fixture.historyDirectory, "blocks the history directory");
+    try {
+      await expect(fixture.manager.close(fixture.session.id, scope)).rejects.toBeDefined();
+    } finally {
+      await unlink(fixture.historyDirectory);
+      await rename(backup, fixture.historyDirectory);
+    }
+    const replacement = await fixture.manager.open({
+      ...scope,
+      workspaceDirectory: fixture.workspaceDirectory,
+      configurationRevision: "config-1",
+    });
+    expect(replacement.id).not.toBe(fixture.session.id);
+    expect((await fixture.manager.inspect(fixture.session.id, scope)).status).toBe("lost");
   } finally {
     await fixture.cleanup();
   }

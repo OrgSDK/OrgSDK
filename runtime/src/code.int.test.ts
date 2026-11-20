@@ -219,51 +219,84 @@ test("oversized trace values keep an object envelope and explicit truncation", a
   });
 });
 
-test("CLI registration advertises code execution and persists returned identity", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "orgsdk-code-registration-"));
-  let registration: unknown;
-  const server = Bun.serve({
-    port: 0,
-    async fetch(request) {
-      registration = await request.json();
-      return Response.json({
-        id: "executor-fixture",
-        agent_id: "agent-fixture",
-      });
-    },
-  });
-  try {
-    const child = Bun.spawn(
-      [
-        process.execPath,
-        new URL("./cli.ts", import.meta.url).pathname,
-        "register",
-        "--url",
-        server.url.toString(),
-        "--data",
-        directory,
-      ],
-      {
-        env: { EXECUTOR_TOKEN: "fixture-token-for-registration-test-only" },
-        stdout: "pipe",
-        stderr: "pipe",
+test.each(["session", "previous", "rejected"] as const)(
+  "CLI registration handles %s protocol response",
+  async (mode) => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "orgsdk-code-registration-"),
+    );
+    const registrations: unknown[] = [];
+    const server = Bun.serve({
+      port: 0,
+      async fetch(request) {
+        registrations.push(await request.json());
+        if (mode === "previous" && registrations.length === 1) {
+          return Response.json(
+            { detail: "Unsupported executor protocol or capability." },
+            { status: 400 },
+          );
+        }
+        if (mode === "rejected") {
+          return Response.json(
+            { detail: "Invalid executor credential." },
+            { status: 401 },
+          );
+        }
+        return Response.json({
+          id: "executor-fixture",
+          agent_id: "agent-fixture",
+        });
       },
-    );
-    expect(await child.exited).toBe(0);
-    expect(registration).toEqual({
-      protocol_version: 4,
-      capabilities: ["action", "code", "validate", "test", "mcp_discover"],
     });
-    const saved = JSON.parse(
-      await readFile(join(directory, "registration.json"), "utf8"),
-    );
-    expect(saved.agent_id).toBe("agent-fixture");
-    expect(saved.executor_id).toBe("executor-fixture");
-  } finally {
-    await server.stop(true);
-    await rm(directory, { recursive: true, force: true });
-  }
-});
+    try {
+      const child = Bun.spawn(
+        [
+          process.execPath,
+          new URL("./cli.ts", import.meta.url).pathname,
+          "register",
+          "--url",
+          server.url.toString(),
+          "--data",
+          directory,
+        ],
+        {
+          env: { EXECUTOR_TOKEN: "fixture-token-for-registration-test-only" },
+          stdout: "pipe",
+          stderr: "pipe",
+        },
+      );
+      const code = await child.exited;
+      const capabilities = [
+        "action",
+        "code",
+        "validate",
+        "test",
+        "mcp_discover",
+      ];
+      const modern = {
+        protocol_version: 4,
+        capabilities: [...capabilities, "session"],
+      };
+      const previous = { protocol_version: 4, capabilities };
+      expect(registrations).toEqual(
+        mode === "previous" ? [modern, previous] : [modern],
+      );
+      if (mode === "rejected") {
+        expect(code).not.toBe(0);
+        return;
+      }
+      expect(code).toBe(0);
+      const saved = JSON.parse(
+        await readFile(join(directory, "registration.json"), "utf8"),
+      );
+      expect(saved.agent_id).toBe("agent-fixture");
+      expect(saved.executor_id).toBe("executor-fixture");
+    } finally {
+      await server.stop(true);
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);
 
 test("Runner persists files across runs and routes project data without providers", async () => {
   const root = await mkdtemp(join(tmpdir(), "orgsdk-project-runner-"));

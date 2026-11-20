@@ -23,6 +23,7 @@
     "db:migrate": "bun server/index.ts migrate",
     "db:check": "bun scripts/check-migrations.ts",
     "build:npm": "tsx scripts/build-npm.ts",
+    "test:browser-agent": "bun --no-env-file scripts/browser-agent-smoke.ts",
     "test:cli": "node --test bin/*.test.mjs",
     "test:distribution": "esbuild scripts/distribution-smoke.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/distribution-smoke.mjs && node dist/distribution-smoke.mjs",
     "test:distribution:bun": "esbuild scripts/distribution-smoke.ts --bundle --platform=node --packages=external --format=esm --outfile=dist/distribution-smoke.mjs && bun dist/distribution-smoke.mjs",
@@ -94,6 +95,7 @@
     "dist/THIRD_PARTY_NOTICES.txt",
     "docs/npm-distribution.md",
     "docs/remote-mcp.md",
+    "docs/browser-sessions.md",
     "runtime/README.md",
     "README.md",
     "LICENSE"

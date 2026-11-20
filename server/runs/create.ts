@@ -24,7 +24,8 @@ import {
   validateContract,
 } from "../shared/contracts";
 import { digest } from "../shared/security";
-import { choice, text } from "../shared/validation";
+import { canonicalJson, text } from "../shared/validation";
+import { requireSessionRunner, sessionSource } from "./sessions";
 import type { CreateRunInput } from "./schemas";
 export function createRun(ctx: ServiceContext, body: CreateRunInput) {
   return tx(ctx, (ctx) => createRunInTransaction(ctx, body));
@@ -33,11 +34,8 @@ export function createRun(ctx: ServiceContext, body: CreateRunInput) {
 function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
   const workspaceId = workspace(ctx);
   const project = projectsRepository(ctx).find(text(body.project, "project"));
-  const operation = choice(
-    body.operation,
-    ["action", "code", "validate", "test"],
-    "operation",
-  );
+  const operation = body.operation;
+  const session = body.operation === "session" ? body.session : undefined;
   const key = text(body.idempotency_key, "idempotency key", 200);
   const inputs = jsonValue(body.inputs ?? {}, "Inputs");
   if (!project.enabled) {
@@ -90,9 +88,11 @@ function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
       );
     }
   } else {
-    scope(ctx, operation === "code" ? "code:execute" : "actions:write");
+    scope(ctx, operation === "validate" ? "actions:write" : "code:execute");
+    if (session?.operation === "read") {
+      scope(ctx, "runs:read");
+    }
     projectGrant(ctx, project.id);
-    sourceText(body.source);
     if (body.action || body.version || body.conversation) {
       throw new ServiceError(
         "BAD_REQUEST",
@@ -118,14 +118,26 @@ function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
   const snapshot = z
     .record(z.string(), z.json())
     .parse(projectSnapshot(ctx, project.id, operation));
-  const source = version?.source ?? sourceText(body.source);
+  const source =
+    version?.source ??
+    (session ? sessionSource(session, body) : sourceText(body.source));
+  if (session) {
+    Object.assign(snapshot, {
+      session,
+      session_scope: {
+        workspaceId: String(workspaceId),
+        projectId: project.id,
+        ownerId: ctx.token ? `token:${ctx.token.id}` : `user:${ctx.userId}`,
+      },
+    });
+  }
   Object.assign(snapshot, {
-    source,
-    source_digest: digest(source),
-    protocol_version:
-      operation === "validate" ||
-      operation === "test" ||
-      version?.validationMode === "semantic"
+    ...(source === undefined ? {} : { source, source_digest: digest(source) }),
+    protocol_version: session
+      ? 4
+      : operation === "validate" ||
+          operation === "test" ||
+          version?.validationMode === "semantic"
         ? 3
         : 2,
   });
@@ -159,13 +171,17 @@ function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
   return tx(ctx, (ctx) => {
     const existing = findIdempotentRun(ctx, namespace, key);
     if (existing) {
+      const serializeInputs = session ? canonicalJson : JSON.stringify;
       if (
         existing.projectId !== project.id ||
         existing.operation !== operation ||
         existing.actorId !== ctx.user?.id ||
         existing.actionVersionId !== (version?.id ?? null) ||
-        JSON.stringify(existing.inputs) !== JSON.stringify(inputs) ||
+        serializeInputs(existing.inputs) !== serializeInputs(inputs) ||
         existing.snapshot.source !== snapshot.source ||
+        (session &&
+          JSON.stringify(existing.snapshot.session) !==
+            JSON.stringify(session)) ||
         (operation === "validate" &&
           (JSON.stringify(existing.snapshot.input_schema) !==
             JSON.stringify(snapshot.input_schema) ||
@@ -181,6 +197,9 @@ function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
         );
       }
       return existing;
+    }
+    if (session) {
+      requireSessionRunner(ctx, project.id, setting?.executionPool);
     }
     const run = runsRepository(ctx).create({
       projectId: project.id,

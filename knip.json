@@ -28,6 +28,7 @@
         "src/isolated-worker.ts",
         "src/sessions/index.ts",
         "src/sessions/worker.ts",
+        "src/sessions/worker-guard.ts",
         "src/**/*.test.ts",
         "scripts/*.{ts,mjs}",
         "bin/*.mjs",

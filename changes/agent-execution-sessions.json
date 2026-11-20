@@ -1,0 +1,5 @@
+{
+  "type": "minor",
+  "category": "added",
+  "summary": "Iterate on TypeScript in a persistent project session through MCP and reuse the resulting code in tested actions."
+}
