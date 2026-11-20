@@ -52,7 +52,8 @@ const server = createServer(async (request, response) => {
     response.setHeader("content-type", "application/json");
     if (path === "/internal/execution/v1/register/") {
       assert.equal(request.headers.authorization, `Bearer ${token}`);
-      assert.equal(body.protocol_version, 3);
+      assert.equal(body.protocol_version, 4);
+      assert.ok(body.capabilities.includes("mcp_discover"));
       response.end(JSON.stringify({ id: "executor", agent_id: "project" }));
       return;
     }

@@ -17,7 +17,7 @@ The platform already includes its local executor. Install `@orgsdk/executor` sep
 
 Use Linux, Node.js 22.22.0 or newer, npm, and Bun 1.4 for development and the existing test suite. `npm run setup` installs the locked development dependencies. `npm run build:npm` builds Next.js, the portable server and JavaScript executor workers. `npm pack --ignore-scripts` packs the completed build; plain `npm pack` runs that build itself.
 
-Both platform builds generate `dist/THIRD_PARTY_NOTICES.txt` from the installed Monaco and Zod packages. Package names and versions are recorded, identical license texts are grouped, and upstream license contents are preserved. The platform npm tarball includes the generated file. Ship it alongside the standalone executable; the individual notice files are not frontend assets or tracked source files. The standalone smoke and npm installation tests verify the release notice file.
+Both platform builds generate `dist/THIRD_PARTY_NOTICES.txt` from the installed MCP client/core, Monaco and Zod packages. Package names and versions are recorded, identical license texts are grouped, and upstream license contents are preserved. The platform npm tarball includes the generated file. Ship it alongside the standalone executable; the individual notice files are not frontend assets or tracked source files. The standalone smoke and npm installation tests verify the release notice file.
 
 Install the tarball into a separate directory or globally:
 

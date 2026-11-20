@@ -1,3 +1,4 @@
+import { mcpSnapshot } from "../mcp/connections";
 import type { JsonObject } from "../db/types";
 import { type ServiceContext } from "../application";
 import { pluginQueries } from "../plugins/queries";
@@ -23,6 +24,9 @@ export function projectSnapshot(
     ctx.db,
     project.workspaceId,
   ).listEnabledForProject(projectId);
+  const sdkRevision = installed.some((plugin) => plugin.distribution === "mcp")
+    ? 4
+    : 3;
   const plugins = installed.map((plugin) => ({
     slug: plugin.slug,
     version: plugin.version,
@@ -34,6 +38,9 @@ export function projectSnapshot(
     configuration: plugin.configuration,
     package_url: plugin.packageUrl,
     contract_version: 1,
+    ...(plugin.distribution === "mcp"
+      ? { mcp: mcpSnapshot(ctx, plugin.id) }
+      : {}),
   }));
   const selected = {
     id: project.id,
@@ -46,7 +53,7 @@ export function projectSnapshot(
     documents: [],
   };
   const revision = digest(
-    JSON.stringify({ sdk_revision: 3, plugins, resources }),
+    JSON.stringify({ sdk_revision: sdkRevision, plugins, resources }),
   );
   const namespaces = installed.map((plugin) => pluginNamespace(plugin.slug));
   const sdkPlugins = installed.map((plugin, pluginIndex) => {
@@ -56,9 +63,21 @@ export function projectSnapshot(
       namespaces.filter(
         (candidateNamespace) => candidateNamespace === namespace,
       ).length === 1;
-    const tools =
-      plugin.distribution === "external" &&
-      Array.isArray(plugin.releaseMetadata?.tools)
+    const remote =
+      plugin.distribution === "mcp" ? mcpSnapshot(ctx, plugin.id) : null;
+    const tools: unknown[] | null = remote
+      ? remote.tools.map((tool) => ({
+          name: tool.alias,
+          description: tool.description ?? "",
+          parameters: [],
+          calling: "named",
+          inputSchema: tool.inputSchema,
+          outputSchema: tool.outputSchema ?? null,
+          remote_name: tool.name,
+          returnType: "unknown",
+        }))
+      : plugin.distribution === "external" &&
+          Array.isArray(plugin.releaseMetadata?.tools)
         ? plugin.releaseMetadata.tools
         : null;
     return {
@@ -67,6 +86,7 @@ export function projectSnapshot(
       slug: plugin.slug,
       version: plugin.version,
       digest: plugin.digest,
+      ...(remote ? { kind: "mcp" } : {}),
       metadata_complete:
         !!available &&
         !!tools &&
@@ -103,6 +123,9 @@ export function projectSnapshot(
                       "returns",
                       "returnType",
                       "calling",
+                      "inputSchema",
+                      "outputSchema",
+                      "remote_name",
                     ].includes(key),
                   ),
                 );
@@ -112,8 +135,8 @@ export function projectSnapshot(
   });
   const sdk = {
     project: project.id,
-    protocol_version: 2,
-    sdk_revision: 3,
+    protocol_version: sdkRevision === 4 ? 4 : 2,
+    sdk_revision: sdkRevision,
     configuration_revision: revision,
     resources,
     plugins: sdkPlugins,
@@ -172,7 +195,7 @@ export function projectSnapshot(
   return {
     agents: [runAgent],
     root_agent_id: project.id,
-    sdk_revision: 3,
+    sdk_revision: sdkRevision,
     configuration_revision: revision,
     sdk,
   };

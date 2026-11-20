@@ -1,5 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
+import { McpConnections } from "./mcp-connections";
 import { PluginMarketplace } from "./plugin-marketplace";
 import { PluginConnection } from "./plugin-connection";
 import { PluginIcon } from "./plugin-icon";
@@ -117,9 +118,10 @@ export function Plugins({
       configuration: "{}",
     }),
   );
+  const [mcpDirty, setMcpDirty] = useState(false);
   const isDirty = currentValues !== savedValues;
   const canDiscard = useDiscardConfirmation();
-  useUnsavedChanges(isDirty, onDirtyChange);
+  useUnsavedChanges(isDirty || mcpDirty, onDirtyChange);
   if (!project)
     return (
       <section className="panel space-y-4">
@@ -165,6 +167,13 @@ export function Plugins({
   };
   return (
     <>
+      <McpConnections
+        project={projectId}
+        plugins={plugins.filter((plugin) => plugin.distribution === "mcp")}
+        canManage={canManage}
+        onChanged={query.refresh}
+        onDirtyChange={setMcpDirty}
+      />
       <section className="panel">
         <h2>Plugin marketplace</h2>
         <p>
@@ -319,56 +328,59 @@ export function Plugins({
             </p>
           </div>
         ) : undefined}
-        {plugins.map((plugin) => (
-          <div className="resource-row" key={plugin.id}>
-            <PluginIcon url={plugin.icon_url} size={24} />
-            <div>
-              <strong>
-                {typeof plugin.display_name === "string"
-                  ? plugin.display_name
-                  : plugin.slug}
-              </strong>
-              <small>
-                {project.name} · v{plugin.version} ·{" "}
-                {plugin.enabled ? "Enabled" : "Disabled"} · {plugin.description}
-              </small>
-            </div>
-            <div className="row">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  void selectPlugin(plugin);
-                }}
-              >
-                Inspect
-              </Button>
-              {canManage ? (
+        {plugins
+          .filter((plugin) => plugin.distribution !== "mcp")
+          .map((plugin) => (
+            <div className="resource-row" key={plugin.id}>
+              <PluginIcon url={plugin.icon_url} size={24} />
+              <div>
+                <strong>
+                  {typeof plugin.display_name === "string"
+                    ? plugin.display_name
+                    : plugin.slug}
+                </strong>
+                <small>
+                  {project.name} · v{plugin.version} ·{" "}
+                  {plugin.enabled ? "Enabled" : "Disabled"} ·{" "}
+                  {plugin.description}
+                </small>
+              </div>
+              <div className="row">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  disabled={isBusy}
                   onClick={() => {
-                    void perform(async () => {
-                      await trpc.plugins.update.mutate({
-                        id: plugin.id,
-                        enabled: !plugin.enabled,
-                      });
-                      setNotice(
-                        plugin.enabled
-                          ? "Plugin disabled for future runs."
-                          : "Plugin enabled.",
-                      );
-                    });
+                    void selectPlugin(plugin);
                   }}
                 >
-                  <Power size={13} />
-                  {plugin.enabled ? "Disable" : "Enable"}
+                  Inspect
                 </Button>
-              ) : undefined}
+                {canManage ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={isBusy}
+                    onClick={() => {
+                      void perform(async () => {
+                        await trpc.plugins.update.mutate({
+                          id: plugin.id,
+                          enabled: !plugin.enabled,
+                        });
+                        setNotice(
+                          plugin.enabled
+                            ? "Plugin disabled for future runs."
+                            : "Plugin enabled.",
+                        );
+                      });
+                    }}
+                  >
+                    <Power size={13} />
+                    {plugin.enabled ? "Disable" : "Enable"}
+                  </Button>
+                ) : undefined}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
       </section>
       {selected ? (
         <section className="panel">

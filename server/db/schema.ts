@@ -9,3 +9,4 @@ export * from "./schema/plugins";
 export * from "./schema/projects";
 export * from "./schema/runs";
 export * from "./schema/tokens";
+export * from "./schema/mcp";

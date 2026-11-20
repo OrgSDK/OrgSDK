@@ -251,8 +251,8 @@ test("CLI registration advertises code execution and persists returned identity"
     );
     expect(await child.exited).toBe(0);
     expect(registration).toEqual({
-      protocol_version: 3,
-      capabilities: ["action", "code", "validate", "test"],
+      protocol_version: 4,
+      capabilities: ["action", "code", "validate", "test", "mcp_discover"],
     });
     const saved = JSON.parse(
       await readFile(join(directory, "registration.json"), "utf8"),

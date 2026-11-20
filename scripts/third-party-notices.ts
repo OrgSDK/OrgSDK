@@ -2,6 +2,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
 
 const packages = [
+  "node_modules/@modelcontextprotocol/client",
+  "node_modules/@modelcontextprotocol/core",
   "frontend/node_modules/monaco-editor",
   "frontend/node_modules/zod",
 ];

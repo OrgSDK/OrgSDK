@@ -1,4 +1,5 @@
 import ts from "typescript";
+import { schemaType } from "./mcp/schema-types";
 import {
   RESERVED_NAMESPACE_IDENTIFIERS,
   RESERVED_FUNCTION_KEYS,
@@ -174,7 +175,7 @@ function pluginDeclaration(
   if (
     plugin.metadata_complete !== true ||
     !Array.isArray(plugin.tools) ||
-    plugin.tools.length > 100
+    plugin.tools.length > 1000
   )
     return fallback;
   const names = new Set<string>();
@@ -190,6 +191,12 @@ function pluginDeclaration(
     )
       return fallback;
     names.add(tool.name);
+    if (plugin.kind === "mcp" && tool.inputSchema) {
+      methods.push(
+        `${tool.name}(args: ${schemaType(tool.inputSchema)}): Promise<{content?: Array<unknown>; structuredContent?: ${schemaType(tool.outputSchema)}; [key: string]: unknown}>`,
+      );
+      continue;
+    }
     const isNamed = tool.calling === "named";
     const parameters: string[] = [];
     const parameterNames = new Set<string>();

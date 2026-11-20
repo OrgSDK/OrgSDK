@@ -1,3 +1,4 @@
+import { snapshotUsesMcp } from "../projects/snapshot-schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import * as t from "../db/schema";
 import { memberships } from "../db/schema/core";
@@ -58,12 +59,14 @@ export function claim(ctx: AppContext, worker: Executor): Response {
       continue;
     }
     const protocol =
-      ["validate", "test"].includes(run.operation) ||
-      run.snapshot.validation_mode === "semantic"
-        ? 3
-        : run.operation === "code"
-          ? 2
-          : 1;
+      run.operation === "mcp_discover" || snapshotUsesMcp(run.snapshot)
+        ? 4
+        : ["validate", "test"].includes(run.operation) ||
+            run.snapshot.validation_mode === "semantic"
+          ? 3
+          : run.operation === "code"
+            ? 2
+            : 1;
     if (worker.protocolVersion < protocol) {
       continue;
     }
