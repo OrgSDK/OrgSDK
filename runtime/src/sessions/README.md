@@ -1,6 +1,6 @@
 # Execution sessions
 
-`SessionManager` is a standalone execution module. It keeps one worker/container alive across TypeScript cells, with a stable session ID and an increasing event cursor. It has no application, MCP or frontend wiring, and the existing code/action workers do not import it.
+`SessionManager` keeps one worker or container alive across TypeScript cells, with a stable session ID and an increasing event cursor. The [executor job adapter](../session-job.ts) handles the session operations exposed by the platform MCP endpoint. The one-off code and saved action workers retain their existing lifecycle.
 
 ## Reading the implementation
 
@@ -77,13 +77,13 @@ try {
 
 ## Identity and ordering
 
-The session UUID identifies a logical execution history. The trusted caller supplies the same workspace/project/owner scope on every operation; another scope receives `not_found`. This identity check is an internal contract, not public authentication. Future API callers must derive the scope from authenticated authority.
+The session UUID identifies a logical execution history. The trusted caller supplies the same workspace/project/owner scope on every operation; another scope receives `not_found`. This identity check is an internal contract, not public authentication. The platform derives this scope from the authenticated run owner.
 
 Each cell has a caller-generated UUID. Retrying the same ID, source and equivalent JSON inputs returns the existing cell without executing again, including after close. A changed payload returns `cell_conflict`. `expectedSequence` is the number of previously accepted cells, including failed or rejected cells. Concurrent submissions cannot overlap; competing submissions from an old sequence receive `stale_sequence`.
 
 Every command includes the generation returned by `open` or `reset`. `reset` explicitly stops the worker and starts a fresh generation under the same session ID. It preserves the transcript and cursor, but clears variables. A stale generation is rejected. `reset` requires the last observed generation, the workspace directory and the configuration revision; no implicit reset or source replay occurs.
 
-There is one resident discovery session per project within a manager. An idle session does not execute code. Session residency is independent of the existing product run scheduler; coordinating sessions with ordinary runs belongs to the later supervisor/API integration.
+There is one resident discovery session per project within a manager. An idle session does not execute code. The executor claims each session operation through the same scheduler as one-off runs. An idle session can retain its memory while the executor runs one-off code and saved actions.
 
 ## Events and history
 
@@ -123,9 +123,11 @@ const manager = new SessionManager({
 
 These adapters run in the supervisor and must be trusted, bounded and cancellation-aware. Never load arbitrary project plugin code into them. Existing plugin factories are not automatically attached: their captured credentials require a separate adapter. Registration credentials and cell capabilities never enter the worker. A retained helper uses the active cell's inputs and capability. A delayed callback from an earlier cell cannot use later authority, and SDK calls while idle fail. Outstanding SDK calls are drained before the next cell; a deadline or cancellation stops the generation if they cannot complete.
 
+For platform sessions, the executor registers named tools from the project snapshot and runs each call in a disposable worker with a current cell credential. Tool implementations and credentials stay outside the resident worker. The supervisor checks the run heartbeat before a tool call and while the cell is active. The resident worker has no live tool authority while idle. A new cell checks the configuration revision before executing.
+
 Known cell capabilities are redacted from retained output/errors. An optional `redact` callback supports installation-specific secrets. Exact source and submitted inputs remain the authoritative record, so callers must keep credentials out of both.
 
-The trusted integration must authorize every call and invoke `invalidate` on revocation or relevant configuration/credential changes, including while idle. A supplied `configurationRevision` that differs from the pinned revision invalidates the generation. The runtime does not poll a product service or decide grants itself.
+The supervisor authorizes each submitted cell and each plugin call against the active run. A supplied `configurationRevision` that differs from the pinned revision invalidates the generation. An idle worker has no active tool capability. After its owner token is revoked, it can occupy the project until idle expiry or supervisor shutdown. Embedders with a revocation notification can call `invalidate` immediately.
 
 ## Process boundaries and limits
 

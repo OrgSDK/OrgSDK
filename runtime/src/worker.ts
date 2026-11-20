@@ -3,51 +3,61 @@ import { z } from "zod";
 import { Client } from "./client";
 import { jobSchema } from "./contract";
 import { Runner } from "./runner";
+import { executePluginCall, pluginCallSchema } from "./session-plugin-call";
 
-const job = jobSchema.parse(JSON.parse(await readStdin()));
+const request: unknown = JSON.parse(await readStdin());
 const base = z.string().url().parse(process.env.ORGSDK_SERVER_URL);
-const controller = new AbortController();
-const client = new Client(base, job.capability, controller.signal);
-const control = new Client(base, job.capability);
-const heartbeat = z.object({
-  cancel_requested: z.boolean(),
-  status: z.string(),
-});
-let stopped = false;
-const timer = setInterval(() => {
-  void (async () => {
-    try {
-      const state = heartbeat.parse(await control.heartbeat(job.run_id));
-      if (
-        state.cancel_requested ||
-        ["failed", "interrupted", "cancelled"].includes(state.status)
-      )
-        controller.abort();
-    } catch {
-      controller.abort();
-    }
-  })();
-}, 10_000);
-const deadline = setTimeout(
-  () => controller.abort(),
-  Math.max(0, Date.parse(job.deadline) - Date.now()),
-);
-try {
-  const output = await new Runner(job, client, controller.signal).run();
-  await control.complete(job.run_id, {
-    status: "succeeded",
-    output: { result: output },
-  });
-  stopped = true;
-} catch (error) {
-  await control
-    .complete(job.run_id, {
-      status: controller.signal.aborted ? "cancelled" : "failed",
-      error: error instanceof Error ? error.message : "Execution failed",
-    })
-    .catch(() => undefined);
-} finally {
-  clearInterval(timer);
-  clearTimeout(deadline);
+const call = pluginCallSchema.safeParse(request);
+if (call.success) {
+  await executePluginCall(call.data, new Client(base, call.data.capability));
+} else {
+  await runJob(jobSchema.parse(request));
 }
-if (!stopped) process.exitCode = 1;
+
+async function runJob(job: z.infer<typeof jobSchema>): Promise<void> {
+  const controller = new AbortController();
+  const client = new Client(base, job.capability, controller.signal);
+  const control = new Client(base, job.capability);
+  const heartbeat = z.object({
+    cancel_requested: z.boolean(),
+    status: z.string(),
+  });
+  let stopped = false;
+  const timer = setInterval(() => {
+    void (async () => {
+      try {
+        const state = heartbeat.parse(await control.heartbeat(job.run_id));
+        if (
+          state.cancel_requested ||
+          ["failed", "interrupted", "cancelled"].includes(state.status)
+        )
+          controller.abort();
+      } catch {
+        controller.abort();
+      }
+    })();
+  }, 10_000);
+  const deadline = setTimeout(
+    () => controller.abort(),
+    Math.max(0, Date.parse(job.deadline) - Date.now()),
+  );
+  try {
+    const output = await new Runner(job, client, controller.signal).run();
+    await control.complete(job.run_id, {
+      status: "succeeded",
+      output: { result: output },
+    });
+    stopped = true;
+  } catch (error) {
+    await control
+      .complete(job.run_id, {
+        status: controller.signal.aborted ? "cancelled" : "failed",
+        error: error instanceof Error ? error.message : "Execution failed",
+      })
+      .catch(() => undefined);
+  } finally {
+    clearInterval(timer);
+    clearTimeout(deadline);
+  }
+  if (!stopped) process.exitCode = 1;
+}

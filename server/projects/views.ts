@@ -23,6 +23,7 @@ export function serializeProject(
       locally_managed: !!executor?.locallyManaged,
       last_seen_at: executor?.lastSeenAt ?? null,
       protocol_version: executor?.protocolVersion ?? null,
+      capabilities: executor?.capabilities ?? [],
     },
   };
   if (ctx.token) {

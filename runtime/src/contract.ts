@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  sessionCommandSchema,
+  sessionScopeSchema,
+} from "./session-job-contract";
 import { connectionSchema } from "./mcp/contract";
 
 export const pluginSchema = z.object({
@@ -49,6 +53,7 @@ export const jobSchema = z
       "validate",
       "test",
       "mcp_discover",
+      "session",
     ]),
     capability: z.string(),
     inputs: z.record(z.string(), z.unknown()),
@@ -56,6 +61,8 @@ export const jobSchema = z
     lease_seconds: z.number(),
     snapshot: z.object({
       mcp_discovery: connectionSchema.optional(),
+      session: sessionCommandSchema.optional(),
+      session_scope: sessionScopeSchema.optional(),
       agents: z.array(agentSchema),
       root_agent_id: z.string(),
       validation_mode: z.enum(["legacy", "semantic"]).optional(),
@@ -99,6 +106,17 @@ export const jobSchema = z
         job.snapshot.validation_mode !== "semantic") ||
       [3, 4].includes(job.protocol_version),
     { message: "Semantic validation and tests require protocol version 3" },
+  )
+  .refine(
+    (job) =>
+      job.operation !== "session" ||
+      (job.protocol_version === 4 &&
+        job.snapshot.session !== undefined &&
+        job.snapshot.session_scope?.projectId === job.snapshot.root_agent_id &&
+        job.snapshot.session_scope.workspaceId === String(job.workspace_id) &&
+        (job.snapshot.session.operation !== "execute" ||
+          typeof job.snapshot.source === "string")),
+    { message: "Invalid execution session job" },
   );
 export type Job = z.infer<typeof jobSchema>;
 export type Agent = z.infer<typeof agentSchema>;

@@ -137,7 +137,9 @@ export function RunDetail({
                       : "Cancel run"}
                   </Button>
                 ) : undefined}
-                {run.operation !== "chat" &&
+                {["action", "code", "validate", "test"].includes(
+                  run.operation,
+                ) &&
                 ["failed", "interrupted", "cancelled"].includes(run.status) ? (
                   <Button
                     variant="outline"

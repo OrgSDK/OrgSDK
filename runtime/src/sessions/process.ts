@@ -15,6 +15,7 @@ export interface SessionProcessOptions {
   workspaceDirectory: string;
   image?: string;
   sourceDirectory?: string;
+  workspaceVolume?: { name: string; subpath: string };
 }
 
 export function sessionCommand(options: SessionProcessOptions): string[] {
@@ -47,7 +48,9 @@ export function sessionCommand(options: SessionProcessOptions): string[] {
     "--user",
     `${process.getuid?.() || 1000}:${process.getgid?.() || 1000}`,
     "--mount",
-    `type=bind,src=${options.workspaceDirectory},dst=/project/workspace`,
+    options.workspaceVolume
+      ? `type=volume,src=${options.workspaceVolume.name},dst=/project/workspace,volume-subpath=${options.workspaceVolume.subpath}`
+      : `type=bind,src=${options.workspaceDirectory},dst=/project/workspace`,
     ...(options.sourceDirectory
       ? [
           "--mount",

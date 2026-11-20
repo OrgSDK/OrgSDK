@@ -19,6 +19,10 @@ Use `orgsdk server` to run only the platform, or `orgsdk executor --help` to reg
 
 See [distribution and verification](docs/npm-distribution.md) for pinned installation, upgrades, recovery and release checks.
 
+## Browser discovery sessions
+
+Use an external MCP client to iterate on a live browser with persistent TypeScript variables, then validate, test and replay the steps as a versioned action. See the [local browser session guide](docs/browser-sessions.md) for setup, example cells and a reproducible end-to-end check.
+
 ## Build and run locally
 
 Install Bun 1.4, Node.js 22.22.0 or newer and npm, then run `npm run setup` and `npm run build`. Start `dist/orgsdk` and open `http://127.0.0.1:8080`. The executable embeds the frontend, including Monaco, and does not require Bun or Node at runtime. `HOST`, `PORT`, and `ORGSDK_DATA_DIR` configure listening and storage. The default data directory is `~/.local/share/orgsdk`.

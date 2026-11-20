@@ -6,6 +6,8 @@ import type { AppContext } from "../http/context";
 import { type ServiceContext } from "../application";
 import { HttpError } from "../http/responses";
 import { identityRepository } from "../repositories/identity";
+import { projectConfiguration } from "../projects/snapshot";
+import { object } from "../shared/contracts";
 import { now } from "../shared/records";
 import { digest } from "../shared/security";
 export type Run = typeof t.runs.$inferSelect;
@@ -107,6 +109,52 @@ export function runCapability(ctx: AppContext, expectedId?: string): Run {
     !member
   ) {
     throw new HttpError(401, "Run authority was revoked.");
+  }
+  if (run.operation === "session") {
+    const command = run.snapshot.session;
+    const path = new URL(ctx.request.url).pathname;
+    if (
+      (!object(command) || command.operation !== "execute") &&
+      !["heartbeat", "events", "complete"].some(
+        (action) => path === `/internal/execution/v1/runs/${run.id}/${action}/`,
+      )
+    ) {
+      throw new HttpError(
+        403,
+        "Session lifecycle operations cannot use project capabilities.",
+      );
+    }
+    if (!terminal.has(run.status) && !run.cancelRequested) {
+      const current = actorContext(ctx, run);
+      const token = run.tokenId
+        ? ctx.db
+            .select()
+            .from(t.accessTokens)
+            .where(
+              and(
+                eq(t.accessTokens.workspaceId, run.workspaceId),
+                eq(t.accessTokens.id, run.tokenId),
+              ),
+            )
+            .get()
+        : undefined;
+      const tokenRevoked =
+        run.tokenId &&
+        (!token ||
+          token.revoked ||
+          !token.projects.includes(run.projectId) ||
+          !token.scopes.includes("code:execute"));
+      const usesTools =
+        object(command) &&
+        (command.operation === "open" || command.operation === "execute");
+      const configChanged =
+        usesTools &&
+        run.snapshot.configuration_revision !==
+          projectConfiguration(current, run.projectId).revision;
+      if (tokenRevoked || configChanged) {
+        return { ...run, cancelRequested: true };
+      }
+    }
   }
   if (run.operation === "mcp_discover") {
     const path = new URL(ctx.request.url).pathname;

@@ -66,6 +66,7 @@ export class SessionRuntime {
           workspaceDirectory: this.workspaceDirectory,
           image: options.image,
           sourceDirectory: options.sourceDirectory,
+          workspaceVolume: options.workspaceVolume,
         },
         this.workerHooks(),
       );

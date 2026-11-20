@@ -30,6 +30,7 @@ export function handleRunUpdate(
       ctx.db
         .update(t.runs)
         .set({
+          cancelRequested: run.cancelRequested,
           leaseExpiresAt: new Date(
             Math.min(Date.now() + 60000, Date.parse(run.deadline!)),
           ).toISOString(),
@@ -158,7 +159,13 @@ export function handleRunUpdate(
     .run();
   ctx.db
     .update(t.runs)
-    .set({ status, output, error, updatedAt: now() })
+    .set({
+      status,
+      output,
+      error,
+      cancelRequested: run.cancelRequested,
+      updatedAt: now(),
+    })
     .where(eq(t.runs.id, run.id))
     .run();
   return new Response(null, { status: 204 });

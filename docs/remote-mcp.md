@@ -17,6 +17,8 @@ return result; // MCP result envelope: content blocks and structuredContent
 
 The connection name becomes the ordinary camelCase plugin namespace. Tool names receive stable camelCase aliases. Collisions and unsafe JavaScript property names get deterministic suffixes; the original name stays in SDK metadata as `remote_name`. Input and output JSON Schemas are preserved. Editor and semantic-validation types come from those schemas; unsupported constructs produce `unknown` rather than executable remote declarations.
 
+For a complete local Playwright workflow, see [browser discovery sessions](browser-sessions.md).
+
 ## Review, recovery and access
 
 A check does not enable new tools. A refresh produces a candidate catalogue; previously enabled, unchanged tools are preselected in the review. New or changed tools need explicit acceptance. Removed tools disappear on acceptance. Existing run snapshots retain their original endpoint, transport, schemas, approved names and aliases. This pins the OrgSDK contract, not the remote implementation.

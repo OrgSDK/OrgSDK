@@ -8,10 +8,13 @@ import { cancelProcedure } from "./cancel";
 import { promoteProcedure } from "./promote";
 import { streamProcedure } from "./stream";
 
+import { sessionProcedure } from "./session";
+
 export const runsRouter = router({
   list: listProcedure,
   get: getProcedure,
   create: createProcedure,
+  session: sessionProcedure,
   events: eventsProcedure,
   retry: retryProcedure,
   cancel: cancelProcedure,

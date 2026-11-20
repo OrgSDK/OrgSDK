@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { sessionCommandSchema } from "../../runtime/src/session-job-contract";
 import {
   actionTestsSchema,
   runTestsSchema,
@@ -11,6 +12,7 @@ import { appRouter } from "../router";
 import {
   createRunSchema,
   promoteRunSchema,
+  sessionRunSchema,
   validateCodeSchema,
 } from "../runs/schemas";
 import type { mcpArgumentsSchema } from "./mcp-schemas";
@@ -23,6 +25,16 @@ export async function dispatchTool(
   const caller = appRouter.createCaller(context);
   const id = () => z.string().parse(toolInput.id);
   const actionId = () => z.string().parse(toolInput.action);
+  const queueSession = (session: z.infer<typeof sessionCommandSchema>) =>
+    caller.runs.session(
+      sessionRunSchema.parse({
+        project: toolInput.project,
+        idempotency_key: toolInput.idempotency_key,
+        source: toolInput.source,
+        inputs: toolInput.inputs,
+        session,
+      }),
+    );
   switch (name) {
     case "list_projects": {
       const all = (await caller.projects.list()).results;
@@ -42,6 +54,29 @@ export async function dispatchTool(
       return caller.runs.create(
         createRunSchema.strip().parse({ ...toolInput, operation: "code" }),
       );
+    case "open_session":
+      return queueSession({ operation: "open" });
+    case "execute_cell":
+      return queueSession({
+        operation: "execute",
+        id: z.uuid().parse(toolInput.session_id),
+        cellId: z.uuid().parse(toolInput.cell_id),
+        generation: z.number().parse(toolInput.generation),
+        expectedSequence: z.number().parse(toolInput.expected_sequence),
+        after: toolInput.after,
+      });
+    case "read_session":
+      return queueSession({
+        operation: "read",
+        id: z.uuid().parse(toolInput.session_id),
+        after: toolInput.after,
+        limit: toolInput.limit,
+      });
+    case "close_session":
+      return queueSession({
+        operation: "close",
+        id: z.uuid().parse(toolInput.session_id),
+      });
     case "get_run_events": {
       const all = await caller.runs.events({ id: id() });
       const events = all

@@ -36,7 +36,8 @@ if (runtime === "node") {
   );
 }
 const directory = await mkdtemp(join(tmpdir(), "orgsdk-runtime-artifact-"));
-const agentDirectory = join(directory, "agents", "project");
+const agentId = crypto.randomUUID();
+const agentDirectory = join(directory, "agents", agentId);
 await mkdir(join(agentDirectory, "workspace"), { recursive: true });
 const jobs = new Map();
 const completions = new Map();
@@ -54,7 +55,8 @@ const server = createServer(async (request, response) => {
       assert.equal(request.headers.authorization, `Bearer ${token}`);
       assert.equal(body.protocol_version, 4);
       assert.ok(body.capabilities.includes("mcp_discover"));
-      response.end(JSON.stringify({ id: "executor", agent_id: "project" }));
+      assert.ok(body.capabilities.includes("session"));
+      response.end(JSON.stringify({ id: "executor", agent_id: agentId }));
       return;
     }
     const match = /\/runs\/([^/]+)\/(complete|events|heartbeat)\//.exec(path);
@@ -112,7 +114,8 @@ async function childProcess(entry, args, input, environment = {}) {
 
 function jobFor(source, operation = "code", plugins = []) {
   const job = {
-    protocol_version: operation === "code" ? 2 : 3,
+    protocol_version:
+      operation === "session" ? 4 : operation === "code" ? 2 : 3,
     operation,
     run_id: crypto.randomUUID(),
     workspace_id: 1,
@@ -122,9 +125,9 @@ function jobFor(source, operation = "code", plugins = []) {
     deadline: new Date(Date.now() + 20_000).toISOString(),
     lease_seconds: 60,
     snapshot: {
-      root_agent_id: "project",
+      root_agent_id: agentId,
       source,
-      agents: [{ id: "project", name: "Project", plugins }],
+      agents: [{ id: agentId, name: "Project", plugins }],
     },
   };
   jobs.set(job.run_id, job);
@@ -200,7 +203,7 @@ try {
     [
       "install",
       "--agent",
-      "project",
+      agentId,
       "--data",
       directory,
       "--manifest",
@@ -232,6 +235,84 @@ try {
       "succeeded",
       JSON.stringify(completions.get(job.run_id)),
     );
+  }
+
+  const { SessionJobs } = await moduleAt("session-job.js");
+  const previousDataDirectory = process.env.EXECUTOR_DATA_DIR;
+  process.env.EXECUTOR_DATA_DIR = directory;
+  const sessionJobs = new SessionJobs({
+    base,
+    agentId,
+    directory: agentDirectory,
+    mode: "host",
+  });
+  const sessionScope = {
+    workspaceId: "1",
+    ownerId: "smoke-client",
+    projectId: agentId,
+  };
+  async function sessionRun(command, source, ownerId = sessionScope.ownerId) {
+    const job = jobFor(source, "session", [plugin]);
+    Object.assign(job.snapshot, {
+      session: command,
+      session_scope: { ...sessionScope, ownerId },
+      configuration_revision: "smoke-revision",
+      sdk: {
+        plugins: [
+          {
+            available: true,
+            namespace: "smoke",
+            slug: "smoke",
+            tools: [{ name: "echo", calling: "named" }],
+          },
+        ],
+      },
+    });
+    await sessionJobs.run(job, new AbortController().signal);
+    return completions.get(job.run_id);
+  }
+  try {
+    const opened = await sessionRun({ operation: "open" });
+    assert.equal(opened.status, "succeeded", JSON.stringify(opened));
+    const { id, generation } = opened.output.result;
+    const cell = (expectedSequence) => ({
+      id,
+      operation: "execute",
+      generation,
+      expectedSequence,
+      cellId: crypto.randomUUID(),
+    });
+    const first = await sessionRun(
+      cell(0),
+      'const value = await smoke.echo({value: 41}); await writeFile("resident.txt", String(value)); value;',
+    );
+    assert.equal(first.output?.result.cell.result, 41, JSON.stringify(first));
+    const secondSource =
+      'return {value: value + 1, file: await readFile("resident.txt")};';
+    const secondCommand = cell(1);
+    const second = await sessionRun(secondCommand, secondSource);
+    assert.deepEqual(second.output?.result.cell.result, {
+      value: 42,
+      file: "41",
+    });
+    const retried = await sessionRun(secondCommand, secondSource);
+    assert.deepEqual(retried.output?.result.cell, second.output.result.cell);
+    assert.equal(
+      (await sessionRun({ operation: "close", id }, undefined, "other-client"))
+        .status,
+      "failed",
+    );
+    const read = await sessionRun({ operation: "read", id, limit: 1 });
+    assert.equal(read.output?.result.sequence, 2);
+    assert.equal(read.output?.result.hasMore, true);
+    const closed = await sessionRun({ operation: "close", id });
+    assert.equal(closed.output?.result.status, "closed");
+    assert.deepEqual(closed.output?.result.worker, opened.output.result.worker);
+  } finally {
+    await sessionJobs.dispose();
+    if (previousDataDirectory === undefined)
+      delete process.env.EXECUTOR_DATA_DIR;
+    else process.env.EXECUTOR_DATA_DIR = previousDataDirectory;
   }
 
   const { SessionManager } = await moduleAt("sessions/index.js");

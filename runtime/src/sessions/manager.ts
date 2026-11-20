@@ -21,6 +21,7 @@ import {
   type EventPage,
   type SessionHistory,
   type SessionScope,
+  type SessionFunction,
 } from "./types";
 
 export type { SessionManagerOptions, OpenSession } from "./configuration";
@@ -50,6 +51,7 @@ export class SessionManager {
     history: SessionHistory,
     directory: string,
     events?: SessionEvents,
+    functions?: SessionFunction[],
   ): SessionRuntime {
     events ??= new SessionEvents(
       history,
@@ -58,7 +60,9 @@ export class SessionManager {
     );
     return new SessionRuntime(events, directory, {
       journal: this.journal,
-      broker: this.broker,
+      broker: functions
+        ? new FunctionBroker([...(this.options.functions ?? []), ...functions])
+        : this.broker,
       limits: this.limits,
       options: this.options,
       release: (session) => {
@@ -96,6 +100,8 @@ export class SessionManager {
     const session = this.runtime(
       newHistory(scope, request.configurationRevision),
       request.workspaceDirectory,
+      undefined,
+      request.functions,
     );
     this.reserve(session);
     await session.start("session.opened");
