@@ -53,6 +53,7 @@ function RunOutcome({
   );
 }
 const outcomeTitles: Record<string, string> = {
+  session: "Session result",
   test: "Mocked test results",
   validate: "Semantic validation diagnostics",
 };
@@ -236,28 +237,30 @@ export function RunDetail({
                 </details>
               ))}
           </section>
-          <section className="panel">
-            <h2>Execution trace</h2>
-            {query.data?.events.length === 0 ? (
-              <p className="small">Waiting for the first execution event.</p>
-            ) : undefined}
-            <ol className="run-timeline">
-              {query.data?.events.map((event) => (
-                <li key={event.sequence}>
-                  <span className="timeline-dot" />
-                  <details>
-                    <summary>
-                      <strong>{event.kind.replaceAll(".", " ")}</strong>
-                      <time>
-                        {new Date(event.created_at).toLocaleTimeString()}
-                      </time>
-                    </summary>
-                    <pre>{displayValue(event.data)}</pre>
-                  </details>
-                </li>
-              ))}
-            </ol>
-          </section>
+          {run.operation === "session" ? null : (
+            <section className="panel">
+              <h2>Execution trace</h2>
+              {query.data?.events.length === 0 ? (
+                <p className="small">Waiting for the first execution event.</p>
+              ) : undefined}
+              <ol className="run-timeline">
+                {query.data?.events.map((event) => (
+                  <li key={event.sequence}>
+                    <span className="timeline-dot" />
+                    <details>
+                      <summary>
+                        <strong>{event.kind.replaceAll(".", " ")}</strong>
+                        <time>
+                          {new Date(event.created_at).toLocaleTimeString()}
+                        </time>
+                      </summary>
+                      <pre>{displayValue(event.data)}</pre>
+                    </details>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
         </>
       ) : undefined}
     </div>

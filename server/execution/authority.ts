@@ -125,7 +125,7 @@ export function runCapability(ctx: AppContext, expectedId?: string): Run {
       );
     }
     if (!terminal.has(run.status) && !run.cancelRequested) {
-      const current = actorContext(ctx, run);
+      const operation = object(command) ? command.operation : undefined;
       const token = run.tokenId
         ? ctx.db
             .select()
@@ -143,14 +143,13 @@ export function runCapability(ctx: AppContext, expectedId?: string): Run {
         (!token ||
           token.revoked ||
           !token.projects.includes(run.projectId) ||
-          !token.scopes.includes("code:execute"));
-      const usesTools =
-        object(command) &&
-        (command.operation === "open" || command.operation === "execute");
+          !token.scopes.includes("code:execute") ||
+          (operation === "read" && !token.scopes.includes("runs:read")));
+      const usesTools = operation === "open" || operation === "execute";
       const configChanged =
         usesTools &&
         run.snapshot.configuration_revision !==
-          projectConfiguration(current, run.projectId).revision;
+          projectConfiguration(actorContext(ctx, run), run.projectId).revision;
       if (tokenRevoked || configChanged) {
         return { ...run, cancelRequested: true };
       }

@@ -9,7 +9,7 @@ const jsonRpcRequestSchema = z.object({
 
 /** Ordinary legacy Streamable HTTP, served independently of the installed SDK. */
 export async function mcpSmokeServer() {
-  let calls = 0;
+  const queries: string[] = [];
   const server = createServer((request, response) => {
     void (async () => {
       if (request.method !== "POST") {
@@ -67,7 +67,13 @@ export async function mcpSmokeServer() {
         return;
       }
       if (message.method === "tools/call") {
-        calls++;
+        const tool = z
+          .object({
+            name: z.literal("search_records"),
+            arguments: z.object({ query: z.string() }),
+          })
+          .parse(message.params);
+        queries.push(tool.arguments.query);
         send({
           content: [{ type: "text", text: "found" }],
           structuredContent: { found: true },
@@ -83,9 +89,12 @@ export async function mcpSmokeServer() {
     throw new Error("MCP fixture did not start");
   }
   return {
-    endpoint: `http://127.0.0.1:${address.port}/mcp`,
     get calls() {
-      return calls;
+      return queries.length;
+    },
+    endpoint: `http://127.0.0.1:${address.port}/mcp`,
+    get queries(): readonly string[] {
+      return queries;
     },
     close() {
       server.closeAllConnections();

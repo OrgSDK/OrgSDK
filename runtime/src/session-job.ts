@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { z } from "zod";
-import { Client } from "./client";
+import { Client, type RunCompletion } from "./client";
+import { withRetry } from "./engine/retry";
 import type { Job, Plugin } from "./contract";
 import type { SessionFunction, SessionHistory } from "./sessions";
 import { SessionManager } from "./sessions";
@@ -254,21 +255,39 @@ export class SessionJobs {
     );
     this.authority = { job, check };
     try {
-      await check();
-      const output = await this.execute(job, signal);
-      signal.throwIfAborted();
-      await client.complete(job.run_id, {
-        status: "succeeded",
-        output: { result: output },
-      });
-    } catch (error) {
-      await client
-        .complete(job.run_id, {
+      let completion: RunCompletion;
+      try {
+        await check();
+        const output = await this.execute(job, signal);
+        signal.throwIfAborted();
+        completion = { status: "succeeded", output: { result: output } };
+      } catch (error) {
+        completion = {
           status: signal.aborted ? "cancelled" : "failed",
           error:
             error instanceof Error ? error.message : "Session operation failed",
-        })
-        .catch(() => undefined);
+        };
+      }
+      // The server accepts duplicate completions only when their bodies agree.
+      // A transport failure must not turn a locally completed cell into a failure.
+      await withRetry(
+        () => client.complete(job.run_id, completion),
+        {
+          maxRetries: 2,
+          initialDelayMs: 200,
+          shouldRetry: (error) =>
+            !parentSignal.aborted && !/^API 4(?!29)\d\d:/.test(error.message),
+        },
+      );
+    } catch (error) {
+      // This capability belongs to one run. A delivery error must leave the
+      // project registration available for the next claim.
+      if (!parentSignal.aborted) {
+        console.error(
+          `Session run ${job.run_id} completion was not acknowledged:`,
+          error instanceof Error ? error.message : "Unknown transport error",
+        );
+      }
     } finally {
       this.authority = undefined;
       clearTimeout(deadline);

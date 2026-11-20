@@ -20,7 +20,7 @@ export interface SessionProcessOptions {
 
 export function sessionCommand(options: SessionProcessOptions): string[] {
   if (options.mode === "host")
-    return workerCommand(import.meta.url, "./worker");
+    return workerCommand(import.meta.url, "./worker-guard");
   for (const path of [
     options.workspaceDirectory,
     options.sourceDirectory,
@@ -63,7 +63,7 @@ export function sessionCommand(options: SessionProcessOptions): string[] {
     "bun",
     options.image ?? process.env.EXECUTOR_IMAGE ?? "orgsdk-job:dev",
     "--no-env-file",
-    "/executor/src/sessions/worker.ts",
+    "/executor/src/sessions/worker-guard.ts",
   ];
 }
 

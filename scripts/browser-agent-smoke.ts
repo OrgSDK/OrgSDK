@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -107,10 +107,6 @@ async function connectPlaywright(
     { ...connection, run: discovery.run, tools: [remoteTool] },
     true,
   );
-  assert.match(
-    JSON.stringify(await rpc("projects.sdk", { id: project })),
-    /browserRunCodeUnsafe/,
-  );
 }
 
 function browserSnippet(url: string, label: string) {
@@ -136,13 +132,35 @@ async function proveAction(
   client: McpClient,
   project: string,
   fixtureUrl: string,
-  countVisits: () => number,
+  fixtureVisits: readonly string[],
 ) {
+  const inputSchema = z.toJSONSchema(
+    z.object({
+      url: z.string().regex(/^https?:\/\//),
+      label: z.string().min(1),
+    }),
+  );
   const source = `${parseResultSource}
-const { label } = defineParams(z.object({ label: z.string().min(1) }));
+const { url, label } = defineParams(z.object({ url: z.url(), label: z.string().min(1) }));
 const snippet: (url: string, label: string) => string = ${browserSnippet.toString()};
-const code = snippet(${JSON.stringify(fixtureUrl)}, label);
+const code = snippet(url, label);
 return readPlaywrightResult(await ${actionTool}({ code }));`;
+  const visits = fixtureVisits.length;
+  const validation = await completedRun(client, "validate_code", {
+    project,
+    source,
+    input_schema: inputSchema,
+  });
+  assert.equal(
+    z.object({ valid: z.boolean() }).parse(runResult.parse(validation).result)
+      .valid,
+    true,
+  );
+  assert.equal(
+    fixtureVisits.length,
+    visits,
+    "Validation must not navigate the browser.",
+  );
   const actionVersion = z
     .object({
       action: z.uuid(),
@@ -153,7 +171,7 @@ return readPlaywrightResult(await ${actionTool}({ code }));`;
         project,
         name: "Replay browser proof",
         source,
-        input_schema: z.toJSONSchema(z.object({ label: z.string().min(1) })),
+        input_schema: inputSchema,
       }),
     );
   const action = {
@@ -166,7 +184,7 @@ return readPlaywrightResult(await ${actionTool}({ code }));`;
       cases: [
         {
           name: "Action decodes Playwright output",
-          inputs: { label: "mock label" },
+          inputs: { url: fixtureUrl, label: "mock label" },
           expected: "mocked",
           mocks: [
             {
@@ -181,7 +199,6 @@ return readPlaywrightResult(await ${actionTool}({ code }));`;
       ],
     }),
   );
-  const visits = countVisits();
   const tests = await completedRun(client, "run_tests", {
     ...action,
     suite_revision: revision,
@@ -192,23 +209,25 @@ return readPlaywrightResult(await ${actionTool}({ code }));`;
     true,
   );
   assert.equal(
-    countVisits(),
+    fixtureVisits.length,
     visits,
     "Mocked tests must not navigate the real browser.",
   );
 
   for (const label of ["replay one", "replay two"]) {
-    const beforeReplay = countVisits();
+    const beforeReplay = fixtureVisits.length;
+    const url = new URL(fixtureUrl);
+    url.searchParams.set("replay", label);
     const replay = await completedRun(client, "run_action", {
       ...action,
       project,
-      inputs: { label },
+      inputs: { url: url.href, label },
     });
     assert.deepEqual(replay, { result: label });
-    assert.equal(
-      countVisits(),
-      beforeReplay + 1,
-      "Each action run must navigate to the fixture.",
+    assert.deepEqual(
+      fixtureVisits.slice(beforeReplay),
+      [url.href],
+      "Each action run must navigate to its input URL exactly once.",
     );
   }
 }
@@ -294,9 +313,12 @@ assert(
   browserExecutable,
   "Set ORGSDK_BROWSER_EXECUTABLE to a Chrome or Chromium binary.",
 );
+const packagedCli = process.env.ORGSDK_BROWSER_AGENT_CLI;
+const node = Bun.which("node");
+assert(node, "Node.js is required to run the Playwright MCP server.");
 const directory = await mkdtemp(join(tmpdir(), "orgsdk-browser-agent-"));
 const children: ReturnType<typeof startChild>[] = [];
-let visits = 0;
+const fixtureVisits: string[] = [];
 const fixture = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
@@ -304,7 +326,7 @@ const fixture = Bun.serve({
     if (new URL(request.url).pathname !== "/") {
       return new Response(null, { status: 404 });
     }
-    visits++;
+    fixtureVisits.push(request.url);
     return new Response(
       `<!doctype html><title>Browser agent fixture</title><label>Name <input></label>
       <button onclick="document.querySelector('output').textContent = document.querySelector('input').value">Store</button>
@@ -319,7 +341,7 @@ try {
   const endpoint = `http://127.0.0.1:${playwrightPort}/mcp`;
   children.push(
     startChild(
-      "node",
+      node,
       [
         resolve(playwrightEntry),
         "--host",
@@ -351,17 +373,50 @@ try {
     PLUGIN_CATALOG_URL: "",
     PLUGIN_MARKETPLACE_URL: "",
   };
-  children.push(startChild("bun", ["--no-env-file", "server/index.ts"], env));
+  if (packagedCli) {
+    const nodeOnlyPath = join(directory, "node-only");
+    await mkdir(nodeOnlyPath);
+    await symlink(node, join(nodeOnlyPath, "node"));
+    children.push(
+      startChild(
+        node,
+        [
+          resolve(packagedCli),
+          "start",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          String(port),
+          "--data",
+          env.ORGSDK_DATA_DIR,
+        ],
+        {
+          PATH: nodeOnlyPath,
+          HOME: directory,
+          PLUGIN_CATALOG_URL: "",
+          PLUGIN_MARKETPLACE_URL: "",
+        },
+      ),
+    );
+  } else {
+    children.push(startChild("bun", ["--no-env-file", "server/index.ts"], env));
+  }
   await waitForHealth(origin, AbortSignal.timeout(15_000));
-  children.push(
-    startChild(
-      "bun",
-      ["--no-env-file", "runtime/src/cli.ts", "manage", "--mode", "host"],
-      env,
-    ),
-  );
+  if (!packagedCli) {
+    children.push(
+      startChild(
+        "bun",
+        ["--no-env-file", "runtime/src/cli.ts", "manage", "--mode", "host"],
+        env,
+      ),
+    );
+  }
 
   const rpc = api(origin);
+  const health = z
+    .object({ runtime: z.string() })
+    .parse(await rpc("system.health"));
+  assert.equal(health.runtime, packagedCli ? "node" : "bun");
   const password = "Disposable-browser-proof-123!";
   const email = "owner@example.test";
   await rpc("auth.setupStatus");
@@ -388,6 +443,7 @@ try {
       {
         name: "Browser proof",
         scopes: [
+          "catalog:read",
           "code:execute",
           "runs:read",
           "actions:write",
@@ -413,10 +469,20 @@ try {
     { result: 42 },
   );
   await connectPlaywright(rpc, project, endpoint);
+  assert.deepEqual(
+    z
+      .object({ projects: z.array(idSchema) })
+      .parse(await client.call("list_projects", {})).projects,
+    [{ id: project }],
+  );
+  assert.match(
+    JSON.stringify(await client.call("get_project_sdk", { project })),
+    /browserRunCodeUnsafe/,
+  );
   await proveSession(client, project, String(fixture.url));
-  await proveAction(client, project, String(fixture.url), () => visits);
+  await proveAction(client, project, String(fixture.url), fixtureVisits);
   console.log(
-    "Browser agent acceptance passed through inbound MCP, two retained cells, a mocked action suite and two parameterized action runs.",
+    `Browser agent acceptance passed on ${packagedCli ? "Node-only packaged host mode" : "Bun source host mode"}: MCP discovery, two retained cells, validation, a mocked action suite and two parameterized action runs.`,
   );
 } finally {
   await stopChildren(children);

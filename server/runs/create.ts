@@ -24,7 +24,7 @@ import {
   validateContract,
 } from "../shared/contracts";
 import { digest } from "../shared/security";
-import { text } from "../shared/validation";
+import { canonicalJson, text } from "../shared/validation";
 import { requireSessionRunner, sessionSource } from "./sessions";
 import type { CreateRunInput } from "./schemas";
 export function createRun(ctx: ServiceContext, body: CreateRunInput) {
@@ -171,12 +171,13 @@ function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
   return tx(ctx, (ctx) => {
     const existing = findIdempotentRun(ctx, namespace, key);
     if (existing) {
+      const serializeInputs = session ? canonicalJson : JSON.stringify;
       if (
         existing.projectId !== project.id ||
         existing.operation !== operation ||
         existing.actorId !== ctx.user?.id ||
         existing.actionVersionId !== (version?.id ?? null) ||
-        JSON.stringify(existing.inputs) !== JSON.stringify(inputs) ||
+        serializeInputs(existing.inputs) !== serializeInputs(inputs) ||
         existing.snapshot.source !== snapshot.source ||
         (session &&
           JSON.stringify(existing.snapshot.session) !==
@@ -198,7 +199,7 @@ function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
       return existing;
     }
     if (session) {
-      requireSessionRunner(ctx, project.id);
+      requireSessionRunner(ctx, project.id, setting?.executionPool);
     }
     const run = runsRepository(ctx).create({
       projectId: project.id,

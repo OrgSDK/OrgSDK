@@ -174,8 +174,11 @@ export class SessionRuntime {
       if (this.active) interruptCell(this.active.record, reason, this.events);
       this.history.closedAt = new Date().toISOString();
       this.events.append(null, `session.${status}`, { reason });
-      await this.save();
-      this.services.release(this);
+      try {
+        await this.save();
+      } finally {
+        this.services.release(this);
+      }
     })();
     return this.finishing;
   }

@@ -22,12 +22,17 @@ export function sessionSource(
   }
 }
 
-export function requireSessionRunner(ctx: ServiceContext, project: string) {
+export function requireSessionRunner(
+  ctx: ServiceContext,
+  project: string,
+  executionPool?: string,
+) {
   const [runner] = executorsRepository(ctx).list(
     eq(executors.projectId, project),
   );
   if (
     !runner?.enabled ||
+    (executionPool !== undefined && runner.pool !== executionPool) ||
     !runner.lastSeenAt ||
     Date.parse(runner.lastSeenAt) < Date.now() - 60_000 ||
     runner.protocolVersion < 4 ||
