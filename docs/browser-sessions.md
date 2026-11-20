@@ -46,7 +46,7 @@ return await inspect('async page => await page.getByRole("heading").first().inne
 
 Cells provide project file functions and named tools from approved MCP connections and external plugins. Call a reviewed Playwright tool to work with the page. Browser objects stay in the Playwright process.
 
-For retries, reuse the original cell ID, source, inputs and run idempotency key. To reconnect, use `read_session` with the project, session ID and an idempotency key. Supply `after` to page through events and continue from `nextCursor` while `hasMore` is true. Explicitly close with `close_session` to free the project for another discovery session. Idle sessions expire after 15 minutes. Closing or restarting the runner discards live JavaScript variables. The project files, recorded runs and saved actions persist. The browser's lifetime is controlled by the separate Playwright process.
+For retries, reuse the original cell ID, source, inputs and run idempotency key. To reconnect, use `read_session` with the project, session ID and an idempotency key. Supply `after` to page through events and continue from `nextCursor` while `hasMore` is true. Session commands run one at a time per project. To interrupt an active cell, grant `runs:cancel`, call `cancel_run({id})` with the cell’s run ID, and poll `get_run` until it reaches a terminal state. Queued reads and closes can then proceed. Explicitly close with `close_session` to free the project for another discovery session. Idle sessions expire after 15 minutes. Closing or restarting the runner discards live JavaScript variables. The project files, recorded runs and saved actions persist. The browser's lifetime is controlled by the separate Playwright process.
 
 ## Turn the route into a reusable action
 
