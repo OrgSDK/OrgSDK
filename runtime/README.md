@@ -49,8 +49,8 @@ Docker mode also needs Docker
 Engine. Extract the installer from the tarball and run it as root:
 
 ```sh
-tar -xzf orgsdk-executor-0.1.1.tgz package/scripts/install-service.sh
-sudo bash package/scripts/install-service.sh "$PWD/orgsdk-executor-0.1.1.tgz" researcher docker
+tar -xzf orgsdk-executor-0.2.0.tgz package/scripts/install-service.sh
+sudo bash package/scripts/install-service.sh "$PWD/orgsdk-executor-0.2.0.tgz" researcher docker
 ```
 
 The installer creates `/opt/orgsdk-executor`, the `orgsdk-researcher` system
