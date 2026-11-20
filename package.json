@@ -1,4 +1,5 @@
 {
+  "version": "0.2.0",
   "name": "@orgsdk/cli",
   "publishConfig": {
     "access": "public",
@@ -79,7 +80,6 @@
     "tsx": "^4.23.15",
     "typescript-eslint": "^8.72.1"
   },
-  "version": "0.1.1",
   "description": "Local OrgSDK platform and code executor",
   "license": "SEE LICENSE IN LICENSE",
   "bin": {
