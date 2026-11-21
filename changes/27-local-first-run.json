@@ -1,0 +1,5 @@
+{
+  "type": "patch",
+  "category": "changed",
+  "summary": "Local setup signs administrators in and guides them through checking the project runner with a real run."
+}
