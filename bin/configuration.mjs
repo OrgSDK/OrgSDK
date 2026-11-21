@@ -19,7 +19,12 @@ export function requireDockerConfiguration(env) {
 export async function requireAvailablePort(host, port) {
   const probe = createServer();
   await new Promise((resolve, reject) => {
-    probe.once("error", reject);
+    probe.once("error", (error) => {
+      if (error.code === "EADDRINUSE") {
+        error.message = `Port ${port} is already in use. If OrgSDK is running, open ${localAddress(host, port)}. If another application owns the port, start OrgSDK with --port and a free port number.`;
+      }
+      reject(error);
+    });
     probe.listen({ host, port: Number(port), exclusive: true }, resolve);
   });
   await new Promise((resolve, reject) => {

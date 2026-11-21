@@ -86,7 +86,10 @@ test("occupied listen port is rejected before startup", async () => {
   try {
     await assert.rejects(
       requireAvailablePort("127.0.0.1", server.address().port),
-      { code: "EADDRINUSE" },
+      {
+        code: "EADDRINUSE",
+        message: /already in use.*open http:\/\/127\.0\.0\.1:.*--port/,
+      },
     );
     assert.equal(localAddress("::", 8080), "http://127.0.0.1:8080");
     assert.equal(localAddress("::1", 8080), "http://[::1]:8080");
