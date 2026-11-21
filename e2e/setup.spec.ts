@@ -28,6 +28,9 @@ test("fresh local setup signs in and guides the owner to a verified project run"
   await expect(check).toBeDisabled();
   const client = await testClient(page);
   const [project] = (await client.projects.list.query()).results;
+  if (!project) {
+    throw new Error("Setup did not create the first project.");
+  }
   expect(project.name).toBe("My project");
   await expect(
     page.getByRole("link", { name: "Runner settings" }),
