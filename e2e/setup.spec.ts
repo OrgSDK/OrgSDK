@@ -7,6 +7,14 @@ test("fresh local setup signs in and guides the owner to a verified project run"
   test.setTimeout(60000);
   await page.goto("/");
   await expect(page).toHaveURL(/\/setup\//);
+  await expect(page.getByLabel("Workspace name")).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const form = await page.locator(".setup-form").boundingBox();
+  expect(form?.width).toBeLessThan(800);
+  await page.setViewportSize({ width: 320, height: 740 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    320,
+  );
   await page.getByLabel("Workspace name").fill("Test workspace");
   await page.getByLabel("Username").fill("testadmin");
   await page.getByLabel("Email", { exact: true }).fill(owner.email);

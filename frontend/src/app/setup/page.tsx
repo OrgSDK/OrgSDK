@@ -56,7 +56,7 @@ export default function SetupPage(): ReactNode {
       )}
       {!created && status?.setup_required && (
         <form
-          className="space-y-4"
+          className="setup-form"
           onSubmit={(event) => {
             event.preventDefault();
             const fields = new FormData(event.currentTarget);
@@ -92,87 +92,93 @@ export default function SetupPage(): ReactNode {
             })();
           }}
         >
-          <fieldset disabled={busy} className="space-y-4 border-0 p-0">
-            <legend className="mb-2 font-semibold">Workspace</legend>
-            <label className="block text-sm font-medium">
-              Workspace name
-              <Input
-                name="workspace_name"
-                autoComplete="organization"
-                required
-                maxLength={100}
-                pattern=".*\S.*"
-              />
-            </label>
-            <label className="block text-sm font-medium">
-              First project name
-              <Input
-                name="project_name"
-                defaultValue="My project"
-                maxLength={100}
-              />
-            </label>
+          <fieldset disabled={busy} className="setup-group">
+            <legend>Workspace</legend>
+            <div className="setup-fields">
+              <label className="block text-sm font-medium">
+                Workspace name
+                <Input
+                  name="workspace_name"
+                  autoComplete="organization"
+                  required
+                  maxLength={100}
+                  pattern=".*\S.*"
+                />
+              </label>
+              <label className="block text-sm font-medium">
+                First project name
+                <Input
+                  name="project_name"
+                  defaultValue="My project"
+                  maxLength={100}
+                />
+              </label>
+            </div>
           </fieldset>
-          <fieldset disabled={busy} className="space-y-4 border-0 p-0">
-            <legend className="mb-2 font-semibold">
-              Administrator account
-            </legend>
-            <label className="block text-sm font-medium">
-              Username
-              <Input
-                name="username"
-                autoComplete="username"
-                required
-                pattern=".*\S.*"
-                maxLength={150}
-              />
-            </label>
-            <label className="block text-sm font-medium">
-              Email
-              <Input
-                name="email"
-                type="email"
-                autoComplete="email"
-                pattern="[^@ ]+@[^@ ]+\.[^@ ]+"
-                maxLength={254}
-                aria-describedby="setup-email-help"
-                required
-              />
-            </label>
-            <p id="setup-email-help" className="small">
-              Use this email to sign in. No email verification is needed.
-            </p>
-            <label className="block text-sm font-medium">
-              Password
-              <Input
-                name="password1"
-                minLength={8}
-                maxLength={1024}
-                pattern=".*[^0-9].*"
-                aria-describedby="setup-password-help"
-                title="Use at least 8 characters, including a character other than a digit."
-                type="password"
-                autoComplete="new-password"
-                required
-              />
-            </label>
-            <p className="small" id="setup-password-help">
-              Use at least 8 characters, including a character other than a
-              digit.
-            </p>
-            <label className="block text-sm font-medium">
-              Confirm password
-              <Input
-                name="password2"
-                type="password"
-                autoComplete="new-password"
-                required
-              />
-            </label>
-            <Button type="submit">
-              {busy ? "Creating workspace…" : "Create workspace"}
-            </Button>
+          <fieldset disabled={busy} className="setup-group">
+            <legend>Administrator account</legend>
+            <div className="setup-fields">
+              <label className="block text-sm font-medium">
+                Username
+                <Input
+                  name="username"
+                  autoComplete="username"
+                  required
+                  pattern=".*\S.*"
+                  maxLength={150}
+                />
+              </label>
+              <div>
+                <label className="block text-sm font-medium">
+                  Email
+                  <Input
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    pattern="[^@ ]+@[^@ ]+\.[^@ ]+"
+                    maxLength={254}
+                    aria-describedby="setup-email-help"
+                    required
+                  />
+                </label>
+                <p id="setup-email-help" className="small">
+                  Use this email to sign in.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium">
+                  Password
+                  <Input
+                    name="password1"
+                    minLength={8}
+                    maxLength={1024}
+                    pattern=".*[^0-9].*"
+                    aria-describedby="setup-password-help"
+                    title="Use at least 8 characters, including a character other than a digit."
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                  />
+                </label>
+                <p className="small" id="setup-password-help">
+                  Use at least 8 characters, including a character other than a
+                  digit.
+                </p>
+              </div>
+              <label className="block text-sm font-medium">
+                Confirm password
+                <Input
+                  name="password2"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                />
+              </label>
+            </div>
           </fieldset>
+          <Button type="submit" disabled={busy}>
+            {busy ? "Creating workspace…" : "Create workspace"}
+          </Button>
         </form>
       )}
       {!created && !status && !error && (
