@@ -101,6 +101,11 @@ export function Connections({
   const canConfirm = useDiscardConfirmation();
   const [name, setName] = useState("");
   const [scopes, setScopes] = useState<ClientScope[]>(authorScopes);
+  const [showToken, setShowToken] = useState(false);
+  const endpoint =
+    typeof window === "undefined"
+      ? "/mcp/"
+      : new URL("/mcp/", location.origin).href;
   const [token, setToken] = useState("");
   const [isBusy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -119,6 +124,20 @@ export function Connections({
       setBusy(false);
     }
   };
+  async function copy(
+    value: string,
+    success: string,
+    fallback: string,
+  ): Promise<void> {
+    setNotice("");
+    setError("");
+    try {
+      await navigator.clipboard.writeText(value);
+      setNotice(success);
+    } catch {
+      setError(fallback);
+    }
+  }
   return (
     <>
       <section className="panel">
@@ -153,23 +172,19 @@ export function Connections({
           <div>
             <h3>2. Configure your client</h3>
             <p className="small">
-              Use this workspace domain with the MCP endpoint <code>/mcp/</code>
-              , or the typed tRPC API at <code>/trpc</code>. Send the token as{" "}
-              <code>Authorization: Bearer &lt;token&gt;</code>.
+              Set the HTTP MCP endpoint to{" "}
+              <code className="break-all select-all">{endpoint}</code> and send
+              the token in the <code>Authorization: Bearer &lt;token&gt;</code>{" "}
+              header.
             </p>
             <Button
               variant="outline"
               onClick={() => {
-                void navigator.clipboard
-                  .writeText(`${location.origin}/mcp/`)
-                  .then(() => {
-                    setNotice("MCP endpoint copied.");
-                  })
-                  .catch(() => {
-                    setError(
-                      "Could not copy. Use this workspace domain followed by /mcp/.",
-                    );
-                  });
+                void copy(
+                  endpoint,
+                  "MCP endpoint copied.",
+                  "Clipboard unavailable. Select the MCP endpoint above and copy it.",
+                );
               }}
             >
               <Copy size={13} />
@@ -323,6 +338,7 @@ export function Connections({
                   projects: grantMode === "projects" ? projects : [],
                   action_versions: grantMode === "versions" ? versions : [],
                 });
+                setShowToken(false);
                 setToken(issued.token);
                 setName("");
                 setNotice(
@@ -482,7 +498,7 @@ export function Connections({
               <label>
                 New access token
                 <Input
-                  type="password"
+                  type={showToken ? "text" : "password"}
                   readOnly
                   autoComplete="off"
                   value={token}
@@ -498,49 +514,41 @@ export function Connections({
               <Button
                 variant="outline"
                 onClick={() => {
-                  void navigator.clipboard
-                    .writeText(
-                      JSON.stringify(
-                        {
-                          mcpServers: {
-                            orgsdk: {
-                              type: "http",
-                              url: `${location.origin}/mcp/`,
-                              headers: { Authorization: `Bearer ${token}` },
-                            },
-                          },
-                        },
-                        null,
-                        2,
-                      ),
-                    )
-                    .then(() => {
-                      setNotice(
-                        "MCP configuration copied. Store it privately in your client configuration.",
-                      );
-                    })
-                    .catch(() => {
-                      setError(
-                        "Clipboard unavailable. Configure the endpoint and authorization header manually.",
-                      );
-                    });
+                  const config = {
+                    mcpServers: {
+                      orgsdk: {
+                        type: "http",
+                        url: endpoint,
+                        headers: { Authorization: `Bearer ${token}` },
+                      },
+                    },
+                  };
+                  void copy(
+                    JSON.stringify(config, null, 2),
+                    "MCP configuration copied. Store it privately in your client configuration.",
+                    "Clipboard unavailable. Copy the endpoint and use Show token to configure your client manually.",
+                  );
                 }}
               >
                 Copy MCP configuration
               </Button>
               <Button
                 variant="outline"
+                aria-pressed={showToken}
                 onClick={() => {
-                  void navigator.clipboard
-                    .writeText(token)
-                    .then(() => {
-                      setNotice("Token copied.");
-                    })
-                    .catch(() => {
-                      setError(
-                        "Clipboard access failed. Select and copy the new token field.",
-                      );
-                    });
+                  setShowToken(!showToken);
+                }}
+              >
+                {showToken ? "Hide token" : "Show token"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  void copy(
+                    token,
+                    "Token copied.",
+                    "Clipboard unavailable. Use Show token, then select and copy the token.",
+                  );
                 }}
               >
                 <Copy size={13} />

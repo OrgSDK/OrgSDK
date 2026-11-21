@@ -4,12 +4,7 @@ Tracking: [Node.js distribution issue #7](https://github.com/OrgSDK/OrgSDK/issue
 
 The platform package is `@orgsdk/cli`. Its `orgsdk` command supervises the platform and separate HTTP executor. The independently installable runner is `@orgsdk/executor`. Both packages use public access on the npm registry. The source package version is `0.2.0`; builds, checks and source merges do not publish packages. Commands containing `VERSION` require a selected published version.
 
-On Linux with Node.js 22.22.0 or newer:
-
-```sh
-npm install -g @orgsdk/cli
-orgsdk start
-```
+For the pinned Linux installation, follow [Start a local workspace](../README.md#start-a-local-workspace). The GitHub release includes the CLI tarball and can be installed directly with npm. Check the selected version when using the npm registry.
 
 The platform already includes its local executor. Install `@orgsdk/executor` separately only when managing a runner independently.
 

@@ -2,18 +2,21 @@
 
 OrgSDK gives external AI clients persistent projects for executing code and building tested, reusable actions. The application combines a static Next.js interface with a Node.js or Bun API, tRPC, and a Drizzle-managed SQLite store. Executors are independent HTTP clients; they do not access the application database.
 
-## Install from npm
+## Start a local workspace
 
-On Linux with Node.js 22.22.0 or newer, install the platform package and start it:
+On Linux with Node.js 22.22.0 or newer and npm, install the [0.2.0 release](https://github.com/OrgSDK/OrgSDK/releases/tag/v0.2.0) under your user account:
 
 ```sh
-npm install -g @orgsdk/cli
-orgsdk start
+npm install --prefix "$HOME/.local/opt/orgsdk" https://github.com/OrgSDK/OrgSDK/releases/download/v0.2.0/orgsdk-cli-0.2.0.tgz
+"$HOME/.local/opt/orgsdk/node_modules/.bin/orgsdk" start
 ```
 
-Open `http://127.0.0.1:8080` and create your workspace and account. The command starts the platform and a separate executor manager. It connects a local runner for each enabled project, so code, validation and action tests can run without a separate registration command. Neither Bun nor Docker is required for this local mode. Code and plugins run with your current user's host privileges; use trusted code and clients. This mode is not an operating-system sandbox.
+1. Open <http://127.0.0.1:8080> on the same machine. Create your workspace, administrator and first project. Use the same hostname each time you return.
+2. Keep the terminal running. The command starts the platform and its local runner. In the project’s **Runner** tab, look for **Available**. Host mode runs trusted code and plugins with your operating system account’s permissions. It requires neither Docker nor Bun.
+3. Open **Connect MCP** for the project. Create a scoped token, copy it when shown, and use the displayed endpoint and configuration in your external client. Ask the client to list the project and run `return 6 * 7;` with code execution access. Open the run and check its result is `42`.
+4. To stop the installation, press Ctrl+C. To resume, run the same start command. It opens the existing workspace, accounts and project files.
 
-`orgsdk start --data /path/to/installation --port 8081` selects another installation. Data defaults to `~/.local/share/orgsdk`, outside the npm package: the database and encryption key are in that directory, and executor project folders are under `executor/agents/`. Stopping with Ctrl+C stops the supervised processes. Reinstalling the package does not remove installation data; back up that directory before upgrading.
+The default data directory is `~/.local/share/orgsdk`. To choose a different installation directory or port, pass `--data /path/to/installation --port 8081` on every start. Keep the data directory separate from the installed package and back it up before upgrading. It contains the SQLite database, encryption key, and persistent project folders under `executor/agents/`.
 
 Use `orgsdk server` to run only the platform, or `orgsdk executor --help` to register and run a separate executor. Independently managed runners can install `@orgsdk/executor` from npm. `orgsdk start --mode docker` uses the existing Docker executor configuration and requires Docker, an executor image and the documented network/storage settings. See [the executor guide](runtime/README.md). Linux is the current supported host because persistent project-file access uses `/proc`; macOS and Windows are not supported.
 

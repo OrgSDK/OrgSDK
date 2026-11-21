@@ -27,7 +27,7 @@ export function AccountShell({
           Back to app
         </Link>
       </header>
-      <main className="mx-auto w-full max-w-xl px-4 py-10 sm:py-16">
+      <main className="account-main">
         {showAccountNavigation && (
           <nav
             aria-label="Account"
