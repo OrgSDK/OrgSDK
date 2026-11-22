@@ -23,4 +23,4 @@ Version increments are lockstep for the two public packages: highest requested `
 
 ## Publication
 
-Merging source does not publish npm packages, create a GitHub release, deploy an application or update an installation. These require separate authorization and the [artifact and registry acceptance procedure](npm-distribution.md#release-procedure). CI verifies source, browser flows, the standalone binary and installed npm artifacts before promotion.
+After main CI passes, publish the stable GitHub release with its tested CLI and executor tarballs and integrity manifest. This starts the npm publication workflow. Follow the [artifact and registry acceptance procedure](npm-distribution.md#release-procedure) to configure trust or retry a release. Application deployments and updates to existing installations are separate operations.

@@ -1,0 +1,5 @@
+{
+  "type": "patch",
+  "category": "fixed",
+  "summary": "Publish the tested CLI and executor from stable GitHub releases to npm through CI."
+}
