@@ -96,16 +96,19 @@ for (const suffix of packages) {
     ],
     { stdio: "inherit" },
   );
-  for (let attempt = 0; attempt < 6; attempt++) {
+  // npm can accept a publish several minutes before registry reads see it.
+  const registryDeadline = Date.now() + 10 * 60_000;
+  console.log(`Waiting for npm to serve ${name}@${version}.`);
+  for (;;) {
     const published = await registryVersion(name, version);
     if (published) {
       assert.equal(published.dist.integrity, integrity);
       break;
     }
     assert(
-      attempt < 5,
-      `npm did not return ${name}@${version} after publication`,
+      Date.now() < registryDeadline,
+      `npm accepted ${name}@${version} but the registry did not return it within 10 minutes. Check its publication status before retrying.`,
     );
-    await sleep(3000);
+    await sleep(10_000);
   }
 }
