@@ -31,7 +31,7 @@ Use an external MCP client to iterate on a live browser with persistent TypeScri
 
 Install Bun 1.4, Node.js 22.22.0 or newer and npm, then run `npm run setup` and `npm run build`. Start `dist/orgsdk` and open the URL it prints. The executable embeds the frontend, including Monaco, and does not require Bun or Node at runtime. `HOST`, `PORT`, and `ORGSDK_DATA_DIR` configure listening and storage. The default data directory is `~/.local/share/orgsdk`.
 
-To build the npm package, run `npm run build:npm`, then `npm pack --ignore-scripts`. The tarball includes the platform JavaScript, frontend, migrations and executor workers. `npm pack` without `--ignore-scripts` builds those assets automatically. Use `npm run test:distribution -- ./orgsdk-cli-1.0.0.tgz` to install and verify the actual tarball with temporary data and a Node-only runtime path. Replace the tarball argument with `@orgsdk/cli@VERSION` to verify the registry release.
+To build the npm package, run `npm run build:npm`, then `npm pack --ignore-scripts`. The tarball includes the platform JavaScript, frontend, migrations and executor workers. `npm pack` without `--ignore-scripts` builds those assets automatically. Use `npm run test:distribution -- ./orgsdk-cli-1.1.0.tgz` to install and verify the actual tarball with temporary data and a Node-only runtime path. Replace the tarball argument with `@orgsdk/cli@VERSION` to verify the registry release.
 
 Both release builds generate `dist/THIRD_PARTY_NOTICES.txt` from the installed dependencies. It is included in the npm tarball; distribute it alongside `dist/orgsdk` when sharing the standalone executable. The notice text is generated during packaging and is not stored in the source tree or served as frontend assets.
 
