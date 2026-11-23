@@ -4,7 +4,7 @@ import { WorkspaceLink } from "./workspace-link";
 import { formText } from "../../lib/form-fields";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { trpc } from "../../api/trpc";
+import { installationHref, trpc } from "../../api/trpc";
 import { errorMessage } from "../../api/result";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -124,7 +124,7 @@ export function Settings({
           Manage your email address, password and two-factor authentication.
         </p>
         <Button asChild variant="link">
-          <a href="/accounts/email/">
+          <a href={installationHref("/accounts/email/")}>
             Account settings <ArrowRight size={13} />
           </a>
         </Button>

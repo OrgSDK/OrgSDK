@@ -17,7 +17,7 @@ Commands:
 Options:
   --data DIR                Installation data (default: ~/.local/share/orgsdk)
   --host HOST               Listen address (default: 127.0.0.1)
-  --port PORT               Listen port (default: 8080)
+  --port PORT               Exact listen port (new local installations try 28940–28947)
   --mode host|docker        Executor mode for start (default: host)
   --help, -h                Show this help
   --version, -v             Show the package version
@@ -63,7 +63,7 @@ export function parseArguments(args, env = process.env) {
     command,
     data,
     host: env.HOST || "127.0.0.1",
-    port: env.PORT || "8080",
+    port: env.PORT || undefined,
     mode: "host",
     args: [],
   };
@@ -105,9 +105,10 @@ export function parseArguments(args, env = process.env) {
     throw new Error(`Missing argument for ${command}. Use orgsdk --help.`);
   }
   if (
-    !/^\d+$/.test(options.port) ||
-    Number(options.port) < 1 ||
-    Number(options.port) > 65535
+    options.port !== undefined &&
+    (!/^\d+$/.test(options.port) ||
+      Number(options.port) < 1 ||
+      Number(options.port) > 65535)
   ) {
     throw new Error("PORT must be between 1 and 65535.");
   }

@@ -1,5 +1,5 @@
 "use client";
-import { trpc } from "../../api/trpc";
+import { installationOrigin, trpc } from "../../api/trpc";
 import { useState, type ReactNode } from "react";
 import { errorMessage } from "../../api/result";
 import type { Plugin } from "../../api/types";
@@ -71,7 +71,7 @@ export function PluginConnection({
         <>
           <p>Use your own OAuth application. Register this redirect URL:</p>
           <code className="break-all">
-            {typeof window === "undefined" ? "" : location.origin}
+            {typeof window === "undefined" ? "" : installationOrigin()}
             /oauth/callback
           </code>
           <label>

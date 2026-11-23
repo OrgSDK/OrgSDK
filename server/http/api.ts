@@ -9,6 +9,7 @@ import { handleOAuthCallback } from "../oauth/transport";
 import { appRouter } from "../router";
 import { ServiceError, serviceErrorStatus } from "../shared/errors";
 import { checkClientRequest, createContext, type AppContext } from "./context";
+import { studioAudience } from "../auth/studio";
 import { publicRequest } from "./origin";
 import { finishResponse } from "./response-middleware";
 import { HttpError, json } from "./responses";
@@ -82,15 +83,41 @@ export async function handleApi(
 ): Promise<Response> {
   const path = new URL(request.url).pathname;
   let context: AppContext | undefined;
+  let allowedOrigin: string | undefined;
   let response: Response;
   try {
     if (!path.startsWith("/internal/")) {
       request = publicRequest(request);
     }
+    const origin = request.headers.get("origin");
+    if (
+      path.startsWith("/trpc/") &&
+      origin &&
+      studioAudience(new URL(request.url).origin) === origin
+    ) {
+      allowedOrigin = origin;
+      if (request.method === "OPTIONS") {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Methods": "GET, POST",
+            "Access-Control-Allow-Headers":
+              "content-type, x-orgsdk-studio-session, trpc-accept, last-event-id",
+            Vary: "Origin",
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+    }
     context = createContext(request, dependencies);
     response = await dispatch(context, path);
   } catch (error) {
     response = errorResponse(error);
+  }
+  if (allowedOrigin) {
+    response.headers.set("Access-Control-Allow-Origin", allowedOrigin);
+    response.headers.append("Vary", "Origin");
   }
   return context ? finishResponse(context, response) : response;
 }

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, type ReactNode } from "react";
 import type { Project } from "../../api/types";
-import { trpc } from "../../api/trpc";
+import { installationOrigin, trpc } from "../../api/trpc";
 import { errorMessage } from "../../api/result";
 import { Button } from "../ui/button";
 import { useDiscardConfirmation } from "./discard-dialog";
@@ -169,7 +169,7 @@ export function ProjectRunner({
       <details
         className="mt-4"
         onToggle={() => {
-          setOrigin(location.origin);
+          setOrigin(installationOrigin());
         }}
       >
         <summary>Link a separate runner</summary>

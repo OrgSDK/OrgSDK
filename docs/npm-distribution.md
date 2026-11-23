@@ -28,7 +28,7 @@ orgsdk start
 
 The installed product needs Node.js, but no source checkout, Bun, frontend build tooling or Docker for host mode. SQLite and password hashing use native dependencies; npm must install the packages appropriate to the host. A platform without a matching native prebuild may need its dependency's native build prerequisites. The supported installation target is Linux; project filesystem operations require `/proc`.
 
-The CLI defaults to loopback port 8080. Complete setup in the browser. The local executor manager creates project registrations through the existing authenticated HTTP bootstrap protocol. It never opens the application database. A private bootstrap credential is stored outside the package alongside the installation data. Job workers receive scoped run authority, not the manager credential.
+New local installations try loopback ports 28940 through 28947 and remember their selected port. Existing installations without a saved port use 8080. The CLI prints the address. An explicit port is exact. Complete setup in the browser. The local executor manager creates project registrations through the existing authenticated HTTP bootstrap protocol. It never opens the application database. A private bootstrap credential is stored outside the package alongside the installation data. Job workers receive scoped run authority, not the manager credential.
 
 Host mode uses the current OS account and is intended for trusted code, plugins and clients. Validation and action tests run in disposable workers with allowlisted inputs and no project capability or project directory. They do not gain an OS sandbox from that separation. Docker mode remains available when configured with an executor image, network and data mounts.
 

@@ -37,9 +37,32 @@ function procedureError(error: unknown) {
 }
 
 export const publicProcedure = rpc.procedure.use(
-  async ({ ctx, type, next }) => {
+  async ({ ctx, type, path, next }) => {
     try {
-      checkClientRequest(ctx, type);
+      if (ctx.studioOrigin) {
+        const bootstrap =
+          path === "studio.discover" || path === "studio.exchange";
+        if (
+          !bootstrap &&
+          (!ctx.studioExpiresAt || !ctx.sessionId || !ctx.user)
+        ) {
+          throw new ServiceError(
+            "UNAUTHORIZED",
+            "Reconnect to your OrgSDK installation.",
+          );
+        }
+        if (
+          path.startsWith("auth.") &&
+          !["auth.session", "auth.browserSession", "auth.logout"].includes(path)
+        ) {
+          throw new ServiceError(
+            "FORBIDDEN",
+            "Manage your account on the installation.",
+          );
+        }
+      } else {
+        checkClientRequest(ctx, type);
+      }
       const result = await next({
         ctx: { ...ctx, operationType: type, userId: ctx.user?.id ?? null },
       });

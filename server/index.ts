@@ -1,5 +1,10 @@
-import { z } from "zod";
-import { serve } from "./platform/server";
+import { checkHealth } from "./platform/health";
+import {
+  installationPorts,
+  listenOnInstallationPort,
+  rememberPort,
+} from "./platform/listen";
+import { studioAudience } from "./auth/studio";
 import {
   existsSync,
   mkdirSync,
@@ -21,7 +26,7 @@ const dataDir = resolve(
   process.env.ORGSDK_DATA_DIR ?? join(homedir(), ".local/share/orgsdk"),
 );
 const command = process.argv[2] ?? "server";
-const port = Number(process.env.PORT ?? "8080");
+
 const hostname = process.env.HOST ?? "127.0.0.1";
 
 function serverLock(): () => void {
@@ -78,27 +83,8 @@ async function main() {
     return;
   }
   if (command === "healthcheck") {
-    const response = await fetch(
-      `http://127.0.0.1:${port}/trpc/system.health`,
-      {
-        signal: AbortSignal.timeout(4000),
-        ...(process.env.ORGSDK_PUBLIC_ORIGIN
-          ? {
-              headers: { Host: new URL(process.env.ORGSDK_PUBLIC_ORIGIN).host },
-            }
-          : {}),
-      },
-    );
-    if (
-      !response.ok ||
-      z
-        .object({
-          result: z.object({ data: z.object({ status: z.string() }) }),
-        })
-        .parse(await response.json()).result.data.status !== "ok"
-    ) {
-      throw new Error("Health check failed.");
-    }
+    const [port = 8080] = installationPorts(dataDir, hostname);
+    await checkHealth(hostname, port);
     return;
   }
   if (command === "backup") {
@@ -140,20 +126,36 @@ async function main() {
       "Usage: orgsdk [server | migrate | healthcheck | backup DESTINATION | restore SOURCE | reset-password EMAIL]",
     );
   }
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error("PORT must be between 1 and 65535.");
-  }
+  const ports = installationPorts(dataDir, hostname);
   const unlock = serverLock();
   try {
-    const store = openStore(dataDir);
-    const server = await serve({
+    let handle: ReturnType<typeof createApp> | undefined;
+    const server = await listenOnInstallationPort(ports, {
       hostname,
-      port,
-      fetch: createApp(store),
-    }).catch((error: unknown) => {
-      store.close();
-      throw error;
+      fetch: (request) =>
+        handle
+          ? handle(request)
+          : Promise.resolve(new Response("Starting OrgSDK", { status: 503 })),
     });
+    const store = await (async () => {
+      try {
+        rememberPort(dataDir, server.port);
+        return openStore(dataDir);
+      } catch (error) {
+        await server.stop(true);
+        throw error;
+      }
+    })();
+    handle = createApp(store);
+    if (process.send && process.connected) {
+      try {
+        await checkHealth(hostname, server.port);
+      } catch (error) {
+        store.close();
+        await server.stop(true);
+        throw error;
+      }
+    }
     let flushing = false;
     const timer = setInterval(() => {
       try {
@@ -186,7 +188,21 @@ async function main() {
     };
     process.once("SIGTERM", stop);
     process.once("SIGINT", stop);
-    console.log(`OrgSDK listening on http://${hostname}:${server.port}`);
+    const host = hostname.includes(":") ? "[" + hostname + "]" : hostname;
+    const endpoint =
+      process.env.ORGSDK_PUBLIC_ORIGIN ??
+      "http://" + host + ":" + String(server.port);
+    console.log("OrgSDK listening on " + endpoint);
+    const audience = studioAudience(endpoint);
+    if (audience) {
+      console.log(
+        "Open dashboard: " +
+          audience +
+          "/?server=" +
+          encodeURIComponent(endpoint),
+      );
+    }
+    process.send?.({ port: server.port });
   } catch (error) {
     unlock();
     throw error;

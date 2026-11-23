@@ -1,7 +1,7 @@
 "use client";
 import { Cable, Copy, KeyRound, Plug, Trash2 } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
-import { trpc } from "../api/trpc";
+import { installationOrigin, trpc } from "../api/trpc";
 import type { ClientScope, McpAccessToken } from "../api/types";
 import { errorMessage } from "../api/result";
 import {
@@ -161,7 +161,7 @@ export function Connections({
               variant="outline"
               onClick={() => {
                 void navigator.clipboard
-                  .writeText(`${location.origin}/mcp/`)
+                  .writeText(`${installationOrigin()}/mcp/`)
                   .then(() => {
                     setNotice("MCP endpoint copied.");
                   })
@@ -505,7 +505,7 @@ export function Connections({
                           mcpServers: {
                             orgsdk: {
                               type: "http",
-                              url: `${location.origin}/mcp/`,
+                              url: `${installationOrigin()}/mcp/`,
                               headers: { Authorization: `Bearer ${token}` },
                             },
                           },
