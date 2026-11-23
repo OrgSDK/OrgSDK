@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0
+
+### Changed
+
+- MCP and tRPC clients must send workspace access tokens with the `orgsdk_mcp_` prefix. After upgrading the platform, prepend it once to each saved OrgSDK workspace token. The token keeps its grants, revocation status and activity history.
+
 ## 0.2.1
 
 ### Fixed
