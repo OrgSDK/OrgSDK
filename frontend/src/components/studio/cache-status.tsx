@@ -70,7 +70,7 @@ export function StudioCacheStatus(): ReactNode {
     };
     void check();
     document.addEventListener("visibilitychange", whenVisible, options);
-    globalThis.addEventListener("online", whenVisible, options);
+    addEventListener("online", whenVisible, options);
     const timer = setInterval(whenVisible, 60 * 60_000);
     return () => {
       scope.abort();
