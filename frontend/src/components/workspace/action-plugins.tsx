@@ -146,7 +146,15 @@ export function ActionPlugins({
               <summary>
                 <ChevronDown className="plugin-chevron" size={16} />
                 <span className={`plugin-symbol plugin-symbol-${plugin.slug}`}>
-                  <PluginIcon url={plugin.icon_url} size={23} />
+                  <PluginIcon
+                    catalogSlug={
+                      plugin.distribution === "external"
+                        ? plugin.slug
+                        : undefined
+                    }
+                    url={plugin.icon_url}
+                    size={23}
+                  />
                 </span>
                 <span className="plugin-name">
                   <strong>{name}</strong>
