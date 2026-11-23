@@ -9,6 +9,9 @@
     "linux"
   ],
   "type": "module",
+  "imports": {
+    "#package.json": "./package.json"
+  },
   "scripts": {
     "start": "bun server/index.ts",
     "dev": "bun --no-env-file scripts/dev.ts",
