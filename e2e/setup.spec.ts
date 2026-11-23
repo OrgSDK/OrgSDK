@@ -4,7 +4,6 @@ test("fresh installation sets up the workspace through typed tRPC", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Connect to server" }).click();
   const setup = page.waitForEvent("popup");
   await page.getByRole("link", { name: "Set up this installation" }).click();
   const installation = await setup;

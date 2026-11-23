@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { BotMark } from "../workspace/brand";
+import { OrgSdkWordmark } from "../workspace/brand";
 
 export function AccountShell({
   title,
@@ -20,11 +20,7 @@ export function AccountShell({
           href="/"
           className="flex items-center gap-2 text-lg font-semibold text-slate-900"
         >
-          <BotMark className="h-9 w-9" />
-          OrgSDK
-        </a>
-        <a href="/" className="text-sm">
-          Back to app
+          <OrgSdkWordmark className="w-28 h-auto" />
         </a>
       </header>
       <main className="mx-auto w-full max-w-xl px-4 py-10 sm:py-16">

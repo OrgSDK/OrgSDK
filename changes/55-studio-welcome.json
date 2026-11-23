@@ -1,0 +1,5 @@
+{
+  "type": "patch",
+  "category": "fixed",
+  "summary": "Studio discovers local installations on entry and guides new users through installation in a welcome screen matching orgsdk.ai."
+}

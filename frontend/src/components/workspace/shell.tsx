@@ -3,7 +3,7 @@ import { installationHref } from "../../api/trpc";
 import { Button } from "../ui/button";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Menu, X } from "lucide-react";
-import { BotMark } from "./brand";
+import { OrgSdkWordmark } from "./brand";
 import {
   workspaceNavigation as navigation,
   workspacePages,
@@ -95,8 +95,7 @@ export function WorkspaceShell({
         aria-modal={open ? true : undefined}
       >
         <div className="workspace-brand">
-          <BotMark className="bot-mark" />
-          <span>OrgSDK</span>
+          <OrgSdkWordmark className="w-28 h-auto" />
           <Button
             ref={close}
             className="mobile-only icon-button secondary"
