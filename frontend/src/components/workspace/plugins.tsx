@@ -220,7 +220,10 @@ export function Plugins({
                 aria-label={entry.display_name}
               >
                 <div className="flex items-center gap-3">
-                  <PluginIcon url={pluginIconUrl(entry.marketplace)} />
+                  <PluginIcon
+                    catalogSlug={entry.slug}
+                    url={pluginIconUrl(entry.marketplace)}
+                  />
                   <h3>{entry.display_name}</h3>
                 </div>
                 <p className="small">
@@ -332,7 +335,13 @@ export function Plugins({
           .filter((plugin) => plugin.distribution !== "mcp")
           .map((plugin) => (
             <div className="resource-row" key={plugin.id}>
-              <PluginIcon url={plugin.icon_url} size={24} />
+              <PluginIcon
+                catalogSlug={
+                  plugin.distribution === "external" ? plugin.slug : undefined
+                }
+                url={plugin.icon_url}
+                size={24}
+              />
               <div>
                 <strong>
                   {typeof plugin.display_name === "string"
