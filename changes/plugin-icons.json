@@ -1,5 +1,0 @@
-{
-  "type": "patch",
-  "category": "fixed",
-  "summary": "Show service icons for catalogue and installed plugins, including releases saved without artwork."
-}
