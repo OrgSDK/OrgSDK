@@ -75,17 +75,15 @@ try {
         ),
       ),
     );
-  assert.equal(
-    (
-      await command(
-        process.execPath,
-        [cli, "--version"],
-        directory,
-        minimalEnv,
-      ).success()
-    ).trim(),
-    manifest.version,
-  );
+  for (const args of [["--version"], ["executor", "--version"]]) {
+    const output = await command(
+      process.execPath,
+      [cli, ...args],
+      directory,
+      minimalEnv,
+    ).success();
+    assert.equal(output, `${manifest.version}\n`);
+  }
   console.log(
     `Installed ${manifest.name}@${manifest.version} from ${packageSpec}`,
   );

@@ -33,7 +33,10 @@ if (command === "--help" || !command) {
     "orgsdk-executor register --url URL [--data DIR] (token: EXECUTOR_TOKEN or stdin)\norgsdk-executor start [--mode docker|host] [--data DIR]\norgsdk-executor install --agent ID --manifest FILE [--file bundled.mjs] [--data DIR]\norgsdk-executor package-plugin --directory CHECKOUT --output DIR [--embed-dependencies package,...] [--license FILE]\norgsdk-executor manage [--mode docker|host] (bootstrap manager)",
   );
 } else if (command === "--version") {
-  console.log("0.1.1");
+  const manifest: unknown = JSON.parse(
+    await readFile(new URL(import.meta.resolve("#package.json")), "utf8"),
+  );
+  console.log(z.object({ version: z.string() }).parse(manifest).version);
 } else if (command === "register") {
   const base = z
     .string()
