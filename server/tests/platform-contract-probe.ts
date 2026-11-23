@@ -168,10 +168,10 @@ try {
   });
   assert.equal(oversized.status, 413);
   assert.equal(
-    await (await fetch(origin)).text(),
+    await (await fetch(origin + "/setup/")).text(),
     "<h1>portable static asset</h1>",
   );
-  const head = await fetch(origin, { method: "HEAD" });
+  const head = await fetch(origin + "/setup/", { method: "HEAD" });
   assert.equal(head.status, 200);
   assert.equal(await head.text(), "");
 } finally {

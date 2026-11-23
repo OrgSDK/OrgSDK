@@ -1,12 +1,11 @@
 "use client";
 import { Button } from "../../../components/ui/button";
 import { Suspense, useState, type ReactNode } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { loadSession, trpc } from "../../../api/trpc";
 import { errorMessage } from "../../../api/result";
 function InvitationForm(): ReactNode {
   const token = useSearchParams().get("token") ?? "";
-  const router = useRouter();
   const [status, setStatus] = useState(
     "Sign in with the invited email address before accepting.",
   );
@@ -29,7 +28,7 @@ function InvitationForm(): ReactNode {
                 try {
                   await loadSession();
                   await trpc.workspace.acceptInvitation.mutate({ token });
-                  router.push("/");
+                  location.assign(location.origin);
                 } catch (error) {
                   setStatus(errorMessage(error));
                 }

@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import type { Page } from "@playwright/test";
-import { expect, owner, signIn, test } from "./fixtures";
+import { approveConnection, expect, owner, signIn, test } from "./fixtures";
 
 async function submitCredentials(
   page: Page,
@@ -73,7 +73,7 @@ function totpCode(secret: string, offset = 0): string {
 test("wrong passwords stay signed out, local deep links survive sign-in, and logout revokes access", async ({
   page,
 }) => {
-  const next = "/documents/?source=authentication#saved-notes";
+  const next = "/documents/";
   await submitCredentials(
     page,
     { ...owner, password: "definitely-wrong-password" },
@@ -85,14 +85,23 @@ test("wrong passwords stay signed out, local deep links survive sign-in, and log
   await expect(page).toHaveURL(/\/accounts\/login\//);
   await page.getByLabel("Password", { exact: true }).fill(owner.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page).toHaveURL(new URL(next, page.url()).href);
+  await approveConnection(page);
+  await expect(page).toHaveURL(
+    new URL(next, process.env.ORGSDK_E2E_STUDIO).href,
+  );
   await expect(
     page.getByRole("heading", { name: "Documents & memory", level: 1 }),
   ).toBeVisible();
   await signOut(page);
   await page.goto(next);
+  await page.getByRole("button", { name: "Connect to server" }).click();
+  await page
+    .getByRole("link", { name: "Sign in to this installation" })
+    .click();
   await expect(page).toHaveURL(/\/accounts\/login\/\?next=/);
-  expect(new URL(page.url()).searchParams.get("next")).toBe(next);
+  expect(new URL(page.url()).searchParams.get("next")).toMatch(
+    /^\/studio\/approve\/#/,
+  );
   await expect(
     page.getByRole("heading", { name: "Welcome back" }),
   ).toBeVisible();

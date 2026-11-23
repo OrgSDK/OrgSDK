@@ -1,3 +1,4 @@
+import { verifyStudioDistribution } from "./verify-studio-distribution";
 import { verifyPackagedMcp } from "./distribution-mcp.ts";
 import { verifyThirdPartyNotices } from "./verify-third-party-notices";
 import assert from "node:assert/strict";
@@ -103,11 +104,12 @@ try {
     runtime,
     "Platform must use the selected runtime",
   );
-  for (const path of ["/", "/setup/", "/monaco/vs/editor/editor.main.js"]) {
+  for (const path of ["/studio/approve/", "/setup/", "/accounts/login/"]) {
     const asset: Response = await fetch(`${installation.origin}${path}`);
     assert.equal(asset.status, 200, `Missing package asset: ${path}`);
     assert((await asset.arrayBuffer()).byteLength > 100);
   }
+  await verifyStudioDistribution(installation.origin);
   await rpc("auth.setupStatus");
   const password = "A-strong-package-test-password-123";
   await rpc(
@@ -239,6 +241,7 @@ try {
   ).success();
   installation = await startInstallation(cli, directory, port, runtimePath);
   rpc = api(installation.origin);
+  await verifyStudioDistribution(installation.origin);
   await rpc("auth.setupStatus");
   await rpc("auth.login", { email: "owner@example.test", password }, true);
   assert.deepEqual(

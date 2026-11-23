@@ -1,4 +1,4 @@
-import { expect, signIn, test, testClient } from "./fixtures";
+import { openWorkspace, expect, signIn, test, testClient } from "./fixtures";
 import { prepareExecutor } from "./executor";
 
 test("a browser-queued action executes in a separate worker and streams its outcome", async ({
@@ -24,7 +24,10 @@ test("a browser-queued action executes in a separate worker and streams its outc
     },
   });
   const executor = await prepareExecutor(page, project.id);
-  await page.goto(`/actions/?project=${project.id}&action=${saved.action}`);
+  await openWorkspace(
+    page,
+    `/actions/?project=${project.id}&action=${saved.action}`,
+  );
   await expect(page.getByLabel("Action name")).toHaveValue(
     "Separate worker proof",
   );

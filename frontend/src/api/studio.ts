@@ -77,13 +77,22 @@ export async function requestApproval(input: string): Promise<void> {
     new TextEncoder().encode(verifier),
   );
   const challenge = hex(new Uint8Array(hash));
+  const route = new URL(location.href);
+  route.searchParams.delete("server");
   sessionStorage.setItem(
     pendingKey,
-    JSON.stringify({ endpoint, verifier, until: Date.now() + 10 * 60_000 }),
+    JSON.stringify({
+      endpoint,
+      verifier,
+      path: route.pathname + route.search,
+      until: Date.now() + 10 * 60_000,
+    }),
   );
   location.assign(endpoint + "/studio/approve/#" + challenge);
 }
-export async function finishApproval(): Promise<number | false> {
+export async function finishApproval(): Promise<
+  false | { expiresAt: number; path: string }
+> {
   const code = new URLSearchParams(location.hash.slice(1)).get("code");
   if (!code) return false;
   history.replaceState(history.state, "", location.pathname + location.search);
@@ -110,5 +119,12 @@ export async function finishApproval(): Promise<number | false> {
   });
   connectStudio(endpoint, grant.token);
   localStorage.setItem(previousKey, endpoint);
-  return grant.expiresAt;
+  const path = new URL(
+    "path" in pending && typeof pending.path === "string" ? pending.path : "/",
+    location.origin,
+  );
+  return {
+    expiresAt: grant.expiresAt,
+    path: path.origin === location.origin ? path.pathname + path.search : "/",
+  };
 }

@@ -1,0 +1,5 @@
+{
+  "type": "major",
+  "category": "changed",
+  "summary": "Studio is the sole workspace dashboard and caches its interface for offline use after the first download. Installations retain setup, account and connection approval pages."
+}

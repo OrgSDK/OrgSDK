@@ -2,10 +2,13 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { writeThirdPartyNotices } from "./third-party-notices";
 
-const frontend = Bun.spawn(["npm", "--prefix", "frontend", "run", "build"], {
-  stdout: "inherit",
-  stderr: "inherit",
-});
+const frontend = Bun.spawn(
+  ["npm", "--prefix", "frontend", "run", "build:installation"],
+  {
+    stdout: "inherit",
+    stderr: "inherit",
+  },
+);
 if ((await frontend.exited) !== 0) {
   throw new Error("Frontend build failed");
 }
@@ -28,7 +31,7 @@ const result = await Bun.build({
   ],
   compile: {
     outfile: "./dist/orgsdk",
-    assets: ["./frontend/out", "./server/db/migrations"],
+    assets: ["./frontend/dist/installation/out", "./server/db/migrations"],
   },
 });
 if (!result.success) {

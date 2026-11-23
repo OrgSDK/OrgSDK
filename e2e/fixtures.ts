@@ -43,6 +43,25 @@ const savedSession = z.object({
   ),
 });
 
+export async function approveConnection(page: Page): Promise<void> {
+  await expect(page.getByLabel("Server address")).toHaveValue(
+    process.env.ORGSDK_E2E_URL ?? "http://127.0.0.1:18783",
+  );
+  await page.getByRole("button", { name: "Connect to server" }).click();
+  await page.getByRole("button", { name: "Approve connection" }).click();
+  await expect(page.locator(".workspace-header")).toBeVisible();
+}
+
+export async function openWorkspace(page: Page, path: string): Promise<void> {
+  await page.goto(path);
+  await approveConnection(page);
+}
+
+export async function reloadWorkspace(page: Page): Promise<void> {
+  await page.reload();
+  await approveConnection(page);
+}
+
 export async function signIn(page: Page, next = "/"): Promise<void> {
   const directory = process.env.ORGSDK_E2E_DATA_DIR;
   const statePath = directory
@@ -62,6 +81,9 @@ export async function signIn(page: Page, next = "/"): Promise<void> {
       const session = await client.auth.session.query();
       if (session.is_authenticated && session.user?.email === owner.email) {
         await page.goto(next);
+        if (!next.startsWith("/accounts/")) {
+          await approveConnection(page);
+        }
         return;
       }
       await page.context().clearCookies();
@@ -72,6 +94,9 @@ export async function signIn(page: Page, next = "/"): Promise<void> {
   await page.getByLabel("Password", { exact: true }).fill(owner.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).not.toHaveURL(/\/accounts\/login/);
+  if (!next.startsWith("/accounts/")) {
+    await approveConnection(page);
+  }
   if (statePath) {
     await page.context().storageState({ path: statePath });
   }

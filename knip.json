@@ -37,7 +37,7 @@
       "project": ["src/**/*.{ts,mjs}", "scripts/*.{ts,mjs}", "bin/*.mjs"]
     },
     "frontend": {
-      "entry": ["scripts/*.ts", "tests/*.mjs"],
+      "entry": ["scripts/*.ts", "tests/*.mjs", "src/studio-worker.mts"],
       "project": [
         "src/**/*.{ts,tsx,css}",
         "scripts/*.ts",

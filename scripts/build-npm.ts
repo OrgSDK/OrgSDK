@@ -8,7 +8,7 @@ import { writeThirdPartyNotices } from "./third-party-notices";
 const root = fileURLToPath(new URL("../", import.meta.url));
 process.chdir(root);
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-execFileSync(npm, ["--prefix", "frontend", "run", "build"], {
+execFileSync(npm, ["--prefix", "frontend", "run", "build:installation"], {
   stdio: "inherit",
 });
 execFileSync(npm, ["--prefix", "runtime", "run", "build"], {
@@ -28,7 +28,9 @@ await build({
   packages: "external",
   external: ["bun:*"],
 });
-await cp("frontend/out", "dist/server/out", { recursive: true });
+await cp("frontend/dist/installation/out", "dist/server/out", {
+  recursive: true,
+});
 await cp("server/db/migrations", "dist/server/migrations", { recursive: true });
 await cp("runtime/dist", "dist/runtime", { recursive: true });
 for (const filename of ["LICENSE", "PROVENANCE.md", "README.md"]) {
