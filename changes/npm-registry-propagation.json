@@ -1,5 +1,0 @@
-{
-  "type": "patch",
-  "category": "fixed",
-  "summary": "Allow npm time to process accepted packages before checking release integrity and testing fresh installs."
-}
