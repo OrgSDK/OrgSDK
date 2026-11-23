@@ -1,8 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="OrgSDK">
-  <title>OrgSDK</title>
-  <!-- Orbit-O mark, transparent. Static fallback; the node is orbited at runtime
-       via the canvas favicon animator (Chrome rasterizes SVG favicons once, so
-       SMIL/CSS won't play in the tab). Reads at 16px (ring + node). -->
-  <circle cx="32" cy="32" r="19" stroke="#4f46e5" stroke-width="12" fill="none"/>
-  <circle cx="50" cy="14" r="6" fill="#8b5cf6"/>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="96" height="96" viewBox="0 0 96 96">
+<title>OrgSDK — A local home for your AI’s actual work.</title>
+<rect width="96" height="96" fill="#faf8f3"/>
+<image href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iOCA4IDQ4IDQ4Ij48dGl0bGU+T3JnU0RLIOKAlCBQcm9qZWN0IGFuZCBhY3Rpb248L3RpdGxlPjxnIGNvbG9yPSIjMGYxYTNkIj48cGF0aCBkPSJNMTIgOEg1NlYzMkg0NFYyMEgyMFY0NEgzMlY1Nkg4VjEyWiIgZmlsbD0iY3VycmVudENvbG9yIi8+PHBhdGggZD0iTTQwIDQwSDU2VjU2SDQwWiIgZmlsbD0iY3VycmVudENvbG9yIi8+PC9nPjwvc3ZnPg==" x="12" y="12" width="72" height="72" opacity="1" preserveAspectRatio="xMidYMid meet"/>
 </svg>
