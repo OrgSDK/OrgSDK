@@ -1,5 +1,12 @@
 import { invitationUrl, waitForInvitationMail } from "./mailbox";
-import { expect, signIn, test, testClient } from "./fixtures";
+import {
+  openWorkspace,
+  reloadWorkspace,
+  expect,
+  signIn,
+  test,
+  testClient,
+} from "./fixtures";
 
 test("workspace settings persist a renamed workspace and restore its original name", async ({
   page,
@@ -17,7 +24,7 @@ test("workspace settings persist a renamed workspace and restore its original na
     await expect(
       page.getByText("Workspace name saved.", { exact: true }),
     ).toBeVisible();
-    await page.reload();
+    await reloadWorkspace(page);
     await expect(
       page.getByLabel("Workspace name", { exact: true }),
     ).toHaveValue("Browser renamed workspace");
@@ -25,7 +32,7 @@ test("workspace settings persist a renamed workspace and restore its original na
       "Browser renamed workspace",
     );
   } finally {
-    await page.goto("/settings/");
+    await openWorkspace(page, "/settings/");
     await page.getByLabel("Workspace name", { exact: true }).fill(originalName);
     await page
       .getByRole("button", { name: "Save workspace name", exact: true })
@@ -70,7 +77,7 @@ test("invite and revoke a teammate using the local test mail sink", async ({
   }
   const message = await waitForInvitationMail(email);
   expect(new URL(invitationUrl(message)).origin).toBe(
-    new URL(page.url()).origin,
+    process.env.ORGSDK_E2E_URL,
   );
   expect(invitation.role).toBe("member");
   expect(invitation.revoked_at).toBeNull();
@@ -81,7 +88,7 @@ test("invite and revoke a teammate using the local test mail sink", async ({
   await expect(
     row.getByRole("button", { name: "Revoke", exact: true }),
   ).toHaveCount(0);
-  await page.reload();
+  await reloadWorkspace(page);
   await expect(row.getByText("Revoked", { exact: true })).toBeVisible();
   expect(
     (await client.workspace.current.query()).invitations.find(
@@ -116,7 +123,7 @@ test("audit filters show the recorded actor and object for a browser-created cre
   if (!credential) {
     throw new Error("The browser-created audit fixture was not persisted.");
   }
-  await page.goto("/audit/");
+  await openWorkspace(page, "/audit/");
   await page
     .getByLabel("Action / kind", { exact: true })
     .fill("credential.created");

@@ -1,4 +1,5 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { useEffect, useState, useRef, type ReactNode } from "react";
@@ -14,6 +15,7 @@ export function StudioConnection({
 }: {
   children: ReactNode;
 }): ReactNode {
+  const router = useRouter();
   const [connected, setConnected] = useState(false);
   const [expired, setExpired] = useState(false);
   const [input, setInput] = useState("");
@@ -27,16 +29,17 @@ export function StudioConnection({
 
     resume.current ??= finishApproval();
     void resume.current
-      .then((expiry) => {
+      .then((grant) => {
         if (!isActive) return;
         setInput(suggestedInstallation());
-        if (expiry === false) return;
+        if (grant === false) return;
+        if (grant.path !== "/") router.replace(grant.path);
         setConnected(true);
         timer = setTimeout(
           () => {
             setExpired(true);
           },
-          Math.max(0, expiry - Date.now()),
+          Math.max(0, grant.expiresAt - Date.now()),
         );
       })
       .catch((error_: unknown) => {
@@ -49,7 +52,7 @@ export function StudioConnection({
       isActive = false;
       clearTimeout(timer);
     };
-  }, []);
+  }, [router]);
   async function attempt(action: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -96,7 +99,7 @@ export function StudioConnection({
             setMatches(found);
             if (found.length === 0)
               throw new Error(
-                "No compatible local installation responded. Start OrgSDK and allow this site to connect to your computer, or open the local address printed by OrgSDK.",
+                "No compatible local installation responded. Start OrgSDK and allow local network access in your browser, or connect to an HTTPS installation.",
               );
             if (found.length === 1 && found[0]) await requestApproval(found[0]);
           })

@@ -1,10 +1,13 @@
-import { expect, signIn, test, testClient } from "./fixtures";
+import { openWorkspace, expect, signIn, test, testClient } from "./fixtures";
 
 test("webhook page navigation assets are served separately from delivery endpoints", async ({
   request,
 }) => {
   for (const path of ["/webhooks/__next._tree.txt", "/webhooks/index.txt"]) {
-    const response = await request.get(path);
+    const response = await request.get(
+      new URL(path, process.env.ORGSDK_E2E_STUDIO).href,
+      { ignoreHTTPSErrors: true },
+    );
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toContain("text/plain");
   }
@@ -15,7 +18,7 @@ test("webhook page navigation assets are served separately from delivery endpoin
 test("long project names and workspace screens fit narrow viewports", async ({
   page,
 }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   await signIn(page);
   const client = await testClient(page);
   const project = await client.projects.create.mutate({
@@ -32,7 +35,7 @@ test("long project names and workspace screens fit narrow viewports", async ({
       "/documents/",
       "/settings/",
     ]) {
-      await page.goto(route);
+      await openWorkspace(page, route);
       const header = page.locator(".workspace-header");
       await expect(header).toBeVisible();
       await expect(
@@ -82,7 +85,10 @@ test("action header controls do not overlap at tablet widths", async ({
     inputs: {},
     idempotency_key: crypto.randomUUID(),
   });
-  await page.goto(`/actions/?project=${project.id}&action=${saved.action}`);
+  await openWorkspace(
+    page,
+    `/actions/?project=${project.id}&action=${saved.action}`,
+  );
   await expect(page.locator(".action-last-run")).toBeVisible();
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });

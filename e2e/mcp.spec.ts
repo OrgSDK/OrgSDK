@@ -1,4 +1,4 @@
-import { expect, signIn, test, testClient } from "./fixtures";
+import { openWorkspace, expect, signIn, test, testClient } from "./fixtures";
 import { prepareExecutor } from "./executor";
 import { mcpSmokeServer } from "../scripts/mcp-smoke-server";
 
@@ -13,7 +13,7 @@ test("connects, reviews and runs remote MCP tools through project plugins", asyn
   const executor = await prepareExecutor(page, project.id, 4);
   const remote = await mcpSmokeServer();
   try {
-    await page.goto(`/plugins/?project=${project.id}`);
+    await openWorkspace(page, `/plugins/?project=${project.id}`);
     await page
       .getByLabel("Connection name", { exact: true })
       .fill("customer-tools");

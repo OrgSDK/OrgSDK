@@ -1,5 +1,12 @@
 import type { Page } from "@playwright/test";
-import { expect, signIn, test, testClient } from "./fixtures";
+import {
+  openWorkspace,
+  reloadWorkspace,
+  expect,
+  signIn,
+  test,
+  testClient,
+} from "./fixtures";
 
 async function prepareControls(page: Page, name: string) {
   await signIn(page);
@@ -28,7 +35,7 @@ test("create, edit, pause and delete an action schedule through the browser", as
     page,
     "Schedule controls",
   );
-  await page.goto(`/schedules/?${parameters.toString()}`);
+  await openWorkspace(page, `/schedules/?${parameters.toString()}`);
   await page.getByLabel("Time (UTC)").fill("04:15");
   await page.getByLabel("Scheduled inputs (JSON)").fill('{"iteration":1}');
   await page
@@ -72,7 +79,7 @@ test("create, edit, pause and delete an action schedule through the browser", as
   expect((await client.schedules.get.query({ id: schedule.id })).enabled).toBe(
     false,
   );
-  await page.reload();
+  await reloadWorkspace(page);
   await expect(
     row.getByRole("button", { name: "Resume", exact: true }),
   ).toBeVisible();
@@ -98,7 +105,7 @@ test("register, disable and rotate a webhook while clearing one-time secrets", a
     page,
     "Webhook controls",
   );
-  await page.goto(`/webhooks/?${parameters.toString()}`);
+  await openWorkspace(page, `/webhooks/?${parameters.toString()}`);
   await page.getByLabel("Name", { exact: true }).fill("Browser webhook");
   await page
     .getByRole("button", { name: "Register webhook", exact: true })
@@ -153,7 +160,7 @@ test("register, disable and rotate a webhook while clearing one-time secrets", a
     rotatedSecret,
   );
   await secretPanel.getByRole("button", { name: "Dismiss secret" }).click();
-  await page.reload();
+  await reloadWorkspace(page);
   await expect(secretPanel).toHaveCount(0);
   await expect(card.getByText("Disabled", { exact: true })).toBeVisible();
 });
@@ -169,7 +176,7 @@ test("inspect, update and remove a prepared inline plugin through the browser", 
     version: "1",
     source: "export const safeFunctions = [];",
   });
-  await page.goto(`/plugins/?project=${project.id}`);
+  await openWorkspace(page, `/plugins/?project=${project.id}`);
   await page.getByRole("button", { name: "Inspect", exact: true }).click();
   await expect(page.getByLabel("Plugin slug", { exact: true })).toHaveValue(
     "browser-inline",
@@ -191,7 +198,7 @@ test("inspect, update and remove a prepared inline plugin through the browser", 
   expect(updated.version).toBe("2");
   expect(updated.source).toBe(source);
   expect(updated.digest).not.toBe(plugin.digest);
-  await page.reload();
+  await reloadWorkspace(page);
   await page.getByRole("button", { name: "Inspect", exact: true }).click();
   await expect(page.getByLabel("Plugin version", { exact: true })).toHaveValue(
     "2",
@@ -226,7 +233,7 @@ test("issue an exact-version client token, clear its secret and revoke access", 
     page,
     "Token controls",
   );
-  await page.goto(`/connections/?project=${project.id}`);
+  await openWorkspace(page, `/connections/?project=${project.id}`);
   await page
     .getByLabel("Client name", { exact: true })
     .fill("Browser scoped client");
@@ -267,7 +274,7 @@ test("issue an exact-version client token, clear its secret and revoke access", 
     .getByRole("button", { name: "Dismiss token", exact: true })
     .click();
   await expect(secretField).toHaveCount(0);
-  await page.reload();
+  await reloadWorkspace(page);
   await expect(secretField).toHaveCount(0);
   const row = page
     .locator(".resource-row")

@@ -1,6 +1,6 @@
 "use client";
 import type { ReactNode } from "react";
-import { finishSignIn } from "../../api/auth";
+import { safeNextPath } from "../../api/auth";
 import { trpc } from "../../api/trpc";
 import { AccountShell } from "./account-shell";
 import { AccountAccess } from "./account-access";
@@ -16,7 +16,8 @@ export function SignOut(): ReactNode {
           submitLabel="Sign out"
           onSubmit={async () => {
             await trpc.auth.logout.mutate();
-            finishSignIn();
+            const next = safeNextPath(location.search);
+            location.assign(next === "/" ? "/accounts/login/" : next);
             return "";
           }}
         >

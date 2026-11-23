@@ -124,7 +124,7 @@ export async function loadSession(
       isTRPCClientError<AppRouter>(error) &&
       error.data?.code === "PRECONDITION_FAILED"
     ) {
-      location.assign(new URL("/setup/", location.origin).href);
+      location.assign(installationHref("/setup/"));
     }
     throw error;
   }

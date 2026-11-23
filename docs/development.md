@@ -38,7 +38,7 @@ For LAN access, choose the browser hostname in `ORGSDK_DEV_ORIGIN`, allow that h
 | `npm run e2e`              | Browser flow against disposable installation data                                |
 | `npm run build`            | Standalone Bun executable                                                        |
 | `npm run build:npm`        | Node platform, frontend and executor distribution                                |
-| `npm run smoke:binary`     | Embedded health, UI and Monaco with an empty PATH/data directory                 |
+| `npm run smoke:binary`     | Embedded setup, health and Studio redirection with an empty PATH/data directory                 |
 
 Integration test filenames use `.int.test.ts`; existing JavaScript tests use `.int.test.mjs`. The explicit file selector ensures unit runs never include integration files. Server tests currently all exercise real databases/application fixtures and belong to integration. Browser specs stay in `e2e`. Real Docker tests remain opt-in (`ORGSDK_SESSION_DOCKER_TEST=1`). Test fixtures use temporary storage; never point them at `.runtime/dev` or a personal installation.
 

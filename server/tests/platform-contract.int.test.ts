@@ -36,9 +36,9 @@ test.each(runtimes)(
       cpSync(migrationsFolder, join(directory, "migrations"), {
         recursive: true,
       });
-      mkdirSync(join(directory, "out"));
+      mkdirSync(join(directory, "out/setup"), { recursive: true });
       writeFileSync(
-        join(directory, "out/index.html"),
+        join(directory, "out/setup/index.html"),
         "<h1>portable static asset</h1>",
       );
       const existingHash = await Bun.password.hash("existing password");

@@ -13,7 +13,7 @@ export async function prepareExecutor(
   protocolVersion = 3,
 ): Promise<{ execute: (runId: string) => Promise<void> }> {
   const client = await testClient(page);
-  const origin = new URL(page.url()).origin;
+  const origin = process.env.ORGSDK_E2E_URL ?? "http://127.0.0.1:18783";
   const registered = await client.projects.connectExecutor.mutate({
     id: projectId,
     locally_managed: false,

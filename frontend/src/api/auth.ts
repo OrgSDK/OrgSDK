@@ -1,6 +1,6 @@
 import { isTRPCClientError } from "@trpc/client";
 import type { AppRouter } from "../../../server/router";
-import type { RouterOutputs } from "./trpc";
+import { installationHref, type RouterOutputs } from "./trpc";
 
 export function requiresMfa(
   session: RouterOutputs["auth"]["browserSession"],
@@ -46,5 +46,7 @@ export function finishSignIn(): void {
 
 export function redirectToSignIn(): void {
   const next = `${location.pathname}${location.search}${location.hash}`;
-  location.replace(`/accounts/login/?next=${encodeURIComponent(next)}`);
+  location.replace(
+    installationHref(`/accounts/login/?next=${encodeURIComponent(next)}`),
+  );
 }

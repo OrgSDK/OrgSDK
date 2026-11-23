@@ -2,7 +2,7 @@
 
 Tracking: [Node.js distribution issue #7](https://github.com/OrgSDK/OrgSDK/issues/7).
 
-The platform package is `@orgsdk/cli`. Its `orgsdk` command supervises the platform and separate HTTP executor. The independently installable runner is `@orgsdk/executor`. Both packages use public access on the npm registry. The source package version is `1.1.0`; builds, checks and source merges do not publish packages. Commands containing `VERSION` require a selected published version.
+The platform package is `@orgsdk/cli`. Its `orgsdk` command supervises the platform and separate HTTP executor. The independently installable runner is `@orgsdk/executor`. Both packages use public access on the npm registry. The package manifests record the source version. Commands containing `VERSION` require a selected published version.
 
 On Linux with Node.js 22.22.0 or newer:
 
@@ -22,7 +22,7 @@ Both platform builds generate `dist/THIRD_PARTY_NOTICES.txt` from the installed 
 Install the tarball into a separate directory or globally:
 
 ```sh
-npm install -g ./orgsdk-cli-1.1.0.tgz
+npm install -g ./orgsdk-cli-VERSION.tgz
 orgsdk start
 ```
 
@@ -46,7 +46,7 @@ Before upgrading, stop OrgSDK and preserve the database, matching encryption key
 
 ## Verification
 
-`npm run test:distribution -- ./orgsdk-cli-1.1.0.tgz` installs the real tarball into an empty temporary directory. Use `npm run test:distribution -- @orgsdk/cli@VERSION` to install from the public registry instead. The application and runner are launched with a path containing only Node.js. `npm run test:distribution:bun -- ./orgsdk-cli-1.1.0.tgz` runs the same acceptance assertions with Bun. These tests exercise frontend and Monaco assets, setup, login, automatic executor registration, code, validation, reusable action tests/execution, persistent files across restart, migration, backup, cancellation and graceful shutdown. They use disposable account and installation data.
+`npm run test:distribution -- ./orgsdk-cli-VERSION.tgz` installs the real tarball into an empty temporary directory. Use `npm run test:distribution -- @orgsdk/cli@VERSION` to install from the public registry instead. The application and runner are launched with a path containing only Node.js. `npm run test:distribution:bun -- ./orgsdk-cli-VERSION.tgz` runs the same acceptance assertions with Bun. These tests exercise installation pages and Studio redirects, setup, login, automatic executor registration, code, validation, reusable action tests/execution, persistent files across restart, migration, backup, cancellation and graceful shutdown. They use disposable account and installation data.
 
 Verify the independent registry runner with `npm --prefix runtime run smoke:node -- @orgsdk/executor@VERSION`. Use `smoke:bun` for the matching Bun assertions. An explicit tarball argument tests that exact artifact without rebuilding it.
 
@@ -56,7 +56,7 @@ CI separates source quality, runtime behavior and standalone executable checks:
 | --------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | Source quality        | Bun 1.4.0 and Node.js 22.22.0 tooling               | Full server, executor and frontend unit suites on Bun; formatting, lint, types, migration consistency and frontend build.                    |
 | Runtime matrix        | Node.js 22.22.0, latest Node.js 24 patch, Bun 1.4.0 | The same platform contract, packed CLI acceptance, browser suite and packed executor assertions in each runtime.                             |
-| Standalone executable | Compiled Bun 1.4.0                                  | Generated database history and browser suite; health/frontend/Monaco checks with an empty working directory and no runtime binaries on PATH. |
+| Standalone executable | Compiled Bun 1.4.0                                  | Generated database history and browser suite; health, installation page and Studio redirect checks with an empty working directory and no runtime binaries on PATH. |
 
 The pinned Node.js 22.22.0 lane checks the declared minimum. The Node.js 24 lane follows patch updates within that maintained major. This matrix does not run every unit test under Node.js: the full unit suites remain on Bun, while the shared contract and integration assertions exercise both product runtimes. The required `check` aggregator runs even when a dependency fails and requires every quality, runtime and standalone job to succeed.
 

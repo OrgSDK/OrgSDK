@@ -1,4 +1,4 @@
-import { expect, signIn, test, testClient } from "./fixtures";
+import { openWorkspace, expect, signIn, test, testClient } from "./fixtures";
 import { prepareExecutor } from "./executor";
 
 test("a browser-queued action executes in a separate worker and streams its outcome", async ({
@@ -24,7 +24,10 @@ test("a browser-queued action executes in a separate worker and streams its outc
     },
   });
   const executor = await prepareExecutor(page, project.id);
-  await page.goto(`/actions/?project=${project.id}&action=${saved.action}`);
+  await openWorkspace(
+    page,
+    `/actions/?project=${project.id}&action=${saved.action}`,
+  );
   await expect(page.getByLabel("Action name")).toHaveValue(
     "Separate worker proof",
   );
@@ -44,53 +47,47 @@ test("a browser-queued action executes in a separate worker and streams its outc
   }
   expect(queued.status).toBe("queued");
   expect(queued.action_version).toBe(saved.version.id);
-  const protocol = await page.context().newCDPSession(page);
-  const streamRequests = new Set<string>();
-  const messages: string[] = [];
-  protocol.on("Network.requestWillBeSent", (event) => {
-    if (new URL(event.request.url).pathname === "/trpc/runs.stream") {
-      streamRequests.add(event.requestId);
+  let subscriptions = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "GET" &&
+      new URL(request.url()).pathname === "/trpc/runs.stream"
+    ) {
+      subscriptions++;
     }
   });
-  protocol.on("Network.eventSourceMessageReceived", (event) => {
-    if (streamRequests.has(event.requestId)) {
-      messages.push(event.data);
-    }
+  const subscribed = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === "/trpc/runs.stream",
+  );
+  await page.getByRole("link", { name: "Run details", exact: true }).click();
+  await expect(page.locator(".run-detail .status-queued")).toBeVisible();
+  const subscription = await subscribed;
+  expect(subscription.status()).toBe(200);
+  expect(subscription.headers()["content-type"]).toContain("text/event-stream");
+  await executor.execute(queued.id);
+  const detail = page.locator(".run-detail");
+  await expect(
+    detail.getByText("action result", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    detail.getByText("execution log", { exact: true }),
+  ).toBeVisible();
+  expect(
+    subscriptions,
+    "Status changes must preserve the live subscription",
+  ).toBe(1);
+  await expect(page.locator(".run-detail .status-succeeded")).toBeVisible();
+  await expect(
+    page.locator(".run-detail").getByText('"answer": 42', { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".run-detail")
+      .getByText('"worker": "separate-bun-executor"', { exact: false }),
+  ).toBeVisible();
+  const completed = await client.runs.get.query({ id: queued.id });
+  expect(completed.status).toBe("succeeded");
+  expect(completed.output).toEqual({
+    result: { answer: 42, worker: "separate-bun-executor" },
   });
-  await protocol.send("Network.enable");
-  try {
-    const subscribed = page.waitForResponse(
-      (response) => new URL(response.url()).pathname === "/trpc/runs.stream",
-    );
-    await page.getByRole("link", { name: "Run details", exact: true }).click();
-    await expect(page.locator(".run-detail .status-queued")).toBeVisible();
-    const subscription = await subscribed;
-    expect(subscription.status()).toBe(200);
-    expect(subscription.headers()["content-type"]).toContain(
-      "text/event-stream",
-    );
-    await executor.execute(queued.id);
-    await expect.poll(() => messages.join("\n")).toContain("action.result");
-    expect(
-      streamRequests.size,
-      "Status changes must preserve the live subscription",
-    ).toBe(1);
-    expect(messages.join("\n")).toContain("execution.log");
-    await expect(page.locator(".run-detail .status-succeeded")).toBeVisible();
-    await expect(
-      page.locator(".run-detail").getByText('"answer": 42', { exact: false }),
-    ).toBeVisible();
-    await expect(
-      page
-        .locator(".run-detail")
-        .getByText('"worker": "separate-bun-executor"', { exact: false }),
-    ).toBeVisible();
-    const completed = await client.runs.get.query({ id: queued.id });
-    expect(completed.status).toBe("succeeded");
-    expect(completed.output).toEqual({
-      result: { answer: 42, worker: "separate-bun-executor" },
-    });
-  } finally {
-    await protocol.detach();
-  }
 });
