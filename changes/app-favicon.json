@@ -1,0 +1,5 @@
+{
+  "type": "patch",
+  "category": "fixed",
+  "summary": "The local app now uses the same favicon as orgsdk.ai."
+}
