@@ -72,6 +72,7 @@ export function PluginMarketplace({
           <article key={item.slug} className="rounded-lg border p-4">
             <div className="flex items-center gap-3">
               <PluginIcon
+                catalogSlug={item.slug}
                 url={typeof item.icon_url === "string" ? item.icon_url : ""}
               />
               <h3>{item.display_name}</h3>

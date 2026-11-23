@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -43,4 +44,28 @@ test("icon URLs allow HTTPS artwork and fall back for missing or unsafe URLs", (
     "https://user:password@example.test/icon.svg",
   ])
     expect(markup(url)).not.toContain("<img");
+});
+
+test("catalogue plugins render their bundled artwork with historical release metadata", () => {
+  const render = (catalogSlug, url) =>
+    renderToStaticMarkup(createElement(PluginIcon, { catalogSlug, url }));
+  for (const file of readdirSync(
+    new URL("../public/plugins/icons/", import.meta.url),
+  )) {
+    if (!/\.(svg|png|ico)$/.test(file)) continue;
+    const slug = file.split(".")[0];
+    const path = `/plugins/icons/${file}`;
+    expect(render(slug, "")).toContain(`src="${path}"`);
+    expect(render(slug, `https://orgsdk.ai${path}`)).toContain(`src="${path}"`);
+  }
+  expect(render("browser", "")).toContain(
+    'src="/plugins/icons/browser-cdp.png"',
+  );
+  expect(render("github", "https://custom.example/logo.svg")).toContain(
+    'src="https://custom.example/logo.svg"',
+  );
+  expect(render("github", "javascript:alert(1)")).toContain(
+    'src="/plugins/icons/github.svg"',
+  );
+  expect(render("unknown", "")).not.toContain("<img");
 });
