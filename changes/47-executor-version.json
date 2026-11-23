@@ -1,5 +1,0 @@
-{
-  "type": "patch",
-  "category": "fixed",
-  "summary": "The standalone and bundled executor commands report the installed package version when invoked with --version."
-}

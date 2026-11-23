@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+### Fixed
+
+- The standalone and bundled executor commands report the installed package version when invoked with --version.
+
 ## 1.1.0
 
 ### Added
