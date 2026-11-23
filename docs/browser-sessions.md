@@ -4,10 +4,10 @@ An external MCP client can keep a TypeScript session on a project runner while i
 
 ## Connect the browser
 
-1. On Linux with Node.js 22.22.0 or newer, install the CLI and start its bundled local executor. Open `http://127.0.0.1:8080`, create a workspace and select a project. A separately managed runner needs `@orgsdk/executor@0.2.0` for this release.
+1. On Linux with Node.js 22.22.0 or newer, install the CLI and start its bundled local executor. Open `http://127.0.0.1:8080`, create a workspace and select a project. A separately managed runner needs `@orgsdk/executor@1.0.0` for this release.
 
    ```sh
-   npm install -g @orgsdk/cli@0.2.0
+   npm install -g @orgsdk/cli@1.0.0
    orgsdk start --host 127.0.0.1 --port 8080 --data "$PWD/.runtime/browser-lab"
    ```
 
