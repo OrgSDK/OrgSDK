@@ -5,9 +5,9 @@ export const metadata: Metadata = {
   title: "OrgSDK",
   applicationName: "OrgSDK",
   icons: {
-    icon: { url: "/favicon.svg?v=orbit-o", type: "image/svg+xml" },
-    shortcut: "/favicon.ico",
-    apple: { url: "/apple-touch-icon.png", sizes: "180x180" },
+    icon: { url: "/favicon.png?v=20261023", type: "image/png", sizes: "96x96" },
+    shortcut: "/favicon.ico?v=20261023",
+    apple: { url: "/apple-touch-icon.png?v=20261023", sizes: "180x180" },
   },
   description: "Agents, repeatable actions and observable execution.",
   robots: { index: false, follow: false },
