@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+### Added
+
+- Open [OrgSDK Studio](https://studio.orgsdk.ai) and choose **Connect to this computer** to pair with a local installation. Fresh installations find an available port automatically. Studio also supports explicitly configured HTTPS servers. The bundled dashboard remains available offline.
+
 ## 1.0.1
 
 ### Fixed

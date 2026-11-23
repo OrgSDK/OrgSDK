@@ -1,5 +1,0 @@
-{
-  "type": "minor",
-  "category": "added",
-  "summary": "Pair an independently hosted dashboard with a local installation or an explicitly selected HTTPS server. New local installations find an available port automatically."
-}
