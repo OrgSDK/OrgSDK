@@ -5,6 +5,25 @@ import { digest, randomSecret } from "../shared/security";
 import { rpcFixture } from "./rpc-fixture";
 import { studioAudience } from "../auth/studio";
 
+test("fresh local installations allow official Studio and respect an explicit opt-out", () => {
+  const previous = process.env.ORGSDK_STUDIO_ORIGIN;
+  try {
+    delete process.env.ORGSDK_STUDIO_ORIGIN;
+    expect(studioAudience("http://127.0.0.1:28941")).toBe(
+      "https://studio.orgsdk.ai",
+    );
+    expect(studioAudience("https://customer.example.test")).toBeUndefined();
+    process.env.ORGSDK_STUDIO_ORIGIN = "";
+    expect(studioAudience("http://127.0.0.1:28941")).toBeUndefined();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.ORGSDK_STUDIO_ORIGIN;
+    } else {
+      process.env.ORGSDK_STUDIO_ORIGIN = previous;
+    }
+  }
+});
+
 test("dashboard approval is single use, origin and installation bound, and ends at logout", async () => {
   const previous = process.env.ORGSDK_STUDIO_ORIGIN;
   const dashboard = "https://studio.example.test";

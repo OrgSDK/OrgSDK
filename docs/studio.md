@@ -2,7 +2,9 @@
 
 Build the static dashboard with `npm run build:studio` after `npm run setup`. Serve the contents of `frontend/dist/studio/` at the root of a dedicated HTTPS origin. Support directory indexes and serve the included scripts and styles on the same origin. Exclude third-party scripts from this site. A dashboard release can read and act on the workspaces that approve it.
 
-Set `ORGSDK_STUDIO_ORIGIN` on each participating installation to the exact dashboard origin, for example `https://studio.example.com`. Omit the trailing slash. The regular installation build still includes setup, login, MFA, pairing approval and the full offline dashboard. The hosted export is a separate artifact.
+Local installations accept pairing requests from `https://studio.orgsdk.ai` by default. Set `ORGSDK_STUDIO_ORIGIN` to an empty string to disable pairing, or to an exact HTTPS origin to use a different dashboard. Remote installations explicitly configure their dashboard origin. The regular installation build includes setup, login, MFA, pairing approval and the full offline dashboard.
+
+For the official deployment, build the export from the released source revision and run `npx wrangler@4.147.0 deploy --config wrangler.studio.jsonc` from the repository root. The configuration serves the static files at `studio.orgsdk.ai`.
 
 ## On this computer
 

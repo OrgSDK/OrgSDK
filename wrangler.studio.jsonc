@@ -1,0 +1,12 @@
+{
+  "name": "orgsdk-studio",
+  "compatibility_date": "2026-11-23",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "studio.orgsdk.ai", "custom_domain": true }],
+  "assets": {
+    "directory": "./frontend/dist/studio",
+    "html_handling": "force-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}

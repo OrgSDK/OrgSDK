@@ -16,12 +16,14 @@ type Grants = {
 const installations = new WeakMap<AppDatabase, Grants>();
 
 export function studioAudience(endpoint: string): string | undefined {
-  const configured = process.env.ORGSDK_STUDIO_ORIGIN;
+  const url = new URL(endpoint);
+  const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
+  const configured =
+    process.env.ORGSDK_STUDIO_ORIGIN ??
+    (loopback ? "https://studio.orgsdk.ai" : undefined);
   if (!configured || !URL.canParse(configured)) {
     return;
   }
-  const url = new URL(endpoint);
-  const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
   if (
     !loopback &&
     (url.protocol !== "https:" || process.env.ORGSDK_PUBLIC_ORIGIN !== endpoint)

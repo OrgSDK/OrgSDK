@@ -19,7 +19,7 @@ Use `orgsdk server` to run only the platform, or `orgsdk executor --help` to reg
 
 See [distribution and verification](docs/npm-distribution.md) for pinned installation, upgrades, recovery and release checks.
 
-For an independently hosted dashboard with a local or HTTPS installation, see [Studio connections](docs/studio.md).
+Open [OrgSDK Studio](https://studio.orgsdk.ai) and choose **Connect to this computer**. Studio discovers your local installation and asks you to approve access. You can also use the local dashboard printed by the CLI. See [Studio connections](docs/studio.md) for browser support and remote installations.
 
 ## Browser discovery sessions
 
