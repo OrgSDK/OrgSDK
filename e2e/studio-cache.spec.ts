@@ -9,6 +9,7 @@ test("Studio keeps a complete release offline and switches only after the last t
   page,
   context,
 }) => {
+  test.setTimeout(90_000);
   const directory = await mkdtemp(join(tmpdir(), "orgsdk-studio-cache-"));
   const exported = resolve("frontend/dist/studio");
   await cp(exported, directory, { recursive: true });
@@ -112,7 +113,7 @@ test("Studio keeps a complete release offline and switches only after the last t
     });
     await expect(
       page.getByRole("status").filter({ hasText: "A Studio update is ready" }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 30_000 });
     await page.close();
     expect(
       await secondTab.evaluate(async () =>

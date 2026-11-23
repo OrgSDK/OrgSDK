@@ -5,43 +5,73 @@ export function StudioCacheStatus(): ReactNode {
   const [message, setMessage] = useState("");
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
+    const { serviceWorker } = navigator;
     const scope = new AbortController();
-    let timer: ReturnType<typeof setInterval> | undefined;
-    void navigator.serviceWorker
-      .register("/sw.js", { updateViaCache: "none" })
-      .then((registration) => {
-        if (scope.signal.aborted) return;
-        const options = { signal: scope.signal };
-        const waiting = () => {
-          if (registration.waiting && navigator.serviceWorker.controller)
-            setMessage("A Studio update is ready. Save your work and close all Studio tabs to use it next time.");
+    const options = { signal: scope.signal };
+    let registration: ServiceWorkerRegistration | undefined;
+    let isChecking = false;
+
+    function observe(registered: ServiceWorkerRegistration) {
+      const watch = () => {
+        const worker = registered.installing;
+        const report = () => {
+          if (
+            registered.waiting ||
+            (worker?.state === "installed" && registered.active)
+          ) {
+            setMessage(
+              "A Studio update is ready. Save your work and close all Studio tabs to use it next time.",
+            );
+          } else if (worker?.state === "redundant" && !registered.active) {
+            setMessage(
+              "Studio could not finish downloading for offline use. Reopen it online to retry.",
+            );
+          } else if (registered.active) {
+            setMessage("");
+          }
         };
-        const watch = () => {
-          const worker = registration.installing;
-          worker?.addEventListener("statechange", () => {
-            if (worker.state === "redundant" && !registration.active) {
-              setMessage("Studio could not finish downloading for offline use. Reopen it online to retry.");
-            } else {
-              waiting();
-            }
-          }, options);
-          waiting();
-        };
-        registration.addEventListener("updatefound", watch, options);
-        watch();
-        const check = () => {
-          if (document.visibilityState === "visible")
-            void registration.update().catch(() => {
-              /* A later online check can retry. */
-            });
-        };
-        if (registration.active && !registration.installing && !registration.waiting) check();
-        document.addEventListener("visibilitychange", check, options);
-        timer = setInterval(check, 60 * 60_000);
-      })
-      .catch(() => {
-        if (!scope.signal.aborted && !navigator.serviceWorker.controller) setMessage("Offline storage is unavailable in this browser.");
-      });
+        worker?.addEventListener("statechange", report, options);
+        report();
+      };
+      registered.addEventListener("updatefound", watch, options);
+      watch();
+    }
+
+    async function check() {
+      if (isChecking) return;
+      isChecking = true;
+      try {
+        if (!registration) {
+          // Attach to the active release even when the hosting origin is offline.
+          registration = await serviceWorker.getRegistration("/");
+          const isNew = !registration;
+          registration ??= await serviceWorker.register("/sw.js", {
+            updateViaCache: "none",
+          });
+          if (scope.signal.aborted) return;
+          observe(registration);
+          if (isNew) return;
+        }
+        if (!registration.installing && !registration.waiting)
+          await registration.update();
+      } catch {
+        if (!scope.signal.aborted && !serviceWorker.controller) {
+          registration = undefined;
+          setMessage(
+            "Offline storage is unavailable. Reopen Studio online to retry.",
+          );
+        }
+      } finally {
+        isChecking = false;
+      }
+    }
+    const whenVisible = () => {
+      if (document.visibilityState === "visible") void check();
+    };
+    void check();
+    document.addEventListener("visibilitychange", whenVisible, options);
+    globalThis.addEventListener("online", whenVisible, options);
+    const timer = setInterval(whenVisible, 60 * 60_000);
     return () => {
       scope.abort();
       clearInterval(timer);
