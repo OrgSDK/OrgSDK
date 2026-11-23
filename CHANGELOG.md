@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1
+
+### Fixed
+
+- Show service icons for catalogue and installed plugins, including releases saved without artwork.
+
 ## 1.0.0
 
 ### Changed
