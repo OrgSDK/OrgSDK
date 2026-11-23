@@ -1,3 +1,4 @@
+import { studioAudience, studioSession } from "../auth/studio";
 import type { AppDependencies, ServiceContext } from "../application";
 import { identityRepository } from "../repositories/identity";
 import { digest, randomSecret } from "../shared/security";
@@ -8,6 +9,8 @@ export type AppContext = ServiceContext & {
   request: Request;
   responseHeaders: Headers;
   clientTokenError: string | null;
+  studioOrigin?: string | undefined;
+  studioExpiresAt?: number | undefined;
 };
 function cookies(request: Request): Map<string, string> {
   return new Map(
@@ -26,6 +29,9 @@ export function setCookie(
   httpOnly = false,
   maxAge = 86400 * 14,
 ) {
+  if (ctx.studioOrigin) {
+    return;
+  }
   const secure =
     new URL(ctx.request.url).protocol === "https:" ? "; Secure" : "";
   ctx.responseHeaders.append(
@@ -67,9 +73,34 @@ export function createContext(
   const hostname = url.hostname.toLowerCase();
   const identities = identityRepository(store.db);
   const workspace = identities.workspaceForHost(hostname) ?? null;
+  const origin = request.headers.get("origin");
+  const studioOrigin =
+    origin &&
+    url.pathname.startsWith("/trpc/") &&
+    origin === studioAudience(url.origin)
+      ? origin
+      : undefined;
+  const grant = studioOrigin
+    ? studioSession(
+        store.db,
+        url.origin,
+        studioOrigin,
+        request.headers.get("x-orgsdk-studio-session"),
+      )
+    : undefined;
+  if (
+    studioOrigin &&
+    (request.headers.has("cookie") || request.headers.has("authorization"))
+  ) {
+    throw new ServiceError(
+      "FORBIDDEN",
+      "Dashboard requests must use a paired session.",
+    );
+  }
   const values = cookies(request);
   const secret = values.get("sessionid");
-  const session = secret ? identities.session(digest(secret)) : undefined;
+  const sessionId = grant?.sessionId ?? (secret ? digest(secret) : undefined);
+  const session = sessionId ? identities.session(sessionId) : undefined;
   const validSession =
     session && session.expiresAt > Date.now() ? session : undefined;
   const authorization = request.headers.get("authorization");
@@ -101,9 +132,11 @@ export function createContext(
     token,
     clientTokenError,
     responseHeaders,
+    studioOrigin,
+    studioExpiresAt: grant?.expiresAt,
     sessionId: validSession?.id ?? null,
   };
-  if (!values.get("csrftoken")) {
+  if (!studioOrigin && !values.get("csrftoken")) {
     setCookie(ctx, "csrftoken", randomSecret());
   }
   return ctx;

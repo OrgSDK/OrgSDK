@@ -1,7 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { createServer } from "node:net";
 
 export function requireDockerConfiguration(env) {
   for (const name of ["EXECUTOR_IMAGE", "EXECUTION_NETWORK"]) {
@@ -14,17 +13,6 @@ export function requireDockerConfiguration(env) {
       "Docker mode requires EXECUTOR_DATA_BIND=1 or EXECUTOR_DATA_VOLUME.",
     );
   }
-}
-
-export async function requireAvailablePort(host, port) {
-  const probe = createServer();
-  await new Promise((resolve, reject) => {
-    probe.once("error", reject);
-    probe.listen({ host, port: Number(port), exclusive: true }, resolve);
-  });
-  await new Promise((resolve, reject) => {
-    probe.close((error) => (error ? reject(error) : resolve()));
-  });
 }
 
 export async function bootstrapToken(dataDirectory) {

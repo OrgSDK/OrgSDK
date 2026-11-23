@@ -1,10 +1,11 @@
+import { once } from "node:events";
+import { localAddress } from "./configuration.mjs";
 import { spawn } from "node:child_process";
 import process from "node:process";
-import { setTimeout as delay } from "node:timers/promises";
 
-function launch(entry, args, env) {
+function launch(entry, args, env, ipc = false) {
   const child = spawn(process.execPath, [entry, ...args], {
-    stdio: "inherit",
+    stdio: ipc ? ["inherit", "inherit", "inherit", "ipc"] : "inherit",
     env,
     detached: process.platform !== "win32",
   });
@@ -39,41 +40,12 @@ function exitStatus(result) {
   return result.signal === "SIGINT" ? 130 : 143;
 }
 
-async function waitForServer(address, signal, publicOrigin) {
-  const deadline = Date.now() + 20_000;
-  while (Date.now() < deadline) {
-    signal.throwIfAborted();
-    try {
-      const response = await fetch(`${address}/trpc/system.health`, {
-        signal: AbortSignal.any([signal, AbortSignal.timeout(1000)]),
-        ...(publicOrigin
-          ? { headers: { Host: new URL(publicOrigin).host } }
-          : {}),
-      });
-      if (response.ok) {
-        const health = await response.json();
-        if (health?.result?.data?.status === "ok") {
-          return;
-        }
-      }
-    } catch (error) {
-      signal.throwIfAborted();
-      if (!(error instanceof Error)) {
-        throw error;
-      }
-    }
-    await delay(200, undefined, { signal });
-  }
-  throw new Error("Platform did not become ready within 20 seconds.");
-}
-
 export async function supervise({
   server,
   executor,
   serverArgs = ["server"],
   executorArgs = ["manage"],
   env,
-  address,
 }) {
   const children = [];
   const controller = new AbortController();
@@ -116,25 +88,42 @@ export async function supervise({
   process.once("SIGINT", onInterrupt);
   process.once("SIGTERM", onTerminate);
   try {
-    const platform = launch(server, serverArgs, env);
+    const platform = launch(server, serverArgs, env, Boolean(executor));
     children.push(platform);
     if (executor) {
       const readiness = await Promise.race([
-        waitForServer(
-          address,
-          controller.signal,
-          env.ORGSDK_PUBLIC_ORIGIN,
-        ).then(() => undefined),
+        once(platform.child, "message", {
+          signal: AbortSignal.any([
+            controller.signal,
+            AbortSignal.timeout(20_000),
+          ]),
+        }).then(([message]) => {
+          if (
+            !Number.isInteger(message?.port) ||
+            message.port < 1 ||
+            message.port > 65535
+          ) {
+            throw new Error("Invalid platform listener.");
+          }
+          return {
+            address: localAddress(env.HOST ?? "127.0.0.1", message.port),
+          };
+        }),
         platform.closed,
       ]);
-      if (readiness) {
+      if (!("address" in readiness)) {
         if (readiness.error) {
           throw readiness.error;
         }
         return requestedStatus ?? (exitStatus(readiness) || 1);
       }
       controller.signal.throwIfAborted();
-      children.push(launch(executor, executorArgs, env));
+      children.push(
+        launch(executor, executorArgs, {
+          ...env,
+          ORGSDK_SERVER_URL: readiness.address,
+        }),
+      );
     }
     const result = await Promise.race(children.map(({ closed }) => closed));
     if (result.error) {

@@ -1,3 +1,4 @@
+import { StudioConnection } from "../components/studio/connection";
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import "./styles.css";
@@ -24,7 +25,13 @@ export default function Layout({
 }): ReactNode {
   return (
     <html lang="en-AU">
-      <body>{children}</body>
+      <body>
+        {process.env.NEXT_PUBLIC_ORGSDK_STUDIO === "1" ? (
+          <StudioConnection>{children}</StudioConnection>
+        ) : (
+          children
+        )}
+      </body>
     </html>
   );
 }

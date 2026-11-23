@@ -11,6 +11,7 @@ import { pluginsRouter } from "./plugins";
 import { projectsRouter } from "./projects";
 import { runsRouter } from "./runs";
 import { schedulesRouter } from "./schedules";
+import { studioRouter } from "./studio";
 import { systemRouter } from "./system";
 import { tablesRouter } from "./tables";
 import { tokensRouter } from "./tokens";
@@ -31,6 +32,7 @@ export const appRouter = router({
   projects: projectsRouter,
   runs: runsRouter,
   schedules: schedulesRouter,
+  studio: studioRouter,
   system: systemRouter,
   tables: tablesRouter,
   tokens: tokensRouter,
