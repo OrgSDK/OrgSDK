@@ -8,7 +8,7 @@ import { handleExecution } from "../execution/routes";
 import { handleOAuthCallback } from "../oauth/transport";
 import { appRouter } from "../router";
 import { ServiceError, serviceErrorStatus } from "../shared/errors";
-import { checkCsrf, createContext, type AppContext } from "./context";
+import { checkClientRequest, createContext, type AppContext } from "./context";
 import { publicRequest } from "./origin";
 import { finishResponse } from "./response-middleware";
 import { HttpError, json } from "./responses";
@@ -53,7 +53,7 @@ async function dispatch(context: AppContext, path: string): Promise<Response> {
     });
   }
   if (path === "/mcp/") {
-    checkCsrf(context);
+    checkClientRequest(context);
     return (await handleMcp(context)) ?? json({ detail: "Not found." }, 404);
   }
   return json({ detail: "Not found." }, 404);

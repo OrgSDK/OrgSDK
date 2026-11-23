@@ -5,11 +5,16 @@ import { inTransaction } from "../../db/transaction";
 import { tokenCreateSchema } from "../../tokens/schemas";
 import { projectsRepository } from "../../repositories/projects";
 import { actionVersionsRepository } from "../../repositories/action-versions";
-import { digest, randomSecret } from "../../shared/security";
+import {
+  issuedMcpAccessTokenSchema,
+  issueMcpAccessToken,
+  mcpAccessTokenDigest,
+} from "../../tokens/access-token";
 import { browserManagerProcedure } from "../procedures";
 
 export const createProcedure = browserManagerProcedure
   .input(tokenCreateSchema)
+  .output(issuedMcpAccessTokenSchema)
   .mutation(({ ctx, input }) => {
     return inTransaction(ctx, (ctx) => {
       for (const projectId of input.projects) {
@@ -18,14 +23,14 @@ export const createProcedure = browserManagerProcedure
       for (const versionId of input.action_versions) {
         actionVersionsRepository(ctx).find(versionId);
       }
-      const token = randomSecret();
+      const token = issueMcpAccessToken();
       const record = ctx.db
         .insert(accessTokens)
         .values({
           ...base(ctx.workspace.id),
           actorId: ctx.user.id,
           name: input.name,
-          digest: digest(token),
+          digest: mcpAccessTokenDigest(token),
           scopes: input.scopes,
           projects: input.projects,
           actionVersions: input.action_versions,

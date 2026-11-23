@@ -1,0 +1,5 @@
+{
+  "type": "major",
+  "category": "changed",
+  "summary": "MCP and tRPC clients must send workspace access tokens with the orgsdk_mcp_ prefix. Prepend it to existing saved tokens when upgrading."
+}

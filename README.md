@@ -21,6 +21,8 @@ See [distribution and verification](docs/npm-distribution.md) for pinned install
 
 ## Browser discovery sessions
 
+OrgSDK workspace access tokens for MCP and tRPC begin with `orgsdk_mcp_`. Send the full value in the `Authorization: Bearer` header. After upgrading the platform, prepend `orgsdk_mcp_` to any unprefixed workspace token saved in a client. Its grants, revocation status and activity history carry over.
+
 Use an external MCP client to iterate on a live browser with persistent TypeScript variables, then validate, test and replay the steps as a versioned action. See the [local browser session guide](docs/browser-sessions.md) for setup, example cells and a reproducible end-to-end check.
 
 ## Build and run locally

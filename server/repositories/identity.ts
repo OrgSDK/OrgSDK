@@ -1,5 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import type { AppDatabase } from "../db/database";
+import {
+  mcpAccessTokenDigest,
+  type McpAccessToken,
+} from "../tokens/access-token";
 import { accessTokens } from "../db/schema";
 import { memberships, sessions, users, workspaces } from "../db/schema/core";
 
@@ -24,11 +28,18 @@ export function identityRepository(database: AppDatabase) {
     session(id: string) {
       return database.select().from(sessions).where(eq(sessions.id, id)).get();
     },
-    tokenByDigest(digest: string) {
+    activeClientToken(workspaceId: number, token: McpAccessToken) {
+      const tokenDigest = mcpAccessTokenDigest(token);
       return database
         .select()
         .from(accessTokens)
-        .where(eq(accessTokens.digest, digest))
+        .where(
+          and(
+            eq(accessTokens.digest, tokenDigest),
+            eq(accessTokens.workspaceId, workspaceId),
+            eq(accessTokens.revoked, false),
+          ),
+        )
         .get();
     },
     membership(workspaceId: number, userId: number) {
