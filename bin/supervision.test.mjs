@@ -38,7 +38,7 @@ async function fixture() {
     import { createServer } from 'node:http';
     import { writeFileSync } from 'node:fs';
     const server = createServer((request,response) => response.end(JSON.stringify({result:{data:{status:'ok'}}})));
-    server.listen(${port}, '127.0.0.1', () => writeFileSync(${JSON.stringify(join(directory, "server.json"))}, JSON.stringify({pid:process.pid,port:server.address().port})));
+    server.listen(${port}, '127.0.0.1', () => {process.send({port:server.address().port}); writeFileSync(${JSON.stringify(join(directory, "server.json"))}, JSON.stringify({pid:process.pid,port:server.address().port}));});
     process.on('SIGTERM', () => server.close(() => process.exit(0)));
   `,
   );
@@ -58,7 +58,7 @@ async function fixture() {
     `
     import { supervise } from ${JSON.stringify(new URL("./supervision.mjs", import.meta.url).href)};
     const server=${JSON.stringify(server)},executor=${JSON.stringify(executor)};
-    process.exitCode=await supervise({server,executor,env:process.env,address:'http://127.0.0.1:${port}'});
+    process.exitCode=await supervise({server,executor,env:process.env});
   `,
   );
   const child = spawn(process.execPath, [wrapper], {
@@ -126,7 +126,6 @@ test(
         server,
         executor,
         env: process.env,
-        address: "http://127.0.0.1:1",
       });
       assert.equal(status, 7);
       await assert.rejects(readFile(marker), { code: "ENOENT" });

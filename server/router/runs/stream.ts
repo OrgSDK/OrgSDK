@@ -14,6 +14,9 @@ export const streamProcedure = scopedProcedure("runs:read")
     authorizeRunRead(ctx, run, null);
     let after = input.after;
     while (!signal?.aborted) {
+      if (ctx.studioExpiresAt && ctx.studioExpiresAt <= Date.now()) {
+        return;
+      }
       const membership = ctx.db
         .select()
         .from(memberships)

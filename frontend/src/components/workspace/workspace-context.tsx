@@ -1,5 +1,5 @@
 "use client";
-import { loadSession, trpc } from "../../api/trpc";
+import { installationHref, loadSession, trpc } from "../../api/trpc";
 import {
   createContext,
   Suspense,
@@ -43,7 +43,9 @@ const WorkspaceContext = createContext<WorkspaceContextValue | undefined>(
 );
 function rememberedProject(workspaceId: number): string | null {
   try {
-    return sessionStorage.getItem(`orgsdk:project:v1:${String(workspaceId)}`);
+    return sessionStorage.getItem(
+      installationHref(`orgsdk:project:v1:${String(workspaceId)}`),
+    );
   } catch {
     return null;
   }
@@ -115,7 +117,7 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
     if (!selected || workspaceId === undefined) return;
     try {
       sessionStorage.setItem(
-        `orgsdk:project:v1:${String(workspaceId)}`,
+        installationHref(`orgsdk:project:v1:${String(workspaceId)}`),
         selected,
       );
     } catch {

@@ -4,6 +4,9 @@ const isDevelopment = process.env.NODE_ENV === "development";
 const config: NextConfig = {
   ...(!isDevelopment && { output: "export" }),
   turbopack: { root: import.meta.dirname },
+  ...(process.env.NEXT_PUBLIC_ORGSDK_STUDIO === "1" && {
+    distDir: "dist/studio",
+  }),
   trailingSlash: true,
   skipTrailingSlashRedirect: true,
   images: { unoptimized: true },

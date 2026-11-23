@@ -4,11 +4,11 @@ An external MCP client can keep a TypeScript session on a project runner while i
 
 ## Connect the browser
 
-1. On Linux with Node.js 22.22.0 or newer, install the CLI and start its bundled local executor. Open `http://127.0.0.1:8080`, create a workspace and select a project. A separately managed runner needs `@orgsdk/executor@1.0.0` for this release.
+1. On Linux with Node.js 22.22.0 or newer, install the CLI and start its bundled local executor. Open [Studio](https://studio.orgsdk.ai), choose **Connect to this computer**, create a workspace and select a project. A separately managed runner needs `@orgsdk/executor@1.1.0` for this release.
 
    ```sh
-   npm install -g @orgsdk/cli@1.0.0
-   orgsdk start --host 127.0.0.1 --port 8080 --data "$PWD/.runtime/browser-lab"
+   npm install -g @orgsdk/cli@1.1.0
+   orgsdk start --data "$PWD/.runtime/browser-lab"
    ```
 
 2. Start one Playwright MCP process for this project. The example uses Microsoft's 0.0.86 release and a dedicated local Chromium profile. Set `CHROME_BIN` to the full path to Chrome or Chromium.

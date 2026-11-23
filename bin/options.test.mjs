@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
-import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -10,7 +9,6 @@ import test from "node:test";
 import {
   bootstrapToken,
   localAddress,
-  requireAvailablePort,
   requireDockerConfiguration,
 } from "./configuration.mjs";
 import { parseArguments } from "./options.mjs";
@@ -80,19 +78,9 @@ test("bootstrap credential is private and stable over launches", async () => {
   }
 });
 
-test("occupied listen port is rejected before startup", async () => {
-  const server = createServer();
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  try {
-    await assert.rejects(
-      requireAvailablePort("127.0.0.1", server.address().port),
-      { code: "EADDRINUSE" },
-    );
-    assert.equal(localAddress("::", 8080), "http://127.0.0.1:8080");
-    assert.equal(localAddress("::1", 8080), "http://[::1]:8080");
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-  }
+test("local addresses preserve IPv6 loopback", () => {
+  assert.equal(localAddress("::", 8080), "http://127.0.0.1:8080");
+  assert.equal(localAddress("::1", 8080), "http://[::1]:8080");
 });
 
 test("Docker mode requires explicit image, networking and project mount configuration", () => {

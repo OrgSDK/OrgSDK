@@ -6,8 +6,6 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import {
   bootstrapToken,
-  localAddress,
-  requireAvailablePort,
   requireDockerConfiguration,
 } from "./configuration.mjs";
 import { help, parseArguments } from "./options.mjs";
@@ -56,7 +54,11 @@ async function main() {
     return supervise({ server: executor, serverArgs: options.args, env });
   }
   env.HOST = options.host;
-  env.PORT = options.port;
+  if (options.port) {
+    env.PORT = options.port;
+  } else {
+    delete env.PORT;
+  }
   if (options.command !== "start") {
     return supervise({
       server,
@@ -67,11 +69,8 @@ async function main() {
   if (options.mode === "docker") {
     requireDockerConfiguration(env);
   }
-  await requireAvailablePort(options.host, options.port);
   env.LOCAL_EXECUTOR_BOOTSTRAP_TOKEN = await bootstrapToken(options.data);
   env.EXECUTOR_DATA_DIR ||= join(options.data, "executor");
-  const address = localAddress(options.host, options.port);
-  env.ORGSDK_SERVER_URL = address;
   if (options.mode === "host") {
     console.log(
       "Local executor: project code runs with your current user's host privileges. Use trusted code and clients only.",
@@ -83,7 +82,6 @@ async function main() {
     executor,
     executorArgs: ["manage", "--mode", options.mode],
     env,
-    address,
   });
 }
 

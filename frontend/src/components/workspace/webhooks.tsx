@@ -1,6 +1,6 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { trpc } from "../../api/trpc";
+import { installationOrigin, trpc } from "../../api/trpc";
 import { errorMessage } from "../../api/result";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { loadActions } from "../../api/workspace-queries";
@@ -99,7 +99,7 @@ export function Webhooks({ actionId = "" }: { actionId?: string }): ReactNode {
                 value={
                   typeof window === "undefined"
                     ? hook.endpoint
-                    : location.origin + hook.endpoint
+                    : installationOrigin() + hook.endpoint
                 }
               />
             </label>
@@ -110,7 +110,7 @@ export function Webhooks({ actionId = "" }: { actionId?: string }): ReactNode {
                 onClick={() => {
                   void perform(async () => {
                     await navigator.clipboard.writeText(
-                      location.origin + hook.endpoint,
+                      installationOrigin() + hook.endpoint,
                     );
                     setNotice("Endpoint copied.");
                   });

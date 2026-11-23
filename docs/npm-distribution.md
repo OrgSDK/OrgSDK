@@ -2,7 +2,7 @@
 
 Tracking: [Node.js distribution issue #7](https://github.com/OrgSDK/OrgSDK/issues/7).
 
-The platform package is `@orgsdk/cli`. Its `orgsdk` command supervises the platform and separate HTTP executor. The independently installable runner is `@orgsdk/executor`. Both packages use public access on the npm registry. The source package version is `1.0.0`; builds, checks and source merges do not publish packages. Commands containing `VERSION` require a selected published version.
+The platform package is `@orgsdk/cli`. Its `orgsdk` command supervises the platform and separate HTTP executor. The independently installable runner is `@orgsdk/executor`. Both packages use public access on the npm registry. The source package version is `1.1.0`; builds, checks and source merges do not publish packages. Commands containing `VERSION` require a selected published version.
 
 On Linux with Node.js 22.22.0 or newer:
 
@@ -22,13 +22,13 @@ Both platform builds generate `dist/THIRD_PARTY_NOTICES.txt` from the installed 
 Install the tarball into a separate directory or globally:
 
 ```sh
-npm install -g ./orgsdk-cli-1.0.0.tgz
+npm install -g ./orgsdk-cli-1.1.0.tgz
 orgsdk start
 ```
 
 The installed product needs Node.js, but no source checkout, Bun, frontend build tooling or Docker for host mode. SQLite and password hashing use native dependencies; npm must install the packages appropriate to the host. A platform without a matching native prebuild may need its dependency's native build prerequisites. The supported installation target is Linux; project filesystem operations require `/proc`.
 
-The CLI defaults to loopback port 8080. Complete setup in the browser. The local executor manager creates project registrations through the existing authenticated HTTP bootstrap protocol. It never opens the application database. A private bootstrap credential is stored outside the package alongside the installation data. Job workers receive scoped run authority, not the manager credential.
+New local installations try loopback ports 28940 through 28947 and remember their selected port. Existing installations without a saved port use 8080. The CLI prints the address. An explicit port is exact. Complete setup in the browser. The local executor manager creates project registrations through the existing authenticated HTTP bootstrap protocol. It never opens the application database. A private bootstrap credential is stored outside the package alongside the installation data. Job workers receive scoped run authority, not the manager credential.
 
 Host mode uses the current OS account and is intended for trusted code, plugins and clients. Validation and action tests run in disposable workers with allowlisted inputs and no project capability or project directory. They do not gain an OS sandbox from that separation. Docker mode remains available when configured with an executor image, network and data mounts.
 
@@ -46,7 +46,7 @@ Before upgrading, stop OrgSDK and preserve the database, matching encryption key
 
 ## Verification
 
-`npm run test:distribution -- ./orgsdk-cli-1.0.0.tgz` installs the real tarball into an empty temporary directory. Use `npm run test:distribution -- @orgsdk/cli@VERSION` to install from the public registry instead. The application and runner are launched with a path containing only Node.js. `npm run test:distribution:bun -- ./orgsdk-cli-1.0.0.tgz` runs the same acceptance assertions with Bun. These tests exercise frontend and Monaco assets, setup, login, automatic executor registration, code, validation, reusable action tests/execution, persistent files across restart, migration, backup, cancellation and graceful shutdown. They use disposable account and installation data.
+`npm run test:distribution -- ./orgsdk-cli-1.1.0.tgz` installs the real tarball into an empty temporary directory. Use `npm run test:distribution -- @orgsdk/cli@VERSION` to install from the public registry instead. The application and runner are launched with a path containing only Node.js. `npm run test:distribution:bun -- ./orgsdk-cli-1.1.0.tgz` runs the same acceptance assertions with Bun. These tests exercise frontend and Monaco assets, setup, login, automatic executor registration, code, validation, reusable action tests/execution, persistent files across restart, migration, backup, cancellation and graceful shutdown. They use disposable account and installation data.
 
 Verify the independent registry runner with `npm --prefix runtime run smoke:node -- @orgsdk/executor@VERSION`. Use `smoke:bun` for the matching Bun assertions. An explicit tarball argument tests that exact artifact without rebuilding it.
 

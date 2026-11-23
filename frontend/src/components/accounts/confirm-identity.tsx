@@ -1,10 +1,17 @@
 "use client";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { trpc } from "../../api/trpc";
+import { installationHref, trpc } from "../../api/trpc";
 import { formText } from "../../lib/form-fields";
 import { AccountField, AccountForm } from "./account-form";
 export function ConfirmIdentity(): ReactNode {
+  const account = installationHref("/accounts/email/");
+  if (account.startsWith("https:") || account.startsWith("http:"))
+    return (
+      <a href={account} target="_blank" rel="noreferrer">
+        Confirm your identity on your installation, then retry.
+      </a>
+    );
   return (
     <details open className="mt-6 border-t border-slate-200 pt-4">
       <summary className="cursor-pointer text-sm font-medium">

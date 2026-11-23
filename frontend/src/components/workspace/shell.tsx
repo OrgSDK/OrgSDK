@@ -1,4 +1,5 @@
 "use client";
+import { installationHref } from "../../api/trpc";
 import { Button } from "../ui/button";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Menu, X } from "lucide-react";
@@ -146,7 +147,7 @@ export function WorkspaceShell({
           </span>
           <span>
             {workspace}
-            <small>Local workspace</small>
+            <small>{installationHref("") || "Local workspace"}</small>
           </span>
         </div>
       </aside>

@@ -35,7 +35,7 @@ For an existing plugin checkout using the canonical `.plugin.json` with `name`, 
 
 Use this optional systemd service to run a project executor on a local Linux machine.
 The service communicates with the application over HTTP and never accesses the application database.
-Use `http://localhost:8080` when the service runs on the server machine, or the
+Use the loopback URL printed by OrgSDK when the service runs on the server machine, or the
 server's reachable local network address when using another machine. Docker
 jobs also need a server address reachable from their container; container
 `localhost` refers to the job container itself. Allow outbound access to the
@@ -49,8 +49,8 @@ Docker mode also needs Docker
 Engine. Extract the installer from the tarball and run it as root:
 
 ```sh
-tar -xzf orgsdk-executor-1.0.0.tgz package/scripts/install-service.sh
-sudo bash package/scripts/install-service.sh "$PWD/orgsdk-executor-1.0.0.tgz" researcher docker
+tar -xzf orgsdk-executor-1.1.0.tgz package/scripts/install-service.sh
+sudo bash package/scripts/install-service.sh "$PWD/orgsdk-executor-1.1.0.tgz" researcher docker
 ```
 
 The installer creates `/opt/orgsdk-executor`, the `orgsdk-researcher` system

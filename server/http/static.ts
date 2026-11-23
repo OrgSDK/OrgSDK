@@ -60,6 +60,10 @@ export async function staticResponse(
   const headers = new Headers({
     "Content-Type": contentTypes[extension] ?? "application/octet-stream",
   });
+  if (filename === resolve(root, "studio/approve/index.html")) {
+    headers.set("Content-Security-Policy", "frame-ancestors 'none'");
+    headers.set("Referrer-Policy", "no-referrer");
+  }
   if (pathname.startsWith("/_next/static/")) {
     headers.set("Cache-Control", "public, max-age=31536000, immutable");
   }
