@@ -94,7 +94,6 @@ test("wrong passwords stay signed out, local deep links survive sign-in, and log
   ).toBeVisible();
   await signOut(page);
   await page.goto(next);
-  await page.getByRole("button", { name: "Connect to server" }).click();
   await page
     .getByRole("link", { name: "Sign in to this installation" })
     .click();

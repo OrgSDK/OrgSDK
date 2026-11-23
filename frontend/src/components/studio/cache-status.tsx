@@ -1,39 +1,62 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
-export function StudioCacheStatus(): ReactNode {
-  const [message, setMessage] = useState("");
+type OfflineStatus = "saving" | "ready" | "unavailable" | "update";
+const statusText: Record<OfflineStatus, string> = {
+  saving: "Saving Studio for offline use…",
+  ready: "Studio is available offline",
+  unavailable: "Offline copy unavailable",
+  update:
+    "A Studio update is ready. Save your work and close all Studio tabs to use it next time.",
+};
+
+export function StudioCacheStatus({
+  showOfflineStatus = false,
+}: {
+  showOfflineStatus?: boolean;
+}): ReactNode {
+  const [status, setStatus] = useState<OfflineStatus>();
+  const retry = useRef<() => void>(undefined);
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
+    if (!("serviceWorker" in navigator)) {
+      return;
+    }
     const { serviceWorker } = navigator;
     const scope = new AbortController();
     const options = { signal: scope.signal };
-    let registration: ServiceWorkerRegistration | undefined;
+    let observed: ServiceWorkerRegistration | undefined;
     let isChecking = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let hasRetried = false;
 
-    function observe(registered: ServiceWorkerRegistration) {
-      const watch = () => {
-        const worker = registered.installing;
-        const report = () => {
+    function unavailable() {
+      setStatus("unavailable");
+      if (hasRetried || !navigator.onLine) return;
+      hasRetried = true;
+      retryTimer = setTimeout(() => void check(), 10_000);
+    }
+
+    function observe(registration: ServiceWorkerRegistration) {
+      function watch() {
+        const worker = registration.installing;
+        function report() {
           if (
-            registered.waiting ||
-            (worker?.state === "installed" && registered.active)
+            registration.waiting ||
+            (worker?.state === "installed" && registration.active)
           ) {
-            setMessage(
-              "A Studio update is ready. Save your work and close all Studio tabs to use it next time.",
-            );
-          } else if (worker?.state === "redundant" && !registered.active) {
-            setMessage(
-              "Studio could not finish downloading for offline use. Reopen it online to retry.",
-            );
-          } else if (registered.active) {
-            setMessage("");
+            setStatus("update");
+          } else if (registration.active) {
+            setStatus("ready");
+          } else if (worker?.state === "redundant") {
+            unavailable();
+          } else {
+            setStatus("saving");
           }
-        };
+        }
         worker?.addEventListener("statechange", report, options);
         report();
-      };
-      registered.addEventListener("updatefound", watch, options);
+      }
+      registration.addEventListener("updatefound", watch, options);
       watch();
     }
 
@@ -41,26 +64,19 @@ export function StudioCacheStatus(): ReactNode {
       if (isChecking) return;
       isChecking = true;
       try {
-        if (!registration) {
-          // Attach to the active release even when the hosting origin is offline.
-          registration = await serviceWorker.getRegistration("/");
-          const isNew = !registration;
-          registration ??= await serviceWorker.register("/sw.js", {
-            updateViaCache: "none",
-          });
-          if (scope.signal.aborted) return;
+        const existing = await serviceWorker.getRegistration("/");
+        const registration =
+          existing ??
+          (await serviceWorker.register("/sw.js", { updateViaCache: "none" }));
+        if (scope.signal.aborted) return;
+        if (registration !== observed) {
+          observed = registration;
           observe(registration);
-          if (isNew) return;
         }
-        if (!registration.installing && !registration.waiting)
+        if (existing && !registration.installing && !registration.waiting)
           await registration.update();
       } catch {
-        if (!scope.signal.aborted && !serviceWorker.controller) {
-          registration = undefined;
-          setMessage(
-            "Offline storage is unavailable. Reopen Studio online to retry.",
-          );
-        }
+        if (!scope.signal.aborted && !serviceWorker.controller) unavailable();
       } finally {
         isChecking = false;
       }
@@ -68,18 +84,32 @@ export function StudioCacheStatus(): ReactNode {
     const whenVisible = () => {
       if (document.visibilityState === "visible") void check();
     };
+    retry.current = () => {
+      setStatus("saving");
+      void check();
+    };
     void check();
     document.addEventListener("visibilitychange", whenVisible, options);
     addEventListener("online", whenVisible, options);
     const timer = setInterval(whenVisible, 60 * 60_000);
     return () => {
       scope.abort();
+      retry.current = undefined;
+      clearTimeout(retryTimer);
       clearInterval(timer);
     };
   }, []);
-  return message ? (
-    <aside className="panel" role="status">
-      {message}
+
+  if (status === undefined || (!showOfflineStatus && status !== "update"))
+    return null;
+  return (
+    <aside role="status" className={showOfflineStatus ? undefined : "panel"}>
+      {statusText[status]}
+      {status === "unavailable" && (
+        <button type="button" onClick={() => retry.current?.()}>
+          Retry offline download
+        </button>
+      )}
     </aside>
-  ) : null;
+  );
 }

@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import "./styles.css";
 export const metadata: Metadata = {
-  title: "OrgSDK",
+  title:
+    process.env.NEXT_PUBLIC_ORGSDK_STUDIO === "1" ? "OrgSDK Studio" : "OrgSDK",
   applicationName: "OrgSDK",
   icons: {
     icon: { url: "/favicon.png?v=20261023", type: "image/png", sizes: "96x96" },
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#4f46e5",
+  themeColor: "#faf8f3",
 };
 export default function Layout({
   children,

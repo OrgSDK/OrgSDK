@@ -44,10 +44,6 @@ const savedSession = z.object({
 });
 
 export async function approveConnection(page: Page): Promise<void> {
-  await expect(page.getByLabel("Server address")).toHaveValue(
-    process.env.ORGSDK_E2E_URL ?? "http://127.0.0.1:18783",
-  );
-  await page.getByRole("button", { name: "Connect to server" }).click();
   await page.getByRole("button", { name: "Approve connection" }).click();
   await expect(page.locator(".workspace-header")).toBeVisible();
 }

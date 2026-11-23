@@ -3,11 +3,19 @@ import { createTypedClient, connectStudio } from "./trpc";
 const pendingKey = "orgsdk:studio-pairing";
 const previousKey = "orgsdk:studio-installation";
 const ports = Array.from({ length: 8 }, (_, index) => 28_940 + index);
+function isLoopback(url: URL): boolean {
+  return ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+}
+export function isLocalAddress(input: string): boolean {
+  return URL.canParse(input) && isLoopback(new URL(input));
+}
 export function endpointOrigin(input: string): string {
+  if (!URL.canParse(input))
+    throw new Error("Enter the full server address, including https://.");
   const url = new URL(input);
-  const isLoopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
   if (
-    (url.protocol !== "https:" && !(isLoopback && url.protocol === "http:")) ||
+    (url.protocol !== "https:" &&
+      !(isLoopback(url) && url.protocol === "http:")) ||
     url.origin === location.origin ||
     url.username ||
     url.password ||
@@ -28,11 +36,21 @@ function guest(endpoint: string) {
       fetch(input, { ...init, redirect: "error", credentials: "omit" }),
   });
 }
-async function discover(input: string): Promise<string> {
+export async function discover(
+  input: string,
+  signal: AbortSignal,
+): Promise<string> {
   const endpoint = endpointOrigin(input);
-  const reply = await guest(endpoint).studio.discover.query(undefined, {
-    signal: AbortSignal.timeout(2500),
-  });
+  let reply: unknown;
+  try {
+    reply = await guest(endpoint).studio.discover.query(undefined, {
+      signal: AbortSignal.any([signal, AbortSignal.timeout(2500)]),
+    });
+  } catch {
+    throw new Error(
+      "Studio couldn’t reach that server. Check the address and that OrgSDK is running.",
+    );
+  }
   if (
     !z
       .object({
@@ -47,36 +65,52 @@ async function discover(input: string): Promise<string> {
     );
   return endpoint;
 }
-export async function localInstallations(): Promise<string[]> {
-  const endpoints = ports.map((port) => "http://127.0.0.1:" + String(port));
-  const previous = localStorage.getItem(previousKey);
-  if (previous && endpoints.includes(previous))
-    endpoints.unshift(...endpoints.splice(endpoints.indexOf(previous), 1));
+export async function localInstallations(
+  address: string,
+  signal: AbortSignal,
+): Promise<string[]> {
+  if (address) {
+    try {
+      return [await discover(address, signal)];
+    } catch {
+      // Honor an explicit target. A remembered installation may have moved.
+      if (signal.aborted || new URLSearchParams(location.search).has("server"))
+        return [];
+    }
+  }
+  const endpoints = ports
+    .map((port) => "http://127.0.0.1:" + String(port))
+    .filter((endpoint) => endpoint !== address);
   const results = await Promise.allSettled(
-    endpoints.map((endpoint) => discover(endpoint)),
+    endpoints.map((endpoint) => discover(endpoint, signal)),
   );
   return results
     .filter((result) => result.status === "fulfilled")
     .map((result) => result.value);
 }
 export function suggestedInstallation(): string {
-  return (
-    new URLSearchParams(location.search).get("server") ??
-    localStorage.getItem(previousKey) ??
-    ""
-  );
+  const explicit = new URLSearchParams(location.search).get("server");
+  if (explicit) return explicit;
+  try {
+    return localStorage.getItem(previousKey) ?? "";
+  } catch {
+    return "";
+  }
 }
 function hex(bytes: Uint8Array) {
   return Array.from(bytes, (n) => n.toString(16).padStart(2, "0")).join("");
 }
-export async function requestApproval(input: string): Promise<void> {
-  const endpoint = await discover(input);
+export async function requestApproval(
+  endpoint: string,
+  signal: AbortSignal,
+): Promise<void> {
   const verifier = hex(crypto.getRandomValues(new Uint8Array(32)));
   const hash = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(verifier),
   );
   const challenge = hex(new Uint8Array(hash));
+  signal.throwIfAborted();
   const route = new URL(location.href);
   route.searchParams.delete("server");
   sessionStorage.setItem(
@@ -118,7 +152,11 @@ export async function finishApproval(): Promise<
     verifier: pending.verifier,
   });
   connectStudio(endpoint, grant.token);
-  localStorage.setItem(previousKey, endpoint);
+  try {
+    localStorage.setItem(previousKey, endpoint);
+  } catch {
+    // Remembering the address is optional when the browser restricts storage.
+  }
   const path = new URL(
     "path" in pending && typeof pending.path === "string" ? pending.path : "/",
     location.origin,

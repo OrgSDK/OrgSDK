@@ -127,7 +127,6 @@ test("signed-out mobile deep link redirects to sign in", async ({
   });
   const page = await context.newPage();
   await page.goto("/documents/?example=1");
-  await page.getByRole("button", { name: "Connect to server" }).click();
   await page
     .getByRole("link", { name: "Sign in to this installation" })
     .click();

@@ -1,0 +1,249 @@
+.studio-welcome {
+  --studio-ink: #0f1a3d;
+  --studio-blue: #214e8a;
+  --studio-slate: #536078;
+  --studio-line: #c9cbd0;
+  --studio-paper: #faf8f3;
+  --studio-mono:
+    ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  min-height: 100svh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  color: var(--studio-ink);
+  background: var(--studio-paper);
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  padding-inline: clamp(1rem, 4.4vw, 5rem);
+}
+.studio-masthead,
+.studio-footer {
+  display: flex;
+  align-items: center;
+  min-height: 5rem;
+  border-bottom: 1px solid var(--studio-line);
+}
+.studio-wordmark {
+  width: clamp(7.5rem, 13vw, 10rem);
+  height: auto;
+}
+.studio-masthead span {
+  margin-left: 1.1rem;
+  padding-left: 1.1rem;
+  border-left: 1px solid var(--studio-line);
+  color: var(--studio-blue);
+  font-size: 1.25rem;
+  letter-spacing: -0.035em;
+}
+.studio-stage {
+  isolation: isolate;
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: clamp(1.25rem, 4vh, 4rem) 0.65rem;
+  background-image: radial-gradient(#c6c8c7 0.9px, transparent 0.9px);
+  background-size: 19px 19px;
+  overflow: clip;
+}
+.studio-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: url("./orgsdk-symbol.svg") no-repeat 86% 48% /
+    clamp(260px, 47vw, 720px);
+  opacity: 0.045;
+  pointer-events: none;
+}
+.studio-window {
+  width: min(100%, 35rem);
+  border: 1px solid var(--studio-ink);
+  background: #fffefa;
+  box-shadow: 9px 9px 0 #e1ded5;
+}
+.studio-welcome svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.studio-titlebar,
+.studio-titlebar span,
+.studio-actions,
+.studio-guide,
+.studio-primary,
+.studio-switch,
+.studio-terminal-bar,
+.studio-terminal-bar button,
+.studio-choices button {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.studio-titlebar {
+  justify-content: space-between;
+  padding: 0.8rem clamp(1.2rem, 4vw, 2.3rem);
+  background: #eeede6;
+  border-bottom: 1px solid var(--studio-line);
+  font: 0.66rem/1.4 var(--studio-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.studio-connection-status {
+  color: var(--studio-slate);
+}
+.studio-window-body {
+  padding: clamp(1.5rem, 4vw, 2.3rem);
+}
+.studio-window h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4.4vw, 2.8rem);
+  line-height: 1.05;
+  letter-spacing: -0.055em;
+  font-weight: 600;
+  color: var(--studio-ink);
+}
+.studio-window p {
+  color: var(--studio-slate);
+  margin: 0.95rem 0 0;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+.studio-terminal {
+  border: 1px solid var(--studio-line);
+  background: var(--studio-paper);
+  margin-block: 1.4rem;
+}
+.studio-terminal-bar {
+  justify-content: space-between;
+  padding: 0.28rem 0.8rem;
+  border-bottom: 1px solid var(--studio-line);
+  font: 0.7rem/1.5 var(--studio-mono);
+  color: var(--studio-slate);
+}
+.studio-terminal-bar button {
+  padding: 0.42rem 0.25rem;
+  cursor: pointer;
+  color: var(--studio-blue);
+}
+.studio-terminal-bar svg {
+  width: 13px;
+  height: 13px;
+}
+.studio-terminal pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  padding: 0.95rem;
+  border: 0;
+  background: transparent;
+  color: var(--studio-ink);
+  font: 0.9rem/1.8 var(--studio-mono);
+}
+.studio-copy-feedback {
+  display: block;
+  padding: 0 0.95rem 0.6rem;
+  font-size: 0.8rem;
+}
+.studio-actions {
+  flex-wrap: wrap;
+  gap: 0.65rem 1.2rem;
+}
+.studio-primary,
+.studio-guide,
+.studio-switch,
+.studio-choices button {
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.studio-primary {
+  padding: 0.72rem 1rem;
+  background: var(--studio-ink);
+  color: white;
+}
+.studio-guide {
+  color: var(--studio-blue);
+}
+.studio-guide:hover,
+.studio-switch:hover {
+  text-decoration: underline;
+}
+.studio-window p.studio-hint {
+  font-size: 0.8rem;
+  margin-top: 1rem;
+}
+.studio-window form,
+.studio-choices {
+  margin-top: 1.5rem;
+  display: grid;
+  gap: 0.6rem;
+}
+.studio-window form label {
+  font-size: 0.83rem;
+  font-weight: 600;
+}
+.studio-window form input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #858c99;
+  color: var(--studio-ink);
+  border-radius: 0;
+  background: white;
+}
+.studio-window form button {
+  justify-self: start;
+  margin-top: 0.5rem;
+}
+.studio-switch,
+.studio-choices button {
+  width: 100%;
+  text-align: left;
+  padding: 0.85rem clamp(1.2rem, 4vw, 2.3rem);
+  color: var(--studio-blue);
+  border-top: 1px solid var(--studio-line);
+}
+.studio-switch svg:last-child,
+.studio-choices svg {
+  margin-left: auto;
+}
+.studio-choices button {
+  border: 1px solid var(--studio-line);
+  padding: 0.7rem 1rem;
+  overflow-wrap: anywhere;
+}
+.studio-window p.studio-error {
+  color: #963920;
+}
+.studio-footer {
+  min-height: 3rem;
+  justify-content: flex-end;
+  border: 0;
+  border-top: 1px solid var(--studio-line);
+  font: 0.72rem/1.5 var(--studio-mono);
+  color: var(--studio-slate);
+}
+.studio-footer button {
+  margin-left: 0.7rem;
+  min-height: 40px;
+  text-decoration: underline;
+  cursor: pointer;
+  color: var(--studio-blue);
+}
+.studio-welcome :focus-visible {
+  outline: 2px solid var(--studio-blue);
+  outline-offset: 3px;
+}
+@media (max-width: 480px) {
+  .studio-masthead {
+    min-height: 4rem;
+  }
+  .studio-stage {
+    padding-inline: 0 0.45rem;
+  }
+  .studio-window {
+    box-shadow: 6px 6px 0 #e1ded5;
+  }
+  .studio-titlebar {
+    font-size: 0.6rem;
+  }
+}
