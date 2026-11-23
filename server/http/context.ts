@@ -2,10 +2,12 @@ import type { AppDependencies, ServiceContext } from "../application";
 import { identityRepository } from "../repositories/identity";
 import { digest, randomSecret } from "../shared/security";
 import { ServiceError } from "../shared/errors";
+import { mcpAccessTokenSchema, mcpTokenPrefix } from "../tokens/access-token";
 
 export type AppContext = ServiceContext & {
   request: Request;
   responseHeaders: Headers;
+  clientTokenError: string | null;
 };
 function cookies(request: Request): Map<string, string> {
   return new Map(
@@ -31,40 +33,56 @@ export function setCookie(
     `${name}=${value}; Path=/; SameSite=Lax; Max-Age=${maxAge}${httpOnly ? "; HttpOnly" : ""}${secure}`,
   );
 }
+function authenticateClientBearer(
+  authorization: string | null,
+  identities: ReturnType<typeof identityRepository>,
+  workspaceId: number | undefined,
+): Pick<AppContext, "token" | "clientTokenError"> {
+  const bearer = authorization?.match(/^Bearer(?:[ \t]+(.*))?$/i);
+  if (!bearer) {
+    return { token: null, clientTokenError: null };
+  }
+  const supplied = mcpAccessTokenSchema.safeParse(bearer[1]);
+  if (!supplied.success) {
+    return {
+      token: null,
+      clientTokenError: `Expected an OrgSDK access token beginning with ${mcpTokenPrefix} followed by its 43-character secret.`,
+    };
+  }
+  const token =
+    workspaceId === undefined
+      ? null
+      : (identities.activeClientToken(workspaceId, supplied.data) ?? null);
+  return {
+    token,
+    clientTokenError: token ? null : "Invalid OrgSDK access token.",
+  };
+}
+
 export function createContext(
   request: Request,
   store: AppDependencies,
 ): AppContext {
   const url = new URL(request.url);
   const hostname = url.hostname.toLowerCase();
-  const workspace =
-    identityRepository(store.db).workspaceForHost(hostname) ?? null;
+  const identities = identityRepository(store.db);
+  const workspace = identities.workspaceForHost(hostname) ?? null;
   const values = cookies(request);
   const secret = values.get("sessionid");
-  const session = secret
-    ? identityRepository(store.db).session(digest(secret))
-    : undefined;
+  const session = secret ? identities.session(digest(secret)) : undefined;
   const validSession =
     session && session.expiresAt > Date.now() ? session : undefined;
-  let user = validSession?.userId
-    ? (identityRepository(store.db).user(validSession.userId) ?? null)
-    : null;
-  let token: ServiceContext["token"] = null;
   const authorization = request.headers.get("authorization");
-  if (authorization?.startsWith("Bearer ")) {
-    const found = identityRepository(store.db).tokenByDigest(
-      digest(authorization.slice(7)),
-    );
-    if (found && !found.revoked && workspace?.id === found.workspaceId) {
-      token = found;
-      user = identityRepository(store.db).user(found.actorId) ?? null;
-    } else {
-      user = null;
-    }
-  }
+  const { token, clientTokenError } = authenticateClientBearer(
+    url.pathname.startsWith("/internal/") ? null : authorization,
+    identities,
+    workspace?.id,
+  );
+  const userId = authorization === null ? validSession?.userId : token?.actorId;
+  const user = userId ? (identities.user(userId) ?? null) : null;
   const membership =
     user && workspace
-      ? identityRepository(store.db).membership(workspace.id, user.id)
+      ? identities.membership(workspace.id, user.id)
       : undefined;
   const responseHeaders = new Headers({ "Cache-Control": "no-store" });
   const ctx: AppContext = {
@@ -81,6 +99,7 @@ export function createContext(
     workspace,
     role: membership?.role ?? null,
     token,
+    clientTokenError,
     responseHeaders,
     sessionId: validSession?.id ?? null,
   };
@@ -89,16 +108,14 @@ export function createContext(
   }
   return ctx;
 }
-export function checkCsrf(
+export function checkClientRequest(
   ctx: AppContext,
-  operationType?: ServiceContext["operationType"],
+  operationType = ctx.operationType,
 ): void {
-  if (
-    (operationType
-      ? operationType !== "mutation"
-      : ["GET", "HEAD", "OPTIONS"].includes(ctx.request.method)) ||
-    ctx.token
-  ) {
+  if (ctx.clientTokenError) {
+    throw new ServiceError("UNAUTHORIZED", ctx.clientTokenError);
+  }
+  if (operationType !== "mutation" || ctx.token) {
     return;
   }
   const origin = ctx.request.headers.get("origin");

@@ -241,7 +241,7 @@ test("issue an exact-version client token, clear its secret and revoke access", 
     .check();
   await page.getByRole("button", { name: "Create token", exact: true }).click();
   const secretField = page.getByLabel("New access token", { exact: true });
-  await expect(secretField).not.toHaveValue("");
+  await expect(secretField).toHaveValue(/^orgsdk_mcp_[A-Za-z0-9_-]{43}$/);
   const secret = await secretField.inputValue();
   const token = (await client.tokens.list.query()).results.find(
     (item) => item.name === "Browser scoped client",
