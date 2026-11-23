@@ -2,7 +2,7 @@
 import { Cable, Copy, KeyRound, Plug, Trash2 } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
 import { trpc } from "../api/trpc";
-import type { ClientScope } from "../api/types";
+import type { ClientScope, McpAccessToken } from "../api/types";
 import { errorMessage } from "../api/result";
 import {
   loadActions,
@@ -101,7 +101,7 @@ export function Connections({
   const canConfirm = useDiscardConfirmation();
   const [name, setName] = useState("");
   const [scopes, setScopes] = useState<ClientScope[]>(authorScopes);
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState<McpAccessToken | "">("");
   const [isBusy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");

@@ -5,9 +5,12 @@ import { Client } from "../../runtime/src/client";
 import { jobSchema } from "../../runtime/src/contract";
 import { accessTokens, executors, plugins } from "../db/schema";
 import { base } from "../shared/records";
+import {
+  issuedMcpAccessTokenSchema,
+  type McpAccessToken,
+} from "../tokens/access-token";
 import { fixture } from "./integration-fixture";
 
-const tokenSchema = z.object({ id: z.uuid(), token: z.string() });
 const idSchema = z.object({ id: z.uuid() });
 const runnerSchema = z.object({ id: z.uuid(), pool: z.string() });
 const scopes = ["code:execute", "runs:read"];
@@ -17,7 +20,7 @@ test("session admission binds scope, command and idempotency to the caller and r
   try {
     const project = app.project.id;
     const issueToken = async (projects: string[], permissions: string[]) =>
-      tokenSchema.parse(
+      issuedMcpAccessTokenSchema.parse(
         await app.data(
           "tokens.create",
           { name: "test client", projects, scopes: permissions },
@@ -32,7 +35,7 @@ test("session admission binds scope, command and idempotency to the caller and r
       session: { operation: "open" },
       idempotency_key: "open",
     };
-    const session = (input: unknown, token: string) =>
+    const session = (input: unknown, token: McpAccessToken) =>
       app.rpc("runs.session", input, "mutation", token);
     expect((await session(open, stranger.token)).status).toBe(403);
     expect((await session(open, reader.token)).status).toBe(403);
@@ -226,7 +229,7 @@ test("a queued session read observes updated reader permissions", async () => {
   const app = await fixture();
   try {
     const project = app.project.id;
-    const owner = tokenSchema.parse(
+    const owner = issuedMcpAccessTokenSchema.parse(
       await app.data(
         "tokens.create",
         { name: "reader", projects: [project], scopes },

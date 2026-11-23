@@ -17,6 +17,7 @@ export type PluginAuth = PluginCatalogEntry["auth"];
 export type MarketplaceEntry = RouterOutputs["plugins"]["marketplace"][number];
 export type Schedule = RouterOutputs["schedules"]["get"];
 export type Token = RouterOutputs["tokens"]["get"];
+export type McpAccessToken = RouterOutputs["tokens"]["create"]["token"];
 export type ClientScope = RouterInputs["tokens"]["create"]["scopes"][number];
 export type Webhook = RouterOutputs["webhooks"]["get"];
 export type WebhookSecret = RouterOutputs["webhooks"]["create"];

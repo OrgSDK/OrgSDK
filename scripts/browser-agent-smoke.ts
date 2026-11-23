@@ -7,6 +7,10 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { z } from "zod";
 import { startChild, stopChildren, waitForHealth } from "./dev-process";
 import { api, availablePort, runSchema } from "./distribution-fixture";
+import {
+  issuedMcpAccessTokenSchema,
+  type McpAccessToken,
+} from "../server/tokens/access-token";
 
 const idSchema = z.object({ id: z.uuid() });
 const mcpEnvelope = z.object({
@@ -21,7 +25,7 @@ const runResult = z.object({ result: z.unknown() });
 const remoteTool = "browser_run_code_unsafe";
 const actionTool = "playwrightProof.browserRunCodeUnsafe";
 
-function createMcpClient(origin: string, token: string) {
+function createMcpClient(origin: string, token: McpAccessToken) {
   let id = 0;
   async function request(method: string, params: unknown = {}) {
     const response = await fetch(`${origin}/mcp/`, {
@@ -437,7 +441,7 @@ try {
   const project = z
     .object({ results: z.tuple([idSchema]) })
     .parse(await rpc("projects.list")).results[0].id;
-  const { token } = z.object({ token: z.string() }).parse(
+  const { token } = issuedMcpAccessTokenSchema.parse(
     await rpc(
       "tokens.create",
       {

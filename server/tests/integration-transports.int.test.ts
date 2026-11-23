@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { pageSchema, projectSchema } from "./wire-schemas";
 import { expect, test } from "bun:test";
+import { issuedMcpAccessTokenSchema } from "../tokens/access-token";
 import { fixture } from "./integration-fixture";
 const toolResponseSchema = z.object({
   result: z.object({
@@ -11,7 +12,7 @@ const toolResponseSchema = z.object({
 test("MCP and tRPC share persistence, reject unauthorized scopes and record client activity", async () => {
   const f = await fixture();
   try {
-    const issued = z.object({ token: z.string(), id: z.string() }).parse(
+    const issued = issuedMcpAccessTokenSchema.parse(
       await f.data(
         "tokens.create",
         {
@@ -121,7 +122,7 @@ test("MCP and tRPC share persistence, reject unauthorized scopes and record clie
 test("tRPC batch activity records partial failure through the native transport", async () => {
   const f = await fixture();
   try {
-    const issued = z.object({ id: z.string(), token: z.string() }).parse(
+    const issued = issuedMcpAccessTokenSchema.parse(
       await f.data(
         "tokens.create",
         {

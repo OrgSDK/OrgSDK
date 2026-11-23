@@ -1,12 +1,6 @@
 import { expect, test } from "bun:test";
-import {
-  accessTokens,
-  conversations,
-  projects,
-  workspaces,
-} from "../db/schema";
+import { conversations, projects, workspaces } from "../db/schema";
 import { base } from "../shared/records";
-import { digest } from "../shared/security";
 import { rpcFixture } from "./rpc-fixture";
 
 test("native archived conversation queries return only the active workspace and reject writes", async () => {
@@ -73,26 +67,14 @@ test("native archived conversation queries return only the active workspace and 
         )
       ).status,
     ).toBe(404);
-    f.store.db
-      .insert(accessTokens)
-      .values({
-        ...base(f.workspace.id),
-        actorId: f.user.id,
-        name: "Client",
-        digest: digest("conversation-client"),
-        scopes: ["catalog:read"],
-        projects: [f.project.id],
-      })
-      .run();
+    const issued = await f.caller().tokens.create({
+      name: "Client",
+      scopes: ["catalog:read"],
+      projects: [f.project.id],
+    });
     expect(
-      (
-        await f.rpc(
-          "conversations.list",
-          undefined,
-          "query",
-          "conversation-client",
-        )
-      ).status,
+      (await f.rpc("conversations.list", undefined, "query", issued.token))
+        .status,
     ).toBe(403);
   } finally {
     f.close();

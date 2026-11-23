@@ -1,11 +1,15 @@
 import { expect, test } from "bun:test";
+import {
+  issueMcpAccessToken,
+  mcpAccessTokenDigest,
+} from "../tokens/access-token";
 import { client, loginOwner, setup, store } from "./core-fixture";
 test("a bearer token cannot use an existing browser session to manage members", async () => {
   const s = store();
   await client(s).auth.setup(setup);
   const { cookie } = await loginOwner(s);
   const { accessTokens } = await import("../db/schema");
-  const { digest } = await import("../shared/security");
+  const secret = issueMcpAccessToken();
   const at = new Date().toISOString();
   s.db
     .insert(accessTokens)
@@ -14,7 +18,7 @@ test("a bearer token cannot use an existing browser session to manage members", 
       workspaceId: 1,
       actorId: 1,
       name: "test",
-      digest: digest("bearer-secret"),
+      digest: mcpAccessTokenDigest(secret),
       scopes: ["write"],
       projects: [],
       actionVersions: [],
@@ -34,7 +38,7 @@ test("a bearer token cannot use an existing browser session to manage members", 
     })
     .run();
   const caller = client(s, cookie, "localhost", {
-    authorization: "Bearer bearer-secret",
+    authorization: `Bearer ${secret}`,
   });
   expect(caller.ctx.token).not.toBeNull();
   await Promise.resolve(
