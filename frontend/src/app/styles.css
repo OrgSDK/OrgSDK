@@ -448,6 +448,45 @@ h2 {
   font-size: 15px;
   font-weight: 600;
 }
+main.account-main {
+  max-width: 44rem;
+  padding: clamp(16px, 4vw, 48px) 16px;
+}
+.setup-form {
+  display: grid;
+  justify-items: start;
+  gap: 24px;
+}
+.setup-group {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.setup-group legend {
+  width: 100%;
+  margin-bottom: 14px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+  font-weight: 600;
+}
+.setup-fields {
+  display: grid;
+  gap: 16px;
+}
+.setup-fields label {
+  margin: 0;
+}
+.setup-fields .small {
+  margin-top: 6px;
+}
+@media (min-width: 600px) {
+  .setup-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
 .page-heading {
   margin-bottom: 24px;
 }

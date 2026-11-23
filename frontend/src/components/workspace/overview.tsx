@@ -23,8 +23,10 @@ import { useWorkspace } from "./workspace-context";
 import { Button } from "../ui/button";
 import { ResourceState } from "./resource-state";
 import { activeStatuses, runLabel, RunStatus, type Run } from "./run-display";
+import { FirstRun } from "./first-run";
 import { QuickAction, SignalCard } from "./home-cards";
 interface OverviewData {
+  checkedAt: number;
   runs: Run[];
   projects: Project[];
   actions: Action[];
@@ -45,7 +47,15 @@ async function loadOverview(
       canManage ? loadTokens(signal) : Promise.resolve([]),
       loadPlugins(signal),
     ]);
-  return { runs, projects, actions, approvals, tokens, plugins };
+  return {
+    checkedAt: Date.now(),
+    runs,
+    projects,
+    actions,
+    approvals,
+    tokens,
+    plugins,
+  };
 }
 export function Overview({
   navigate,
@@ -54,7 +64,7 @@ export function Overview({
   navigate: (view: string) => void;
   openRun: (id: string) => void;
 }): ReactNode {
-  const { canManage } = useWorkspace();
+  const { canManage, selected } = useWorkspace();
   const load = useCallback(
     (signal: AbortSignal) => loadOverview(signal, canManage),
     [canManage],
@@ -68,63 +78,42 @@ export function Overview({
   const failed = data?.runs.find(
     (run) => run.status === "failed" || run.status === "interrupted",
   );
-  const steps = [
-    {
-      label: "Create a project",
-      done: (data?.projects.length ?? 0) > 0,
-      view: "work",
-    },
-    {
-      label: "Connect an external client",
-      done: (data?.tokens.length ?? 0) > 0,
-      view: "connections",
-    },
-    {
-      label: "Create your first action",
-      done: (data?.actions.length ?? 0) > 0,
-      view: "actions",
-    },
-    {
-      label: "Complete a run",
-      done: data?.runs.some((run) => run.status === "succeeded") ?? false,
-      view: "runs",
-    },
-  ];
+  const project = data?.projects.find((item) => item.id === selected);
   return (
     <div className="overview">
       <ResourceState {...query} />
       {data ? (
         <>
-          {steps.some((step) => !step.done) ? (
-            <section className="panel first-run">
-              <div className="panel-title">
-                <h2>Get your workspace running</h2>
-                <span className="badge">
-                  {steps.filter((step) => step.done).length} of {steps.length}{" "}
-                  complete
-                </span>
-              </div>
-              <p className="small">
-                Connect your tools, publish an action and inspect its first
-                result.
-              </p>
-              <div className="onboarding-steps">
-                {steps.map((step) => (
-                  <button
-                    key={step.label}
-                    className={step.done ? "is-complete" : ""}
-                    onClick={() => {
-                      navigate(step.view);
-                    }}
-                  >
-                    <CheckCircle2 size={17} />
-                    {step.label}
-                    <ArrowRight size={14} />
-                  </button>
-                ))}
-              </div>
-            </section>
-          ) : undefined}
+          {project ? (
+            <FirstRun
+              key={project.id}
+              project={project}
+              checkedAt={data.checkedAt}
+              succeededRun={data.runs.find(
+                (run) =>
+                  run.project === project.id && run.status === "succeeded",
+              )}
+              hasClientAccess={
+                canManage
+                  ? data.tokens.some(
+                      (token) =>
+                        !token.revoked && token.projects.includes(project.id),
+                    )
+                  : undefined
+              }
+              hasAction={data.actions.some(
+                (action) => action.project === project.id,
+              )}
+            />
+          ) : (
+            <Button
+              onClick={() => {
+                navigate("work");
+              }}
+            >
+              Create a project
+            </Button>
+          )}
           <section className="signal-grid" aria-label="Workspace signals">
             <SignalCard
               label="Actions"
@@ -235,17 +224,8 @@ export function Overview({
             {data.runs.length === 0 ? (
               <div className="resource-empty">
                 <CheckCircle2 size={28} />
-                <h3>Ready for your first run</h3>
-                <p>
-                  Connect an external client or create an action to get started.
-                </p>
-                <Button
-                  onClick={() => {
-                    navigate("connections");
-                  }}
-                >
-                  Connect a client
-                </Button>
+                <h3>No runs yet</h3>
+                <p>Completed and in-progress runs will appear here.</p>
               </div>
             ) : (
               data.runs.slice(0, 5).map((run) => (

@@ -4,6 +4,7 @@ import type { Project } from "../../api/types";
 import { trpc } from "../../api/trpc";
 import { errorMessage } from "../../api/result";
 import { Button } from "../ui/button";
+import { runnerStatus } from "./runner-status";
 import { useDiscardConfirmation } from "./discard-dialog";
 
 export function ProjectRunner({
@@ -80,16 +81,6 @@ export function ProjectRunner({
       clearInterval(timer);
     };
   }, [refresh]);
-  const lastSeen = project.runner.last_seen_at
-    ? new Date(project.runner.last_seen_at).getTime()
-    : undefined;
-  let registrationStatus = "Registered · waiting for connection";
-  if (lastSeen !== undefined)
-    registrationStatus =
-      now - lastSeen > 60_000
-        ? "Unavailable · no recent heartbeat"
-        : "Available";
-  if (!project.runner.enabled) registrationStatus = "Revoked";
   return (
     <section className="panel">
       <h2>Project runner</h2>
@@ -99,7 +90,7 @@ export function ProjectRunner({
         starts the local runner.
       </p>
       <p>
-        {project.runner.registered ? registrationStatus : "Not registered"} ·{" "}
+        {runnerStatus(project.runner, now)} ·{" "}
         {project.runner.locally_managed
           ? "Managed by this installation"
           : "Linked runner"}

@@ -242,6 +242,23 @@ test("issue an exact-version client token, clear its secret and revoke access", 
   await page.getByRole("button", { name: "Create token", exact: true }).click();
   const secretField = page.getByLabel("New access token", { exact: true });
   await expect(secretField).not.toHaveValue("");
+  await expect(secretField).toHaveAttribute("type", "password");
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: undefined,
+      configurable: true,
+    });
+  });
+  await page.getByRole("button", { name: "Copy token", exact: true }).click();
+  await expect(
+    page.getByText(
+      "Clipboard unavailable. Use Show token, then select and copy the token.",
+    ),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Show token", exact: true }).click();
+  await expect(secretField).toHaveAttribute("type", "text");
+  await page.getByRole("button", { name: "Hide token", exact: true }).click();
+  await expect(secretField).toHaveAttribute("type", "password");
   const secret = await secretField.inputValue();
   const token = (await client.tokens.list.query()).results.find(
     (item) => item.name === "Browser scoped client",
