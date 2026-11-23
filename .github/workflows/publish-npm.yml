@@ -1,0 +1,131 @@
+name: Publish released npm packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published stable GitHub release to verify and publish
+        required: true
+        type: string
+  # When the publisher is installed or fixed, reconcile the latest existing
+  # release. Only reviewed release assets from a checked main commit qualify.
+  push:
+    branches: [develop]
+    paths: [.github/workflows/publish-npm.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: orgsdk-npm-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: >-
+      github.repository == 'OrgSDK/OrgSDK' &&
+      ((github.event_name == 'release' && !github.event.release.prerelease) ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'push' && github.ref == 'refs/heads/develop'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      source: ${{ steps.release.outputs.source }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: release
+        name: Select a published release with successful main CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          tag="$REQUESTED_TAG"
+          if [[ -z "$tag" ]]; then tag=$(gh release view --json tagName --jq .tagName); fi
+          [[ "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          gh release view "$tag" --json isDraft,isPrerelease | jq -e '(.isDraft or .isPrerelease) | not'
+          source=$(git rev-parse "refs/tags/$tag^{commit}")
+          git merge-base --is-ancestor "$source" origin/main
+          gh run list --workflow ci.yml --branch main --event push --commit "$source" --json conclusion |
+            jq -e 'any(.[]; .conclusion == "success")'
+          gh release download "$tag" --dir "$RUNNER_TEMP/packages" \
+            --pattern "orgsdk-cli-${tag#v}.tgz" --pattern "orgsdk-executor-${tag#v}.tgz" --pattern release-artifacts.json
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "source=$source" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22.22.0"
+      - name: Verify package identities and release digests
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          SOURCE: ${{ steps.release.outputs.source }}
+        run: node --experimental-strip-types scripts/npm-release.ts verify "$RUNNER_TEMP/packages" "$VERSION" "$SOURCE"
+      - name: Exercise both exact artifacts with their release's test suite
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          SOURCE: ${{ steps.release.outputs.source }}
+        run: |
+          git checkout --detach "$SOURCE"
+          npm run setup
+          npm run test:distribution -- "$RUNNER_TEMP/packages/orgsdk-cli-$VERSION.tgz"
+          npm --prefix runtime run smoke:node -- "$RUNNER_TEMP/packages/orgsdk-executor-$VERSION.tgz"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verified-npm
+          path: ${{ runner.temp }}/packages
+          if-no-files-found: error
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [cli, executor]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: verified-npm
+          path: ${{ runner.temp }}/packages
+      - name: Publish the verified tarball using npm trusted publishing
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+          SOURCE: ${{ needs.verify.outputs.source }}
+          PACKAGE: ${{ matrix.package }}
+        run: node scripts/npm-release.ts publish "$RUNNER_TEMP/packages" "$VERSION" "$SOURCE" "$PACKAGE"
+
+  install:
+    needs: [verify, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ needs.verify.outputs.source }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22.22.0"
+      - name: Test fresh public registry installations
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+          npm_config_registry: https://registry.npmjs.org/
+        run: |
+          npm run setup
+          npm run test:distribution -- "@orgsdk/cli@$VERSION"
+          npm --prefix runtime run smoke:node -- "@orgsdk/executor@$VERSION"

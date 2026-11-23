@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1
+
+### Fixed
+
+- The local app now uses the same favicon as orgsdk.ai.
+- Publish the tested CLI and executor from stable GitHub releases to npm through CI.
+- Allow npm time to process accepted packages before checking release integrity and testing fresh installs.
+
 ## 0.2.0
 
 ### Added
