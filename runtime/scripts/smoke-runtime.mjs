@@ -142,6 +142,13 @@ async function execute(source, plugins = []) {
 }
 
 try {
+  const manifest = JSON.parse(
+    await readFile(join(packageDirectory, "package.json"), "utf8"),
+  );
+  assert.equal(
+    await childProcess("bin/orgsdk-executor.mjs", ["--version"], ""),
+    `${manifest.version}\n`,
+  );
   assert.match(
     await childProcess("bin/orgsdk-executor.mjs", ["--help"], ""),
     /register/,
