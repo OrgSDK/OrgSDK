@@ -1,21 +1,24 @@
 import { expect, test } from "bun:test";
 import { accessTokens } from "../db/schema";
 import { base } from "../shared/records";
-import { digest } from "../shared/security";
+import {
+  issueMcpAccessToken,
+  mcpAccessTokenDigest,
+} from "../tokens/access-token";
 import { credentialFixture, credentialInput } from "./credentials-fixture";
 
 test("credential procedures reject every bearer token regardless of stored scope family", async () => {
   const fixture = credentialFixture();
   try {
     function issueToken(scopes: string[]) {
-      const secret = crypto.randomUUID();
+      const secret = issueMcpAccessToken();
       fixture.store.db
         .insert(accessTokens)
         .values({
           ...base(fixture.workspace.id),
           actorId: fixture.user.id,
           name: "Scope test",
-          digest: digest(secret),
+          digest: mcpAccessTokenDigest(secret),
           scopes,
         })
         .run();

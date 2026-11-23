@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, expectTypeOf, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { accessTokens, auditRecords, memberships, users } from "../db/schema";
 import { digest } from "../shared/security";
@@ -14,13 +14,14 @@ test("native tokens enforce modern scopes, workspace grants, and one-time secret
       projects: [f.project.id],
       action_versions: [f.saved.version.id],
     });
+    expectTypeOf(created.token).toEqualTypeOf<`orgsdk_mcp_${string}`>();
     expect(
       f.store.db
         .select()
         .from(accessTokens)
         .where(eq(accessTokens.id, created.id))
         .get()?.digest,
-    ).toBe(digest(created.token));
+    ).toBe(digest(created.token.slice("orgsdk_mcp_".length)));
     const listed = await caller.tokens.list();
     expect(JSON.stringify(listed)).not.toContain(created.token);
     expect(listed.results[0]).not.toHaveProperty("digest");

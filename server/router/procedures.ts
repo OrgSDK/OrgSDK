@@ -1,6 +1,6 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { ZodError } from "zod";
-import { checkCsrf, type AppContext } from "../http/context";
+import { checkClientRequest, type AppContext } from "../http/context";
 import {
   requireManager,
   requireUser,
@@ -39,9 +39,7 @@ function procedureError(error: unknown) {
 export const publicProcedure = rpc.procedure.use(
   async ({ ctx, type, next }) => {
     try {
-      if (type === "mutation") {
-        checkCsrf(ctx, type);
-      }
+      checkClientRequest(ctx, type);
       const result = await next({
         ctx: { ...ctx, operationType: type, userId: ctx.user?.id ?? null },
       });
