@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.1
+
+### Fixed
+
+- Studio discovers local installations on entry and guides new users through installation in a welcome screen matching orgsdk.ai.
+
 ## 2.0.0
 
 ### Changed
