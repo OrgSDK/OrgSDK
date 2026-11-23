@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createApp } from "../app";
 import { digest, randomSecret } from "../shared/security";
 import { rpcFixture } from "./rpc-fixture";
+import { studioRedirect } from "../http/studio-redirect";
 import { studioAudience } from "../auth/studio";
 
 test("fresh local installations allow official Studio and respect an explicit opt-out", () => {
@@ -120,6 +121,24 @@ test("remote installations require an exact configured HTTPS origin", () => {
     );
     expect(studioAudience("http://customer.example.test")).toBeUndefined();
     expect(studioAudience("https://other.example.test")).toBeUndefined();
+    const bookmark = new Request(
+      "http://customer.example.test/actions/?project=demo&token=private",
+    );
+    const redirect = studioRedirect(bookmark);
+    expect(redirect?.status).toBe(302);
+    expect(redirect?.headers.get("location")).toBe(
+      "https://studio.example.test/actions/?server=https%3A%2F%2Fcustomer.example.test&project=demo#",
+    );
+    expect(
+      studioRedirect(new Request("http://other.example.test/"))?.status,
+    ).toBe(400);
+    expect(
+      studioRedirect(
+        new Request("http://customer.example.test/accounts/login/"),
+      ),
+    ).toBeUndefined();
+    process.env.ORGSDK_STUDIO_ORIGIN = "";
+    expect(studioRedirect(bookmark)?.status).toBe(503);
   } finally {
     if (priorDashboard === undefined) {
       delete process.env.ORGSDK_STUDIO_ORIGIN;

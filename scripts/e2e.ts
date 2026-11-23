@@ -1,6 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { startTestStudio } from "./e2e-studio";
 import { startTestMailbox } from "./e2e-mail";
 
 const dataDir = await mkdtemp(join(tmpdir(), "orgsdk-e2e-"));
@@ -24,11 +25,13 @@ const command = binary
 const catalog = join(dataDir, "plugin-catalog.json");
 await writeFile(catalog, "[]");
 const mailbox = await startTestMailbox(dataDir);
+const studio = await startTestStudio(dataDir);
 const server = Bun.spawn(command, {
   ...(binary || entry ? { cwd: dataDir } : {}),
   env: {
     ...process.env,
     ORGSDK_DATA_DIR: dataDir,
+    ORGSDK_STUDIO_ORIGIN: studio.origin,
     HOST: "127.0.0.1",
     PORT: port,
     PLUGIN_CATALOG_PATH: catalog,
@@ -69,6 +72,8 @@ try {
     {
       env: {
         ...process.env,
+        ORGSDK_E2E_STUDIO: studio.origin,
+        ORGSDK_E2E_CERT_PIN: studio.certificatePin,
         ORGSDK_E2E_URL: url,
         ORGSDK_E2E_DATA_DIR: dataDir,
         ORGSDK_E2E_OUTPUT_DIR:
@@ -91,6 +96,7 @@ try {
 } finally {
   server.kill();
   await server.exited;
+  await studio.close();
   await mailbox.close();
   await rm(dataDir, { recursive: true, force: true });
 }

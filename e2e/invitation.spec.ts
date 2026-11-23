@@ -1,4 +1,12 @@
-import { expect, signIn, test, testClient } from "./fixtures";
+import {
+  openWorkspace,
+  reloadWorkspace,
+  approveConnection,
+  expect,
+  signIn,
+  test,
+  testClient,
+} from "./fixtures";
 import { invitationUrl, waitForInvitationMail } from "./mailbox";
 
 test("an invited account accepts membership and the owner can update and remove its access", async ({
@@ -19,7 +27,7 @@ test("an invited account accepts membership and the owner can update and remove 
     page.getByText("Invitation queued.", { exact: true }),
   ).toBeVisible();
   const link = new URL(invitationUrl(await waitForInvitationMail(email)));
-  expect(link.origin).toBe(new URL(page.url()).origin);
+  expect(link.origin).toBe(process.env.ORGSDK_E2E_URL);
   const memberContext = await browser.newContext();
   const memberPage = await memberContext.newPage();
   const retiredRequests: string[] = [];
@@ -49,7 +57,7 @@ test("an invited account accepts membership and the owner can update and remove 
     await memberPage
       .getByRole("button", { name: "Accept invitation", exact: true })
       .click();
-    await expect(memberPage).toHaveURL(`${link.origin}/`);
+    await approveConnection(memberPage);
     await expect(
       memberPage
         .getByRole("combobox", { name: "Project", exact: true })
@@ -57,14 +65,14 @@ test("an invited account accepts membership and the owner can update and remove 
     ).toBeVisible();
     const memberClient = await testClient(memberPage);
     expect((await memberClient.workspace.current.query()).role).toBe("member");
-    await memberPage.goto(`${link.origin}/settings/`);
+    await openWorkspace(memberPage, `${link.origin}/settings/`);
     await expect(
       memberPage.getByText("Your role: member", { exact: true }),
     ).toBeVisible();
     await expect(
       memberPage.getByLabel("Workspace name", { exact: true }),
     ).toHaveCount(0);
-    await page.reload();
+    await reloadWorkspace(page);
     const role = page.getByRole("combobox", {
       name: `Role for ${email}`,
       exact: true,
@@ -85,7 +93,7 @@ test("an invited account accepts membership and the owner can update and remove 
         (item) => item.email === email,
       )?.role,
     ).toBe("admin");
-    await memberPage.reload();
+    await reloadWorkspace(memberPage);
     await expect(
       memberPage.getByText("Your role: admin", { exact: true }),
     ).toBeVisible();
@@ -106,6 +114,10 @@ test("an invited account accepts membership and the owner can update and remove 
       ),
     ).toBe(false);
     await memberPage.reload();
+    await memberPage.getByRole("button", { name: "Connect to server" }).click();
+    await memberPage
+      .getByRole("button", { name: "Approve connection" })
+      .click();
     await expect(
       memberPage
         .getByRole("alert")

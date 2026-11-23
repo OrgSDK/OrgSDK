@@ -1,4 +1,4 @@
-import { expect, signIn, test, testClient } from "./fixtures";
+import { openWorkspace, expect, signIn, test, testClient } from "./fixtures";
 
 test("runner status refreshes after connection and revocation without reloading", async ({
   page,
@@ -13,7 +13,7 @@ test("runner status refreshes after connection and revocation without reloading"
     id: project.id,
     locally_managed: false,
   });
-  await page.goto(`/projects/?project=${project.id}&tab=runner`);
+  await openWorkspace(page, `/projects/?project=${project.id}&tab=runner`);
   await expect(
     page.getByText("Registered · waiting for connection · Linked runner", {
       exact: true,

@@ -1,10 +1,18 @@
 import { hostname } from "node:os";
 import type { NextConfig } from "next";
 const isDevelopment = process.env.NODE_ENV === "development";
+const isInstallation = process.env.ORGSDK_INSTALLATION_BUILD === "1";
+const isStudio = process.env.NEXT_PUBLIC_ORGSDK_STUDIO === "1";
 const config: NextConfig = {
+  pageExtensions: [
+    "shared.tsx",
+    ...(isStudio ? [] : ["installation.tsx"]),
+    ...(isInstallation ? [] : ["studio.tsx"]),
+  ],
+  ...(isInstallation && { distDir: "dist/installation-export" }),
   ...(!isDevelopment && { output: "export" }),
   turbopack: { root: import.meta.dirname },
-  ...(process.env.NEXT_PUBLIC_ORGSDK_STUDIO === "1" && {
+  ...(isStudio && {
     distDir: "dist/studio",
   }),
   trailingSlash: true,

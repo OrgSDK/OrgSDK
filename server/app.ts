@@ -1,6 +1,7 @@
 import type { AppDependencies } from "./application";
 import { handleApi } from "./http/api";
 import { json } from "./http/responses";
+import { studioRedirect } from "./http/studio-redirect";
 import { staticResponse } from "./http/static";
 
 export function createApp(
@@ -24,7 +25,9 @@ export function createApp(
       return json({ detail: "Not found." }, 404);
     }
     return (
-      (await staticResponse(request)) ?? json({ detail: "Not found." }, 404)
+      studioRedirect(request) ??
+      (await staticResponse(request)) ??
+      json({ detail: "Not found." }, 404)
     );
   };
 }

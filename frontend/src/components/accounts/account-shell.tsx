@@ -16,16 +16,16 @@ export function AccountShell({
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4 sm:px-10">
-        <Link
+        <a
           href="/"
           className="flex items-center gap-2 text-lg font-semibold text-slate-900"
         >
           <BotMark className="h-9 w-9" />
           OrgSDK
-        </Link>
-        <Link href="/" className="text-sm">
+        </a>
+        <a href="/" className="text-sm">
           Back to app
-        </Link>
+        </a>
       </header>
       <main className="mx-auto w-full max-w-xl px-4 py-10 sm:py-16">
         {showAccountNavigation && (

@@ -1,3 +1,4 @@
+import { verifyStudioDistribution } from "./verify-studio-distribution";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -24,18 +25,16 @@ try {
       throw new Error("Standalone executable exited before readiness.");
     }),
   ]);
-  const html = await fetch(address);
+  await verifyStudioDistribution(address);
+  const html = await fetch(address + "/setup/");
   if (!html.ok || !(await html.text()).includes("<html")) {
-    throw new Error("Standalone executable did not serve HTML.");
-  }
-  if (!(await fetch(`${address}/monaco/vs/loader.js`)).ok) {
-    throw new Error("Standalone executable did not serve Monaco.");
+    throw new Error("Missing installation setup.");
   }
   if ((await fetch(`${address}/third-party-licenses/zod.txt`)).status !== 404) {
     throw new Error("Legacy license assets remain in the standalone release.");
   }
   console.log(
-    "Standalone release includes third-party notices and serves health, HTML and Monaco with an empty working directory and PATH.",
+    "Standalone release includes third-party notices and serves health, setup and the Studio redirect with an empty working directory and PATH.",
   );
 } finally {
   await stopChildren([child]);

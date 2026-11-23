@@ -10,6 +10,12 @@ export default defineConfig({
   ],
   use: {
     baseURL: process.env.ORGSDK_E2E_URL ?? "http://127.0.0.1:18783",
+    launchOptions: {
+      args: [
+        "--ignore-certificate-errors-spki-list=" +
+          (process.env.ORGSDK_E2E_CERT_PIN ?? ""),
+      ],
+    },
     trace: "retain-on-failure",
   },
 });

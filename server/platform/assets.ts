@@ -7,6 +7,6 @@ export function assetDirectory(name: "out" | "migrations"): string {
     return bundled;
   }
   return name === "out"
-    ? resolve(import.meta.dirname, "../../frontend/out")
+    ? resolve(import.meta.dirname, "../../frontend/dist/installation/out")
     : resolve(import.meta.dirname, "../db/migrations");
 }
