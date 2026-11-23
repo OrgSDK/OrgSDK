@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.0
+
+### Changed
+
+- Studio is the sole workspace dashboard and caches its interface for offline use after the first download. Installations retain setup, account and connection approval pages.
+
+Open Studio online once in each browser before using it offline. Keep the installation running for workspace access. Save your work and close all Studio tabs to activate a downloaded update. See [Studio connections and hosting](docs/studio.md).
+
 ## 1.1.1
 
 ### Fixed
