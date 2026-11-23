@@ -305,10 +305,6 @@ pre {
   font-weight: 700;
   letter-spacing: -0.5px;
 }
-.bot-mark {
-  width: 26px;
-  height: 26px;
-}
 .workspace-label {
   display: flex;
   align-items: center;

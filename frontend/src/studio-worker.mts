@@ -7,21 +7,31 @@ const current = prefix + STUDIO_VERSION;
 const assets = STUDIO_ASSETS;
 
 self.addEventListener("install", (event) => {
-  // addAll is atomic. A failed download leaves the active release usable.
+  // Only activate after every verified batch is present. Failed installs can resume.
   event.waitUntil(
     (async () => {
       const cache = await caches.open(current);
-      await cache.addAll(
-        Object.entries(assets).map(
-          ([path, integrity]) =>
-            new Request(path, {
-              integrity,
-              credentials: "omit",
-              cache: "reload",
-              redirect: "error",
-            }),
-        ),
+      const cachedRequests = await cache.keys();
+      const stored = new Set(
+        cachedRequests.map((request) => new URL(request.url).pathname),
       );
+      const missing = Object.entries(assets).filter(
+        ([path]) => !stored.has(path),
+      );
+      const batchSize = 12;
+      for (let start = 0; start < missing.length; start += batchSize) {
+        await cache.addAll(
+          missing.slice(start, start + batchSize).map(
+            ([path, integrity]) =>
+              new Request(path, {
+                integrity,
+                credentials: "omit",
+                cache: "reload",
+                redirect: "error",
+              }),
+          ),
+        );
+      }
     })(),
   );
 });

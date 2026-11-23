@@ -8,7 +8,9 @@ const worker = "frontend/src/studio-worker.mts";
 const assets: Record<string, string> = {};
 for (const file of (await readdir(root, { recursive: true })).sort()) {
   if (
-    !/\.(?:js|css|html|txt|svg|png|ico|woff2?|ttf|wasm|json)$/.test(file) ||
+    !/\.(?:js|css|html|txt|svg|png|webp|ico|woff2?|ttf|wasm|json)$/.test(
+      file,
+    ) ||
     file === "sw.js" ||
     file.startsWith("404") ||
     file.startsWith("_not-found/")

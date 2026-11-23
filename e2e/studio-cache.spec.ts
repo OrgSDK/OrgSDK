@@ -14,6 +14,7 @@ test("Studio keeps a complete release offline and switches only after the last t
   const exported = resolve("frontend/dist/studio");
   await cp(exported, directory, { recursive: true });
   let offline = false;
+  let interruptDownload = true;
   let mixed = false;
   const types: Record<string, string> = {
     js: "text/javascript",
@@ -23,7 +24,7 @@ test("Studio keeps a complete release offline and switches only after the last t
   };
   const server = createServer((request, response) => {
     const path = new URL(request.url ?? "/", "http://localhost").pathname;
-    if (offline) {
+    if (offline || (interruptDownload && path === "/monaco/vs/loader.js")) {
       response.writeHead(503).end();
       return;
     }
@@ -49,7 +50,16 @@ test("Studio keeps a complete release offline and switches only after the last t
       throw new Error("Missing Studio test port.");
     }
     const origin = "http://127.0.0.1:" + String(address.port);
+    // Keep automatic discovery away from installations on the developer’s computer.
+    await context.route("http://127.0.0.1:2894*/**", (route) => route.abort());
     await page.goto(origin);
+    await expect(
+      page.getByRole("heading", { name: "Get started with Studio" }),
+    ).toBeVisible();
+    const retry = page.getByRole("button", { name: "Retry offline download" });
+    await expect(retry).toBeVisible();
+    interruptDownload = false;
+    await retry.click();
     await page.waitForFunction(() =>
       Boolean(navigator.serviceWorker.controller),
     );
@@ -58,7 +68,7 @@ test("Studio keeps a complete release offline and switches only after the last t
     offline = true;
     await page.goto(origin + "/actions/?project=offline");
     await expect(
-      page.getByRole("button", { name: "Connect to this computer" }),
+      page.getByRole("button", { name: "Try connecting again" }),
     ).toBeVisible();
     expect(
       await page.evaluate(async () => (await fetch("/monaco/vs/loader.js")).ok),

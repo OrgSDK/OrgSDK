@@ -1,15 +1,11 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
 import { useEffect, useState, useRef, type ReactNode } from "react";
-import { AccountShell } from "../accounts/account-shell";
-import {
-  finishApproval,
-  localInstallations,
-  requestApproval,
-  suggestedInstallation,
-} from "../../api/studio";
+import { finishApproval, suggestedInstallation } from "../../api/studio";
+import { Button } from "../ui/button";
+import { StudioWelcome } from "./welcome";
+import { StudioCacheStatus } from "./cache-status";
+
 export function StudioConnection({
   children,
 }: {
@@ -18,21 +14,19 @@ export function StudioConnection({
   const router = useRouter();
   const [connected, setConnected] = useState(false);
   const [expired, setExpired] = useState(false);
-  const [input, setInput] = useState("");
-  const [matches, setMatches] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [start, setStart] = useState<{ address: string; error: string }>();
   const resume = useRef<ReturnType<typeof finishApproval> | null>(null);
   useEffect(() => {
     let isActive = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-
     resume.current ??= finishApproval();
     void resume.current
       .then((grant) => {
         if (!isActive) return;
-        setInput(suggestedInstallation());
-        if (grant === false) return;
+        if (grant === false) {
+          setStart({ address: suggestedInstallation(), error: "" });
+          return;
+        }
         if (grant.path !== "/") router.replace(grant.path);
         setConnected(true);
         timer = setTimeout(
@@ -44,112 +38,38 @@ export function StudioConnection({
       })
       .catch((error_: unknown) => {
         if (isActive)
-          setError(
-            error_ instanceof Error ? error_.message : "Connection failed.",
-          );
+          setStart({
+            address: suggestedInstallation(),
+            error:
+              error_ instanceof Error ? error_.message : "Connection failed.",
+          });
       });
     return () => {
       isActive = false;
       clearTimeout(timer);
     };
   }, [router]);
-  async function attempt(action: () => Promise<void>) {
-    setBusy(true);
-    setError("");
-    try {
-      await action();
-    } catch (error_) {
-      setError(error_ instanceof Error ? error_.message : "Connection failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-  if (connected)
-    return (
-      <>
-        {expired && (
-          <aside role="alert" className="panel">
-            <p>
-              Your dashboard session has expired. Copy any unsaved edits before
-              reconnecting.
-            </p>
-            <Button
-              onClick={() => {
-                location.reload();
-              }}
-            >
-              Reconnect
-            </Button>
-          </aside>
-        )}
-        {children}
-      </>
-    );
+
+  if (!connected) return <StudioWelcome start={start} />;
   return (
-    <AccountShell
-      title="Connect to OrgSDK"
-      description="Choose the computer or hosted installation that owns your workspace."
-    >
-      <Button
-        disabled={busy}
-        type="button"
-        onClick={() =>
-          void attempt(async () => {
-            const found = await localInstallations();
-            setMatches(found);
-            if (found.length === 0)
-              throw new Error(
-                "No compatible local installation responded. Start OrgSDK and allow local network access in your browser, or connect to an HTTPS installation.",
-              );
-            if (found.length === 1 && found[0]) await requestApproval(found[0]);
-          })
-        }
-      >
-        Connect to this computer
-      </Button>
-      {matches.length > 1 && (
-        <section>
-          <h2>Choose an installation</h2>
-          {matches.map((endpoint) => (
-            <Button
-              key={endpoint}
-              disabled={busy}
-              onClick={() => void attempt(() => requestApproval(endpoint))}
-            >
-              {endpoint}
-            </Button>
-          ))}
-        </section>
-      )}
-      <form
-        className="mt-6 space-y-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void attempt(() => requestApproval(input));
-        }}
-      >
-        <label className="block">
-          Server address
-          <Input
-            type="url"
-            required
-            value={input}
-            placeholder="https://workspace.example.com"
-            onChange={(event) => {
-              setInput(event.target.value);
+    <>
+      <StudioCacheStatus />
+      {expired && (
+        <aside role="alert" className="panel">
+          <p>
+            Your dashboard session has expired. Copy any unsaved edits before
+            reconnecting.
+          </p>
+          <Button
+            onClick={() => {
+              location.reload();
             }}
-          />
-        </label>
-        <Button variant="outline" disabled={busy} type="submit">
-          Connect to server
-        </Button>
-      </form>
-      {busy && <p role="status">Connecting…</p>}
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
+          >
+            Reconnect
+          </Button>
+        </aside>
       )}
-    </AccountShell>
+      {children}
+    </>
   );
 }
