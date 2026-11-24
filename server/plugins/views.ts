@@ -1,3 +1,4 @@
+import { supportsShellPolicy } from "./shell-policy";
 import type * as schema from "../db/schema";
 export const pluginView = (plugin: typeof schema.plugins.$inferSelect) => {
   return {
@@ -11,6 +12,7 @@ export const pluginView = (plugin: typeof schema.plugins.$inferSelect) => {
     enabled: plugin.enabled,
     credential: plugin.credentialId,
     distribution: plugin.distribution,
+    shell_policy: supportsShellPolicy(plugin),
     configuration: plugin.configuration,
     package_url: plugin.packageUrl,
     tools: plugin.releaseMetadata?.tools ?? null,

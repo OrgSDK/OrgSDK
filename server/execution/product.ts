@@ -1,3 +1,4 @@
+import { shellPolicyRequest } from "./shell-policy";
 import { text } from "../shared/validation";
 import { and, eq } from "drizzle-orm";
 import * as t from "../db/schema";
@@ -15,6 +16,10 @@ export function handleProduct(
   method: string,
   body: Record<string, unknown>,
 ): Response {
+  const shell = route.match(/^product\/shell\/([^/]+)\/(?:([^/]+)\/)?$/);
+  if (shell?.[1]) {
+    return shellPolicyRequest(ctx, run, shell[1], shell[2], method, body);
+  }
   if (route === "product/project-data/" && method === "POST") {
     return json(projectData(ctx, run, body));
   }
