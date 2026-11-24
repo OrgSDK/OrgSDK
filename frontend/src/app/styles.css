@@ -2069,13 +2069,20 @@ h3 {
     display: flex;
   }
   .action-breadcrumb {
+    flex-wrap: wrap;
     gap: 6px;
+  }
+  .action-breadcrumb > svg {
+    display: none;
+  }
+  .action-breadcrumb .action-selector {
+    max-width: 100%;
   }
   .action-header-controls {
     grid-column: 1 / -1;
   }
   .action-header-controls > button {
-    padding-inline: 10px;
+    padding-inline: 8px;
     font-size: 12px;
   }
   .action-last-run {

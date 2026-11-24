@@ -28,7 +28,6 @@ import {
   Maximize2,
   Minimize2,
   Play,
-  Plus,
   Save,
 } from "lucide-react";
 import { parseActionJSON } from "./action-json";
@@ -398,18 +397,6 @@ function ActionWorkspace({
                 {editStatus}
               </Badge>
               {selected?.enabled === false ? <Badge>Disabled</Badge> : null}
-              <Button
-                variant="ghost"
-                size="icon"
-                disabled={busy}
-                aria-label="New action"
-                title="New action"
-                onClick={() => {
-                  void selectAction();
-                }}
-              >
-                <Plus size={15} />
-              </Button>
             </nav>
             <div className="action-header-controls">
               {lastRun ? (
@@ -691,15 +678,20 @@ function ActionWorkspace({
               aria-label="Recent action runs"
             >
               <div className="action-panel-heading">
-                <h3>Previous runs</h3>
+                <div className="flex items-center gap-2">
+                  <h3>Previous runs</h3>
+                  <span className="count">
+                    {runs.length} {runs.length === 1 ? "run" : "runs"}
+                  </span>
+                </div>
                 {actionQuery && (
-                  <WorkspaceLink href={`/runs/?${actionQuery}`}>
+                  <WorkspaceLink
+                    className="text-xs"
+                    href={`/runs/?${actionQuery}`}
+                  >
                     View all runs
                   </WorkspaceLink>
                 )}
-                <span className="count">
-                  {runs.length} {runs.length === 1 ? "run" : "runs"}
-                </span>
               </div>
               <ActionRunHistory
                 runs={runs}
