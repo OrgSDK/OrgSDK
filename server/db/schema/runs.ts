@@ -140,6 +140,12 @@ export const approvals = sqliteTable("approvals", {
     .notNull()
     .references((): AnySQLiteColumn => runs.id, { onDelete: "cascade" }),
   prompt: text("prompt").notNull(),
+  shell: text("shell", { mode: "json" }).$type<{
+    pluginId: string;
+    projectId: string;
+    digest: string;
+    executable: string;
+  }>(),
   status: text("status")
     .notNull()
     .default(sql`'pending'`),

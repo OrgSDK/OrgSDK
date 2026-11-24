@@ -29,6 +29,13 @@
       "when": 1794026305054,
       "tag": "0003_remote-mcp",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1795485632349,
+      "tag": "0004_shell_executable_policy",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   integer,
+  primaryKey,
   sqliteTable,
   text,
   uniqueIndex,
@@ -74,3 +75,15 @@ export const credentials = sqliteTable("credentials", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+export const shellRules = sqliteTable(
+  "shell_rules",
+  {
+    pluginId: text("plugin_id")
+      .notNull()
+      .references(() => plugins.id, { onDelete: "cascade" }),
+    executable: text("executable").notNull(),
+    decision: text("decision", { enum: ["allow", "block"] }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.pluginId, table.executable] })],
+);

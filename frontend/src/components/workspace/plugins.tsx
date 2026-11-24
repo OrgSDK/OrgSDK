@@ -1,5 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
+import { ShellPolicy } from "./shell-policy";
 import { McpConnections } from "./mcp-connections";
 import { PluginMarketplace } from "./plugin-marketplace";
 import { PluginConnection } from "./plugin-connection";
@@ -394,6 +395,13 @@ export function Plugins({
       {selected ? (
         <section className="panel">
           <h2>Plugin: {slug}</h2>
+          {installed?.shell_policy && (
+            <ShellPolicy
+              key={installed.id}
+              id={installed.id}
+              canManage={canManage}
+            />
+          )}
           {installed?.distribution === "external" ? (
             <PluginCapabilities
               slug={installed.slug}
@@ -490,16 +498,18 @@ export function Plugins({
                     Manage credentials
                   </WorkspaceLink>
                 </p>
-                <label>
-                  Configuration (JSON)
-                  <Textarea
-                    value={config}
-                    disabled={isBusy || !canManage}
-                    onChange={(event) => {
-                      setConfig(event.target.value);
-                    }}
-                  />
-                </label>
+                {!installed?.shell_policy && (
+                  <label>
+                    Configuration (JSON)
+                    <Textarea
+                      value={config}
+                      disabled={isBusy || !canManage}
+                      onChange={(event) => {
+                        setConfig(event.target.value);
+                      }}
+                    />
+                  </label>
+                )}
               </>
             ) : (
               <div className="source-pane">
