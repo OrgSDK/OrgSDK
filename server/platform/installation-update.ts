@@ -1,4 +1,4 @@
-import { inArray } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 import type { AppDatabase } from "../db/database";
 import { runs, workspaces } from "../db/schema";
 import type { ServiceContext } from "../application";
@@ -10,6 +10,8 @@ export const managerHeartbeat = new WeakMap<
 >();
 
 const requested = new WeakMap<AppDatabase, string>();
+const blockingRunStatuses = ["running", "waiting_approval"];
+
 export function canManageUpdate(ctx: ServiceContext): boolean {
   return (
     ctx.role === "owner" &&
@@ -26,6 +28,26 @@ export function canManageUpdate(ctx: ServiceContext): boolean {
 export function pendingUpdate(db: AppDatabase) {
   return requested.get(db) ?? null;
 }
+
+export function updateBlockers(db: AppDatabase, workspaceId: number) {
+  const blockers = db
+    .select({ status: runs.status, total: count() })
+    .from(runs)
+    .where(
+      and(
+        eq(runs.workspaceId, workspaceId),
+        inArray(runs.status, blockingRunStatuses),
+      ),
+    )
+    .groupBy(runs.status)
+    .all();
+  return {
+    running: blockers.find(({ status }) => status === "running")?.total ?? 0,
+    awaitingApproval:
+      blockers.find(({ status }) => status === "waiting_approval")?.total ?? 0,
+  };
+}
+
 export function drainForUpdate(db: AppDatabase, version: string) {
   requested.set(db, version);
   // Give the requesting browser its receipt before the supervisor stops the listener.
@@ -33,7 +55,7 @@ export function drainForUpdate(db: AppDatabase, version: string) {
     const busy = db
       .select({ id: runs.id })
       .from(runs)
-      .where(inArray(runs.status, ["running", "waiting_approval"]))
+      .where(inArray(runs.status, blockingRunStatuses))
       .limit(1)
       .get();
     if (busy) {

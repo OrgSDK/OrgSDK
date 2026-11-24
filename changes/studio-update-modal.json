@@ -1,0 +1,5 @@
+{
+  "type": "patch",
+  "category": "changed",
+  "summary": "Follow installation updates in Studio from confirmation through running actions, reconnection and verified platform and executor readiness."
+}
