@@ -8,6 +8,7 @@ import { connectionSchema } from "./mcp/contract";
 export const pluginSchema = z.object({
   distribution: z.enum(["inline", "external", "mcp"]).optional(),
   mcp: connectionSchema.optional(),
+  shell_policy_id: z.uuid().optional(),
   package_url: z.string().optional(),
   configuration: z.record(z.string(), z.unknown()).optional(),
   credential_provider: z.string().nullable().optional(),

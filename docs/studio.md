@@ -33,3 +33,9 @@ Studio checks for a new release when opened, when a tab becomes visible and hour
 The connected workspace separately checks the **installation** against the stable CLI release on npm. Choose **Later** to dismiss that release or **Update and restart** to review the interruption and confirm it. Studio waits for the updated server and its local executor manager to respond. Older installations show a one-time manual upgrade guide. See [installation updates and recovery](npm-distribution.md#installation-updates-from-studio).
 
 Serve the generated `sw.js` from the Studio origin root with revalidation enabled. Preserve the exported asset bytes when hosting them. HTML rewriting or script injection will fail the worker’s integrity checks. Keep the Studio export compatible with the installation’s pairing protocol.
+
+## Shell executable approvals
+
+Install a Shell release with executable approval support on the project. Workspace owners and admins can open **Plugins → Installed plugins → Inspect → Executable policy** to allow or block exact executable names. Use **Ask next time** to remove a saved rule.
+
+When an action requests an unlisted executable, its run waits in **Approvals**. Review the project, executable and literal argument list. **Allow once** releases that invocation. **Always allow** and **Block** also set a rule for future calls and matching pending requests on the same installation. Each saved rule covers all arguments accepted by the executable. Cancelling the run or reaching its execution deadline invalidates its pending requests.

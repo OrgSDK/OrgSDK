@@ -7,7 +7,10 @@ import { z } from "zod";
 import type { Agent, Job } from "./contract";
 import { Client } from "./client";
 import { SandboxExecutor } from "./engine/sandbox/executor";
-import type { SandboxFunction } from "./engine/sandbox/types";
+import type {
+  SandboxFunction,
+  SandboxToolContext,
+} from "./engine/sandbox/types";
 import { loadPlugins } from "./plugins";
 import { mcpPlugin } from "./mcp/functions";
 
@@ -137,6 +140,12 @@ export class Runner {
         );
     }
     const executor = new SandboxExecutor();
+    const toolContext: SandboxToolContext = {
+      agent,
+      stores: {},
+      actionRunner: {},
+      runId: this.job.run_id,
+    };
     executor.registerBuiltins(this.builtins());
     const remote = agent.plugins
       .filter((plugin) => plugin.distribution === "mcp")
@@ -146,6 +155,7 @@ export class Runner {
         agent.plugins.filter((plugin) => plugin.distribution !== "mcp"),
         this.client,
         agent.id,
+        () => toolContext.resetExecutionTimeout?.(),
       ),
     );
     executor.registerMultiple(remote.flatMap((entry) => entry.functions));
@@ -193,18 +203,14 @@ export class Runner {
       append(kind, data);
     };
     try {
-      const result = await executor.execute(
-        source,
-        { agent, stores: {}, actionRunner: {}, runId: this.job.run_id },
-        {
-          timeout: 300_000,
-          parameters: inputs,
-          signal: this.signal,
-          onLog: (line) => enqueue("execution.log", { message: line }),
-          onTraceTruncated: markTruncated,
-          onStep: (step) => enqueue("execution.step", step),
-        },
-      );
+      const result = await executor.execute(source, toolContext, {
+        timeout: 300_000,
+        parameters: inputs,
+        signal: this.signal,
+        onLog: (line) => enqueue("execution.log", { message: line }),
+        onTraceTruncated: markTruncated,
+        onStep: (step) => enqueue("execution.step", step),
+      });
       enqueue("action.result", {
         logs: result.logs,
         steps: result.steps,
