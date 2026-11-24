@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.1
+
+### Changed
+
+- Follow installation updates in Studio from confirmation through running actions, reconnection and verified platform and executor readiness.
+
 ## 2.4.0
 
 ### Added
