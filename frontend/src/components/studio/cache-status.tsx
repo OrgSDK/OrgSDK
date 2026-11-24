@@ -12,8 +12,10 @@ const statusText: Record<OfflineStatus, string> = {
 
 export function StudioCacheStatus({
   showOfflineStatus = false,
+  hasUnsavedChanges = false,
 }: {
   showOfflineStatus?: boolean;
+  hasUnsavedChanges?: boolean;
 }): ReactNode {
   const [status, setStatus] = useState<OfflineStatus>();
   const [refreshHint, setRefreshHint] = useState("");
@@ -144,7 +146,11 @@ export function StudioCacheStatus({
       {statusText[status]}
       {status === "update" && (
         <>
-          <button type="button" onClick={() => refresh.current?.()}>
+          <button
+            type="button"
+            disabled={hasUnsavedChanges}
+            onClick={() => refresh.current?.()}
+          >
             Refresh Studio
           </button>
           {refreshHint && <span>{refreshHint}</span>}

@@ -10,9 +10,6 @@ import {
 import { finishApproval, suggestedInstallation } from "../../api/studio";
 import { Button } from "../ui/button";
 import { StudioWelcome } from "./welcome";
-import { StudioCacheStatus } from "./cache-status";
-
-import { InstallationUpdate } from "./installation-update";
 
 export function StudioConnection({
   children,
@@ -87,8 +84,6 @@ export function StudioConnection({
   if (!expiresAt) return <StudioWelcome start={start} onConnected={opened} />;
   return (
     <>
-      <StudioCacheStatus />
-      <InstallationUpdate />
       {expired && (
         <aside role="alert" className="panel">
           <p>

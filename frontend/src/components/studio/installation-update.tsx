@@ -52,7 +52,11 @@ function progress(
         ". Active runs finish first, then OrgSDK backs up and restarts.";
 }
 
-export function InstallationUpdate(): ReactNode {
+export function InstallationUpdate({
+  hasUnsavedChanges,
+}: {
+  hasUnsavedChanges: boolean;
+}): ReactNode {
   const endpoint = installationOrigin();
   const storageKey = "orgsdk:update:" + endpoint;
   const [status, setStatus] = useState<Status>();
@@ -197,7 +201,7 @@ export function InstallationUpdate(): ReactNode {
       {message && <p role="alert">{message}</p>}
       {!legacy && status?.automatic ? (
         <Button
-          disabled={sending}
+          disabled={sending || (confirming && hasUnsavedChanges)}
           onClick={() => {
             if (confirming) void update(version);
             else setConfirming(true);
