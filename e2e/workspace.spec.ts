@@ -119,7 +119,7 @@ test("manage projects, documents, credentials, tables and immutable actions thro
   await expect(page).not.toHaveURL(/action=/);
 });
 
-test("signed-out mobile deep link redirects to sign in", async ({
+test("signed-out mobile deep link offers sign-in inside Studio", async ({
   browser,
 }) => {
   const context = await browser.newContext({
@@ -127,13 +127,13 @@ test("signed-out mobile deep link redirects to sign in", async ({
   });
   const page = await context.newPage();
   await page.goto("/documents/?example=1");
-  await page
-    .getByRole("link", { name: "Sign in to this installation" })
-    .click();
-  await expect(page).toHaveURL(/\/accounts\/login\/\?next=/);
+  await page.getByRole("button", { name: "Allow local connections" }).click();
   await expect(
-    page.getByRole("heading", { name: "Welcome back" }),
+    page.getByRole("heading", { name: "Sign in to your workspace" }),
   ).toBeVisible();
+  await expect(page.getByLabel("Email address")).toBeVisible();
+  expect(new URL(page.url()).origin).toBe(process.env.ORGSDK_E2E_STUDIO);
+  expect(new URL(page.url()).pathname).toBe("/documents/");
   await context.close();
 });
 

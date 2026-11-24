@@ -6,6 +6,7 @@ import {
   requireUser,
   requireWorkspace,
 } from "../shared/authorization";
+import { isLoopbackInstallation } from "../auth/studio";
 import { requireFresh } from "../auth/sessions";
 import { scope } from "../domain/permissions";
 import type { ClientScope } from "../tokens/schemas";
@@ -40,8 +41,18 @@ export const publicProcedure = rpc.procedure.use(
   async ({ ctx, type, path, next }) => {
     try {
       if (ctx.studioOrigin) {
+        const localSignIn =
+          isLoopbackInstallation(ctx.origin) &&
+          [
+            "auth.setup",
+            "auth.setupStatus",
+            "auth.login",
+            "auth.mfaAuthenticate",
+          ].includes(path);
         const bootstrap =
-          path === "studio.discover" || path === "studio.exchange";
+          localSignIn ||
+          path === "studio.discover" ||
+          path === "studio.exchange";
         if (
           !bootstrap &&
           (!ctx.studioExpiresAt || !ctx.sessionId || !ctx.user)
@@ -52,6 +63,7 @@ export const publicProcedure = rpc.procedure.use(
           );
         }
         if (
+          !localSignIn &&
           path.startsWith("auth.") &&
           !["auth.session", "auth.browserSession", "auth.logout"].includes(path)
         ) {

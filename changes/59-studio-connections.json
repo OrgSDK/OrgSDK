@@ -1,0 +1,5 @@
+{
+  "type": "minor",
+  "category": "changed",
+  "summary": "Set up and sign in to local installations inside Studio, automatically reopen valid connections and open a hosted server from the workspace."
+}

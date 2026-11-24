@@ -22,7 +22,7 @@ export const mfaAuthenticateProcedure = browserProcedure
     if (!user || !consumeCode(ctx, user, code) || !ctx.workspace) {
       throw new ServiceError("BAD_REQUEST", "Invalid authentication code.");
     }
-    rotateSession(ctx, user.id, null, (ctx) => {
+    const studioGrant = rotateSession(ctx, user.id, null, (ctx) => {
       const current = ctx.sessionId
         ? identityRepository(ctx.db).session(ctx.sessionId)
         : undefined;
@@ -39,5 +39,5 @@ export const mfaAuthenticateProcedure = browserProcedure
       assertCurrentUser(ctx, user, false);
     });
     ctx.user = user;
-    return authState(ctx);
+    return { ...authState(ctx), studioGrant };
   });

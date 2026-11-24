@@ -44,18 +44,22 @@ const savedSession = z.object({
 });
 
 export async function approveConnection(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Allow local connections" }).click();
+  await page
+    .getByRole("button", { name: "Use an existing installation sign-in" })
+    .click();
   await page.getByRole("button", { name: "Approve connection" }).click();
   await expect(page.locator(".workspace-header")).toBeVisible();
 }
 
 export async function openWorkspace(page: Page, path: string): Promise<void> {
   await page.goto(path);
-  await approveConnection(page);
+  await expect(page.locator(".workspace-header")).toBeVisible();
 }
 
 export async function reloadWorkspace(page: Page): Promise<void> {
   await page.reload();
-  await approveConnection(page);
+  await expect(page.locator(".workspace-header")).toBeVisible();
 }
 
 export async function signIn(page: Page, next = "/"): Promise<void> {
