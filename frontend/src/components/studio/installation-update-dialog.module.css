@@ -1,0 +1,85 @@
+.hero {
+  isolation: isolate;
+  position: relative;
+  display: grid;
+  align-content: end;
+  gap: 1.1rem;
+  min-height: 11.5rem;
+  padding: clamp(1.25rem, 5vw, 1.75rem);
+  overflow: hidden;
+  color: white;
+  background:
+    radial-gradient(ellipse at 94% 5%, #4656b3, transparent 74%), #171e49;
+}
+
+.hero::before,
+.hero::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.hero::before {
+  background-image: radial-gradient(#c6ccff5e 1px, transparent 1px);
+  background-size: 15px 15px;
+  mask-image: linear-gradient(115deg, transparent 26%, black);
+}
+
+.hero::after {
+  background: url("./orgsdk-symbol.svg") no-repeat right -2rem center / 15rem;
+  opacity: 0.19;
+  filter: brightness(0) invert(1);
+}
+
+.hero[data-complete="true"] {
+  background:
+    radial-gradient(ellipse at 94% 5%, #15725d, transparent 74%), #133830;
+}
+
+.title {
+  max-width: 24rem;
+  margin: 0;
+  font-size: clamp(1.5rem, 5vw, 2rem);
+  font-weight: 650;
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+}
+
+.title:focus {
+  outline: none;
+}
+
+.emblem {
+  position: relative;
+  display: grid;
+  width: 3.3rem;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid #ffffff54;
+  border-radius: 0.85rem;
+  background: #ffffff1a;
+  box-shadow: 0 0.2rem 1.1rem #1018324d;
+}
+
+.sparkles {
+  position: absolute;
+  top: -0.65rem;
+  right: -2.45rem;
+  color: #c2ffde;
+  transform: rotate(-12deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sparkles {
+    animation: celebrate 450ms ease-out both;
+  }
+
+  @keyframes celebrate {
+    from {
+      opacity: 0.15;
+      transform: translate(-0.6rem, 0.5rem) scale(0.6);
+    }
+  }
+}

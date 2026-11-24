@@ -25,7 +25,7 @@ export function WorkspaceShell({
   tab: string;
   children: ReactNode;
 }): ReactNode {
-  const { projects, selected, workspace, isDirty } = useWorkspace();
+  const { projects, selected, workspace, isDirty, goTo } = useWorkspace();
   const project = projects.find((item) => item.id === selected);
   const [open, setOpen] = useState(false);
   const [pageHeader, setPageHeader] = useState<HTMLDivElement | null>(null);
@@ -192,7 +192,12 @@ export function WorkspaceShell({
           )}
         </header>
         {process.env.NEXT_PUBLIC_ORGSDK_STUDIO === "1" && (
-          <InstallationUpdate hasUnsavedChanges={isDirty} />
+          <InstallationUpdate
+            hasUnsavedChanges={isDirty}
+            onReviewApprovals={() => {
+              goTo("approvals");
+            }}
+          />
         )}
         <main className={tab === "actions" ? "action-page" : undefined}>
           <div className={tab === "actions" ? "sr-only" : "page-heading"}>
