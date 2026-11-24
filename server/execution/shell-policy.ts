@@ -127,8 +127,13 @@ export function shellPolicyRequest(
   if (rule) {
     return json({ status: rule.decision === "allow" ? "approved" : "denied" });
   }
+  // Escape direction overrides and other invisible format controls in the review UI.
   const argv = JSON.stringify(
     redact(ctx, run.workspaceId, [executable, ...args]),
+  ).replace(
+    /[\u200b-\u200f\u2028-\u202e\u2060-\u206f]/gu,
+    (character) =>
+      "\\u" + character.charCodeAt(0).toString(16).padStart(4, "0"),
   );
   const row = ctx.db
     .insert(approvals)
