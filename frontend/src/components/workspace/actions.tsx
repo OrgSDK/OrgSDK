@@ -40,7 +40,8 @@ import { ActionPlugins } from "./action-plugins";
 import { ActionResults, ActionRunHistory } from "./action-results";
 import { ResourceState } from "./resource-state";
 import { RunStatus } from "./run-display";
-import { ActionNavigation } from "./action-navigation";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
+import { Badge } from "../ui/badge";
 import { WorkspaceLink } from "./workspace-link";
 const Editor = dynamic(
   async () => {
@@ -349,7 +350,9 @@ function ActionWorkspace({
       value: inputs,
     },
   };
-  const jsonEditor = jsonEditors[editorTab];
+  const actionQuery = selected
+    ? new URLSearchParams({ project, action: selected.id }).toString()
+    : undefined;
   return (
     <div className="actions-workspace">
       <section className="action-detail" aria-label="Action editor">
@@ -388,14 +391,13 @@ function ActionWorkspace({
                   ))}
                 </SelectContent>
               </Select>
-              <span
-                className={`action-save-status ${isDirty ? "is-dirty" : ""}`}
+              <Badge
+                role="status"
+                variant={isDirty ? "warning" : latest ? "success" : "secondary"}
               >
                 {editStatus}
-              </span>
-              {selected?.enabled === false ? (
-                <span className="badge">Disabled</span>
-              ) : null}
+              </Badge>
+              {selected?.enabled === false ? <Badge>Disabled</Badge> : null}
               <Button
                 variant="ghost"
                 size="icon"
@@ -409,7 +411,7 @@ function ActionWorkspace({
                 <Plus size={15} />
               </Button>
             </nav>
-            <div className="row action-header-controls">
+            <div className="action-header-controls">
               {lastRun ? (
                 <div className="action-last-run">
                   <span>Last run</span>
@@ -432,7 +434,7 @@ function ActionWorkspace({
                 {isHistorical ? "Save as new version" : "Save version"}
               </Button>
               <Button
-                className="secondary"
+                className="bg-slate-900 text-white hover:bg-slate-800"
                 disabled={busy || !canRun}
                 onClick={() => {
                   void perform(run);
@@ -443,18 +445,8 @@ function ActionWorkspace({
             </div>
           </div>
         </PageHeader>
-        {selected ? (
-          <ActionNavigation action={selected} current="editor" />
-        ) : (
-          <div className="mb-5 space-y-2">
-            <WorkspaceLink
-              href={`/actions/?project=${encodeURIComponent(projectId)}`}
-            >
-              Back to actions
-            </WorkspaceLink>
-            <h1>New action</h1>
-            <p>Save reusable code for your connected MCP client to run.</p>
-          </div>
+        {!selected && (
+          <p>Save reusable code for your connected MCP client to run.</p>
         )}
         {error ? (
           <p className="error" role="alert">
@@ -504,67 +496,39 @@ function ActionWorkspace({
           className={`action-content-grid ${expanded ? "is-editor-expanded" : ""}`}
         >
           <div className="action-editor-column">
-            <div className="source-pane action-source-pane">
+            <Tabs
+              value={editorTab}
+              onValueChange={setEditorTab}
+              className="source-pane action-source-pane"
+            >
               <div className="source-toolbar">
-                <div
+                <TabsList
                   className="action-editor-tabs"
-                  role="group"
                   aria-label="Action configuration"
                 >
-                  <button
-                    type="button"
-                    className={editorTab === "source" ? "is-active" : ""}
-                    aria-pressed={editorTab === "source"}
-                    onClick={() => {
-                      setEditorTab("source");
-                    }}
-                  >
-                    <span className="typescript-icon">TS</span> action.ts{" "}
-                    {isDirty ? (
-                      <span className="unsaved-dot" title="Unsaved changes" />
-                    ) : null}
-                  </button>
-                  <button
-                    type="button"
-                    className={editorTab === "schema" ? "is-active" : ""}
-                    aria-pressed={editorTab === "schema"}
-                    onClick={() => {
-                      setEditorTab("schema");
-                    }}
-                  >
-                    <Braces size={14} /> Input schema
-                  </button>
-                  <button
-                    type="button"
-                    className={editorTab === "output" ? "is-active" : ""}
-                    aria-pressed={editorTab === "output"}
-                    onClick={() => {
-                      setEditorTab("output");
-                    }}
-                  >
-                    <Braces size={14} /> Output schema
-                  </button>
-                  <button
-                    type="button"
-                    className={editorTab === "inputs" ? "is-active" : ""}
-                    aria-pressed={editorTab === "inputs"}
-                    onClick={() => {
-                      setEditorTab("inputs");
-                    }}
-                  >
-                    <Braces size={14} /> Run inputs
-                  </button>
-                  <button
-                    type="button"
-                    className={editorTab === "schedule" ? "is-active" : ""}
-                    aria-pressed={editorTab === "schedule"}
-                    onClick={() => {
-                      setEditorTab("schedule");
-                    }}
-                  >
-                    <CalendarClock size={14} /> Schedule
-                  </button>
-                </div>
+                  <TabsTrigger value="source">
+                    <span className="typescript-icon" aria-hidden="true">
+                      TS
+                    </span>
+                    action.ts
+                  </TabsTrigger>
+                  <TabsTrigger value="schema">
+                    <Braces size={14} />
+                    Input schema
+                  </TabsTrigger>
+                  <TabsTrigger value="output">
+                    <Braces size={14} />
+                    Output schema
+                  </TabsTrigger>
+                  <TabsTrigger value="inputs">
+                    <Braces size={14} />
+                    Run inputs
+                  </TabsTrigger>
+                  <TabsTrigger value="schedule">
+                    <CalendarClock size={14} />
+                    Schedule
+                  </TabsTrigger>
+                </TabsList>
                 <div className="row">
                   {versions.length > 0 ? (
                     <Select
@@ -607,84 +571,81 @@ function ActionWorkspace({
                   </Button>
                 </div>
               </div>
-              {editorTab === "source" ? (
-                <>
-                  <div className="desktop-editor">
-                    <Editor
-                      value={source}
-                      onChange={setSource}
-                      readOnly={busy}
-                      actionId={`${project}:${selected?.id ?? "new"}:${versionId}`}
-                      projectId={project}
-                      theme="light"
-                      height="100%"
-                    />
-                  </div>
-                  <div className="mobile-editor">
-                    <label>
-                      TypeScript source
-                      <Textarea
-                        className="code"
-                        rows={18}
-                        spellCheck={false}
-                        value={source}
-                        readOnly={busy}
-                        onChange={(event) => {
-                          setSource(event.target.value);
-                        }}
-                      />
-                    </label>
-                  </div>
-                </>
-              ) : null}
-              {editorTab === "schedule" ? (
-                <section
-                  className="action-schedule-editor"
-                  aria-labelledby="action-schedule-title"
-                >
-                  <h3 id="action-schedule-title">Schedule action</h3>
-                  {selected ? (
-                    <WorkspaceLink
-                      href={`/schedules/?${new URLSearchParams({ project, action: selected.id }).toString()}`}
-                    >
-                      View saved schedules
-                    </WorkspaceLink>
-                  ) : null}
-                  <p className="small">
-                    Creating a schedule copies the current Run inputs. Scheduled
-                    runs use this action’s latest saved version.
-                  </p>
-                  {canRun && !isHistorical ? null : (
-                    <p className="notice" role="status">
-                      {scheduleUnavailableReason()}
-                    </p>
-                  )}
-                  <SchedulePicker
-                    value={cron}
-                    onChange={setCron}
-                    disabled={busy}
+              <TabsContent value="source" className="action-source-content">
+                <div className="desktop-editor">
+                  <Editor
+                    value={source}
+                    onChange={setSource}
+                    readOnly={busy}
+                    actionId={`${project}:${selected?.id ?? "new"}:${versionId}`}
+                    projectId={project}
+                    theme="light"
+                    height="100%"
                   />
-                  <Button
-                    className="secondary"
-                    disabled={busy || !canRun || isHistorical}
-                    onClick={() => {
-                      void perform(async () => {
-                        if (!selected || !canRun) return;
-                        await trpc.schedules.create.mutate({
-                          action: selected.id,
-                          cron,
-                          inputs: parseActionJSON(inputs),
-                        });
-                        setNotice("Schedule created.");
-                      });
-                    }}
+                </div>
+                <div className="mobile-editor">
+                  <label>
+                    TypeScript source
+                    <Textarea
+                      className="code"
+                      rows={18}
+                      spellCheck={false}
+                      value={source}
+                      readOnly={busy}
+                      onChange={(event) => {
+                        setSource(event.target.value);
+                      }}
+                    />
+                  </label>
+                </div>
+              </TabsContent>
+              <TabsContent value="schedule" className="action-schedule-editor">
+                <h3>Schedule action</h3>
+                {selected ? (
+                  <WorkspaceLink
+                    href={`/schedules/?${new URLSearchParams({ project, action: selected.id }).toString()}`}
                   >
-                    Create schedule
-                  </Button>
-                </section>
-              ) : null}
-              {jsonEditor ? (
-                <div className="action-json-editor">
+                    View saved schedules
+                  </WorkspaceLink>
+                ) : null}
+                <p className="small">
+                  Creating a schedule copies the current Run inputs. Scheduled
+                  runs use this action’s latest saved version.
+                </p>
+                {canRun && !isHistorical ? null : (
+                  <p className="notice" role="status">
+                    {scheduleUnavailableReason()}
+                  </p>
+                )}
+                <SchedulePicker
+                  value={cron}
+                  onChange={setCron}
+                  disabled={busy}
+                />
+                <Button
+                  className="secondary"
+                  disabled={busy || !canRun || isHistorical}
+                  onClick={() => {
+                    void perform(async () => {
+                      if (!selected || !canRun) return;
+                      await trpc.schedules.create.mutate({
+                        action: selected.id,
+                        cron,
+                        inputs: parseActionJSON(inputs),
+                      });
+                      setNotice("Schedule created.");
+                    });
+                  }}
+                >
+                  Create schedule
+                </Button>
+              </TabsContent>
+              {Object.entries(jsonEditors).map(([value, jsonEditor]) => (
+                <TabsContent
+                  key={value}
+                  value={value}
+                  className="action-json-editor"
+                >
                   <p className="small">{jsonEditor.description}</p>
                   <label>
                     {jsonEditor.label}
@@ -694,16 +655,16 @@ function ActionWorkspace({
                       value={jsonEditor.value}
                       readOnly={busy}
                       onChange={(event) => {
-                        if (editorTab === "schema")
+                        if (value === "schema")
                           setInputSchema(event.target.value);
-                        else if (editorTab === "output")
+                        else if (value === "output")
                           setOutputSchema(event.target.value);
                         else setInputs(event.target.value);
                       }}
                     />
                   </label>
-                </div>
-              ) : null}
+                </TabsContent>
+              ))}
               <footer className="source-footer">
                 <span>
                   {editorTab === "schedule" ? "Schedule" : editorLanguage}
@@ -714,12 +675,8 @@ function ActionWorkspace({
                     : editStatus}
                 </span>
               </footer>
-            </div>
-            <ActionResults
-              runs={runs}
-              run={selectedRun}
-              onSelect={setSelectedRunId}
-            />
+            </Tabs>
+            <ActionResults run={selectedRun} />
           </div>
           <aside
             className="action-context-column"
@@ -735,6 +692,11 @@ function ActionWorkspace({
             >
               <div className="action-panel-heading">
                 <h3>Previous runs</h3>
+                {actionQuery && (
+                  <WorkspaceLink href={`/runs/?${actionQuery}`}>
+                    View all runs
+                  </WorkspaceLink>
+                )}
                 <span className="count">
                   {runs.length} {runs.length === 1 ? "run" : "runs"}
                 </span>

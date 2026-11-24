@@ -17,7 +17,7 @@ const sections = [
 ] as const;
 type Section = (typeof sections)[number]["id"];
 
-export function ActionNavigation({
+function ActionNavigation({
   action,
   current,
 }: {

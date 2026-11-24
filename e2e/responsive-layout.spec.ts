@@ -90,8 +90,51 @@ test("action header controls do not overlap at tablet widths", async ({
     `/actions/?project=${project.id}&action=${saved.action}`,
   );
   await expect(page.locator(".action-last-run")).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Action sections" }),
+  ).toHaveCount(0);
+  const tabs = page.getByRole("tablist", { name: "Action configuration" });
+  await tabs.getByRole("tab", { name: "action.ts" }).focus();
+  await page.keyboard.press("ArrowRight");
+  const schema = page.getByRole("tabpanel", { name: "Input schema" });
+  await schema.getByRole("textbox").fill('{"type":"object","title":"Draft"}');
+  await tabs.getByRole("tab", { name: "Schedule" }).click();
+  await expect(
+    page.getByRole("button", { name: "Create schedule" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("link", { name: "View saved schedules" }),
+  ).toHaveAttribute(
+    "href",
+    `/schedules/?project=${project.id}&action=${saved.action}`,
+  );
+  await expect(
+    page.getByRole("link", { name: "View all runs" }),
+  ).toHaveAttribute(
+    "href",
+    `/runs/?project=${project.id}&action=${saved.action}`,
+  );
+  await page.getByText("Action settings", { exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: "Manage webhooks" }),
+  ).toHaveAttribute(
+    "href",
+    `/webhooks/?project=${project.id}&action=${saved.action}`,
+  );
+  await tabs.getByRole("tab", { name: "Input schema" }).click();
+  await expect(schema.getByRole("textbox")).toHaveValue(
+    '{"type":"object","title":"Draft"}',
+  );
+  await expect(
+    page
+      .getByRole("navigation", { name: "Action navigation" })
+      .getByRole("status"),
+  ).toHaveText("Unsaved changes");
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+      .toBeLessThanOrEqual(width);
     expect(
       await page.locator(".action-toolbar").evaluate((element) => {
         const navigation = element

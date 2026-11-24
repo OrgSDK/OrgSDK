@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import {
   ArrowUpRight,
   Download,
@@ -11,6 +11,7 @@ import {
 import { trpc } from "../../api/trpc";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
 import { loadArtifacts } from "../../api/workspace-queries";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
 import { Button } from "../ui/button";
 import { ResourceState } from "./resource-state";
 import {
@@ -194,110 +195,60 @@ function RunLogs({ run }: { run: Run }): ReactNode {
     </div>
   );
 }
-const resultTabs = [
-  "Run artifacts",
-  "Previous runs",
-  "Logs",
-  "Output",
-] as const;
-export function ActionResults({
-  runs,
-  run,
-  onSelect,
-}: {
-  runs: Run[];
-  run: Run | undefined;
-  onSelect: (id: string) => void;
-}): ReactNode {
-  const [tab, setTab] = useState<(typeof resultTabs)[number]>("Run artifacts");
-  const isEmpty = tab !== "Previous runs" && !run;
+const resultTabs = ["Run artifacts", "Logs", "Output"] as const;
+export function ActionResults({ run }: { run: Run | undefined }): ReactNode {
   return (
     <section
-      className="action-card action-results"
       aria-label="Action run results"
+      className="action-card action-results"
     >
-      <div
-        className="action-tab-bar"
-        role="tablist"
-        aria-label="Run information"
-      >
-        {resultTabs.map((label, index) => (
-          <button
-            key={label}
-            id={`result-tab-${String(index)}`}
-            role="tab"
-            aria-selected={tab === label}
-            aria-controls="action-result-panel"
-            tabIndex={tab === label ? 0 : -1}
-            onClick={() => {
-              setTab(label);
-            }}
-            onKeyDown={(event) => {
-              const destinations: Record<string, number | undefined> = {
-                ArrowRight: (index + 1) % resultTabs.length,
-                ArrowLeft: (index + resultTabs.length - 1) % resultTabs.length,
-                Home: 0,
-                End: resultTabs.length - 1,
-              };
-              const next = destinations[event.key];
-              if (next === undefined) return;
-              event.preventDefault();
-              setTab(resultTabs[next] ?? "Run artifacts");
-              document
-                .querySelector<HTMLButtonElement>(`#result-tab-${String(next)}`)
-                ?.focus();
-            }}
-          >
-            {label}
-          </button>
+      <Tabs defaultValue="Run artifacts" className="action-result-tabs">
+        <TabsList aria-label="Run information">
+          {resultTabs.map((label) => (
+            <TabsTrigger key={label} value={label}>
+              {label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {resultTabs.map((label) => (
+          <TabsContent key={label} value={label}>
+            {run ? (
+              <>
+                <div className="action-result-context">
+                  <span>
+                    Run #{run.id.slice(0, 8)} <RunStatus status={run.status} />
+                  </span>
+                  <WorkspaceLink href={`/runs/?run=${run.id}`}>
+                    Run details <ArrowUpRight size={13} />
+                  </WorkspaceLink>
+                </div>
+                {label === "Run artifacts" && (
+                  <RunArtifacts key={`${run.id}-${run.status}`} run={run} />
+                )}
+                {label === "Logs" && <RunLogs key={run.id} run={run} />}
+                {label === "Output" && (
+                  <pre className="action-output">
+                    {activeStatuses.includes(run.status)
+                      ? "This run is in progress. Its output will appear here."
+                      : run.error ||
+                        displayValue(run.output) ||
+                        "This run completed without output."}
+                  </pre>
+                )}
+              </>
+            ) : (
+              <div className="action-empty">
+                <Files size={26} />
+                <p>Your run results will appear here.</p>
+                <span>
+                  Save your action, then choose Run selected version to get
+                  started.
+                </span>
+              </div>
+            )}
+          </TabsContent>
         ))}
-      </div>
-      <div
-        id="action-result-panel"
-        role="tabpanel"
-        aria-labelledby={`result-tab-${String(resultTabs.indexOf(tab))}`}
-        tabIndex={0}
-      >
-        {run ? (
-          <div className="action-result-context">
-            <span>
-              Run #{run.id.slice(0, 8)} <RunStatus status={run.status} />
-            </span>
-            <WorkspaceLink href={`/runs/?run=${run.id}`}>
-              Run details <ArrowUpRight size={13} />
-            </WorkspaceLink>
-          </div>
-        ) : null}
-        {tab === "Previous runs" ? (
-          <ActionRunHistory
-            runs={runs}
-            selectedId={run?.id ?? ""}
-            onSelect={onSelect}
-          />
-        ) : null}
-        {isEmpty ? (
-          <div className="action-empty">
-            <Files size={26} />
-            <p>Your run results will appear here.</p>
-            <span>
-              Save your action, then choose Run selected version to get started.
-            </span>
-          </div>
-        ) : null}
-        {tab === "Run artifacts" && run ? (
-          <RunArtifacts key={`${run.id}-${run.status}`} run={run} />
-        ) : null}
-        {tab === "Logs" && run ? <RunLogs key={run.id} run={run} /> : null}
-        {tab === "Output" && run ? (
-          <pre className="action-output">
-            {activeStatuses.includes(run.status)
-              ? "This run is in progress. Its output will appear here."
-              : run.error ||
-                displayValue(run.output) ||
-                "This run completed without output."}
-          </pre>
-        ) : null}
-      </div>
+      </Tabs>
     </section>
   );
 }
