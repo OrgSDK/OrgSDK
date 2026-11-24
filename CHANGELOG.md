@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.1
+
+### Fixed
+
+- Studio shows one set of keyboard-accessible action editor tabs and keeps the action name, save status and run controls readable across screen sizes.
+
 ## 2.5.0
 
 ### Added
