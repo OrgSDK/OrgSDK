@@ -168,3 +168,10 @@ export function scopedProcedure(
     return next();
   });
 }
+
+export function scopedManagerProcedure(required: ClientScope) {
+  return scopedProcedure(required).use(({ ctx, next }) => {
+    requireManager(ctx);
+    return next();
+  });
+}

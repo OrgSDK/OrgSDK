@@ -26,8 +26,14 @@ const clientScopes = [
   ["actions:test", "Run isolated mocked action tests"],
   ["runs:read", "Inspect this client's own runs"],
   ["runs:cancel", "Cancel this client's own runs"],
+  [
+    "plugins:configure",
+    "Configure installed plugins and replace their API credentials",
+  ],
 ] as const;
-const authorScopes = clientScopes.map(([scope]) => scope);
+const authorScopes = clientScopes
+  .map(([scope]) => scope)
+  .filter((scope) => scope !== "plugins:configure");
 const runnerScopes: ClientScope[] = [
   "catalog:read",
   "actions:run",
