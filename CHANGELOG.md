@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.0
+
+### Added
+
+- Manage Shell executables in Studio and review unlisted commands with allow-once, always-allow and block decisions.
+
 ## 2.1.0
 
 ### Changed

@@ -1,5 +1,0 @@
-{
-  "type": "minor",
-  "category": "added",
-  "summary": "Manage Shell executables in Studio and review unlisted commands with allow-once, always-allow and block decisions."
-}
