@@ -24,7 +24,15 @@ An external MCP client can keep a TypeScript session on a project runner while i
 3. Under **Plugins → Connect MCP server**, use the name `playwright` and the URL `http://127.0.0.1:8931/mcp` for a host runner on the same machine. Choose anonymous authentication, check the connection, review the schema, and enable `browser_run_code_unsafe`. This upstream tool executes Playwright code with the browser server's host privileges. Use a dedicated browser process and trusted local clients. Every client connected to this shared-context endpoint can see the same browser state.
 4. Connect the external client to the **OrgSDK workspace** URL ending in `/mcp/` using a project-scoped bearer token. Grant `catalog:read`, `code:execute`, and `runs:read` for discovery and iteration. Add `actions:write`, `actions:test`, and `actions:run` to author, test, and replay. Use `list_projects` and `get_project_sdk` to discover the project ID and the reviewed tool alias. For the name above it is `playwright.browserRunCodeUnsafe`.
 
-A project using the external Browser CDP plugin can use its named operations instead, such as `browserCdp.listPages({})` and `browserCdp.readText({ pageId, selector })`. Install that plugin and configure its CDP endpoint first. The plugin returns stable page IDs for a running Chromium instance.
+A project using the external Browser CDP plugin can use its named operations instead, such as `browserCdp.listPages({})` and `browserCdp.readText({ pageId, selector })`. Install it in the project, then open **Configure** and fill in **Browser endpoint** and, if needed, authentication. The plugin returns stable page IDs for an existing Chromium instance. Playwright MCP can launch and manage its browser after its server is running. Browser CDP is for attaching to a browser that you or a provider already run.
+
+### Configure an installed plugin from MCP
+
+A workspace owner or admin can create a client token with the optional `plugins:configure` scope and a grant for the project. Call `list_project_plugins({ project })` to find the installed plugin's ID, revision, configuration schema, and credential status. For an unauthenticated Browser CDP endpoint, call `configure_plugin` with the returned `id` and `revision` and a configuration such as `{ "cdpEndpoint": "http://localhost:9222" }`. The runner must be able to reach that address.
+
+`configuration` replaces the full settings object when supplied. For a token-based plugin, pass `credential: { name, secret }` to store and attach a new credential in the same operation. Browser CDP accepts `secret_apiKey` in that object. Use a trusted client for supplying secrets. Tool results report whether a credential is connected and keep stored secret values private.
+
+If a credential is connected and the configuration changes, supply a replacement credential or pass `credential: null` to disconnect it. Studio can change settings while retaining a previously stored credential, and handles OAuth and remote MCP tool review. Replacing a credential does not edit the old entry, so other plugins and existing run snapshots referencing it keep their original credential. If the revision is stale, list the settings again before deciding whether to retry.
 
 ## Iterate using MCP
 

@@ -8,6 +8,7 @@ import {
 } from "../actions/schemas";
 import type { AppContext } from "../http/context";
 import { HttpError } from "../http/responses";
+import { configurePluginSchema } from "../plugins/settings";
 import { appRouter } from "../router";
 import {
   createRunSchema,
@@ -145,6 +146,12 @@ export async function dispatchTool(
       return (await caller.approvals.list()).results.filter(
         (entry) => entry.status === "pending",
       );
+    case "list_project_plugins":
+      return caller.plugins.settings({
+        project: z.uuid().parse(toolInput.project),
+      });
+    case "configure_plugin":
+      return caller.plugins.configure(configurePluginSchema.parse(toolInput));
     case "list_plugins":
       return (await caller.plugins.list()).results.map((entry) => ({
         slug: entry.slug,
