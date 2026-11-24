@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
 import { rpcFixture } from "./rpc-fixture";
 import { newerStable } from "../platform/stable-release";
-import { memberships } from "../db/schema";
+import { memberships, projects, runs, workspaces } from "../db/schema";
+import { updateBlockers } from "../platform/installation-update";
 
 test("updates accept only strictly newer stable versions", () => {
   expect(newerStable("2.10.0", "2.9.1")).toBe(true);
@@ -15,6 +16,76 @@ test("updates accept only strictly newer stable versions", () => {
     "2.3.0\n",
   ]) {
     expect(newerStable(candidate, "2.1.0")).toBe(false);
+  }
+});
+
+test("restart blockers count active runs and approvals for the current workspace", () => {
+  const fixture = rpcFixture();
+  const { db } = fixture.store;
+  try {
+    const otherWorkspace = db
+      .insert(workspaces)
+      .values({
+        host: "other.localhost",
+        name: "Other",
+        createdAt: fixture.time,
+      })
+      .returning({ id: workspaces.id })
+      .get();
+    const otherProjectId = crypto.randomUUID();
+    db.insert(projects)
+      .values({
+        id: otherProjectId,
+        workspaceId: otherWorkspace.id,
+        name: "Other project",
+        createdAt: fixture.time,
+        updatedAt: fixture.time,
+      })
+      .run();
+    const statuses = [
+      "running",
+      "running",
+      "waiting_approval",
+      "queued",
+      "succeeded",
+    ];
+    const records = statuses.map((status) => ({
+      id: crypto.randomUUID(),
+      workspaceId: fixture.workspace.id,
+      projectId: fixture.project.id,
+      actorId: fixture.user.id,
+      status,
+      operation: "execute",
+      idempotencyKey: crypto.randomUUID(),
+      createdAt: fixture.time,
+      updatedAt: fixture.time,
+    }));
+    db.insert(runs)
+      .values([
+        ...records,
+        {
+          id: crypto.randomUUID(),
+          workspaceId: otherWorkspace.id,
+          projectId: otherProjectId,
+          actorId: fixture.user.id,
+          status: "running",
+          operation: "execute",
+          idempotencyKey: crypto.randomUUID(),
+          createdAt: fixture.time,
+          updatedAt: fixture.time,
+        },
+      ])
+      .run();
+    expect(updateBlockers(db, fixture.workspace.id)).toEqual({
+      running: 2,
+      awaitingApproval: 1,
+    });
+    expect(updateBlockers(db, otherWorkspace.id)).toEqual({
+      running: 1,
+      awaitingApproval: 0,
+    });
+  } finally {
+    fixture.close();
   }
 });
 

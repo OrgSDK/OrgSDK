@@ -5,10 +5,19 @@ import type { AppRouter } from "../../../../server/router";
 import { trpc, installationOrigin, type RouterOutputs } from "../../api/trpc";
 import { isLocalAddress } from "../../api/studio";
 import { Button } from "../ui/button";
+import {
+  InstallationUpdateDialog,
+  type UpdatePhase,
+} from "./installation-update-dialog";
 
 type Status = RouterOutputs["system"]["updateStatus"];
-const guide =
+type Observation =
+  | { connection: "online"; status: Status; healthReady: boolean }
+  | { connection: "offline" | "sign-in" | "legacy" };
+
+const upgradeGuide =
   "https://github.com/OrgSDK/OrgSDK/blob/main/docs/npm-distribution.md#lifecycle-and-recovery";
+
 function remembered(key: string) {
   try {
     return sessionStorage.getItem(key) ?? "";
@@ -17,221 +26,258 @@ function remembered(key: string) {
   }
 }
 
-function progress(
-  target: string,
-  status: Status | undefined,
-  isDisconnected: boolean,
-) {
-  if (isDisconnected)
-    return (
-      "Waiting for OrgSDK " +
-      target +
-      " to reconnect. If it stays offline, check the terminal where OrgSDK started."
-    );
-  if (status?.installed === target) {
-    return status.executorReady
-      ? "OrgSDK " +
-          target +
-          " is running and its local executor manager has reconnected."
-      : "OrgSDK " +
-          target +
-          " is running. Waiting for the local executor manager…";
+function remember(key: string, value: string) {
+  try {
+    if (value) sessionStorage.setItem(key, value);
+    else sessionStorage.removeItem(key);
+  } catch {
+    // The update can still be followed in this tab.
   }
-  if (status && !status.pending && status.failed !== target)
-    return (
-      "The installation is running OrgSDK " +
-      status.installed +
-      ". The requested update is no longer in progress."
-    );
-  return status?.failed === target && !status.pending
-    ? "The update failed. OrgSDK " +
-        status.installed +
-        " is running. See the launcher output for the cause and backup location."
-    : "Updating to OrgSDK " +
-        target +
-        ". Active runs finish first, then OrgSDK backs up and restarts.";
+}
+
+function updatePhase(
+  target: string,
+  observation: Observation | undefined,
+  isSending: boolean,
+): UpdatePhase {
+  if (isSending) return "requesting";
+  if (!observation) return "checking";
+  if (observation.connection === "sign-in") return "sign-in";
+  if (observation.connection !== "online") return "reconnecting";
+  const { status, healthReady } = observation;
+  if (status.installed === target)
+    return healthReady && status.executorReady ? "complete" : "verifying";
+  if (status.pending === target) {
+    const blockers = status.blockers;
+    // Installations that predate blocker counts still report when an update is pending.
+    return !blockers || blockers.running + blockers.awaitingApproval > 0
+      ? "waiting"
+      : "restarting";
+  }
+  return "stopped";
+}
+
+async function isPlatformHealthy(signal: AbortSignal): Promise<boolean> {
+  try {
+    const health = await trpc.system.health.query(undefined, { signal });
+    return health.status === "ok";
+  } catch {
+    return false;
+  }
+}
+
+async function observe(
+  target: string,
+  signal: AbortSignal,
+): Promise<Observation> {
+  try {
+    const status = await trpc.system.updateStatus.query(undefined, { signal });
+    const isHealthReady =
+      status.installed === target && (await isPlatformHealthy(signal));
+    return { connection: "online", status, healthReady: isHealthReady };
+  } catch (error) {
+    if (isTRPCClientError<AppRouter>(error)) {
+      if (error.data?.code === "UNAUTHORIZED") return { connection: "sign-in" };
+      if (error.data?.code === "NOT_FOUND") return { connection: "legacy" };
+    }
+    return { connection: "offline" };
+  }
 }
 
 export function InstallationUpdate({
   hasUnsavedChanges,
+  onReviewApprovals,
 }: {
   hasUnsavedChanges: boolean;
+  onReviewApprovals: () => void;
 }): ReactNode {
   const endpoint = installationOrigin();
   const storageKey = "orgsdk:update:" + endpoint;
-  const [status, setStatus] = useState<Status>();
-  const [legacy, setLegacy] = useState(false);
+  const dismissedKey = storageKey + ":later";
+  const [observation, setObservation] = useState<Observation>();
   const [target, setTarget] = useState(() => remembered(storageKey));
+  const [dismissed, setDismissed] = useState(() => remembered(dismissedKey));
+  const [confirmation, setConfirmation] = useState("");
   const [message, setMessage] = useState("");
-  const [dismissed, setDismissed] = useState(() =>
-    remembered(storageKey + ":later"),
-  );
-  const [confirming, setConfirming] = useState(false);
-  const [isDisconnected, setDisconnected] = useState(false);
-  const [sending, setSending] = useState(false);
+  const [isSending, setSending] = useState(false);
+  const [reviewingApprovals, setReviewingApprovals] = useState(false);
   const inFlight = useRef(false);
+  const checkNow = useRef<() => void>(undefined);
+  const noticeButton = useRef<HTMLButtonElement>(null);
+  const phase = target
+    ? updatePhase(target, observation, isSending)
+    : "confirm";
+  const isSettled = phase === "complete" || phase === "stopped";
+  const status =
+    observation?.connection === "online" ? observation.status : undefined;
+  const isLegacy = observation?.connection === "legacy";
+  const isReviewing = reviewingApprovals && phase === "waiting";
+
   useEffect(() => {
+    if (isSending || isSettled) return;
     const scope = new AbortController();
     let isChecking = false;
     async function check() {
       if (isChecking) return;
       isChecking = true;
-      try {
-        const next = await trpc.system.updateStatus.query(undefined, {
-          signal: scope.signal,
-        });
-        if (scope.signal.aborted) return;
-        setStatus(next);
-        setDisconnected(false);
-        setLegacy(false);
-        if (next.pending) setTarget(next.pending);
-      } catch (error) {
-        if (scope.signal.aborted) return;
-        if (
-          isTRPCClientError<AppRouter>(error) &&
-          error.data?.code === "NOT_FOUND"
-        )
-          setLegacy(true);
-        else setDisconnected(true);
-      } finally {
-        isChecking = false;
-      }
+      const signal = AbortSignal.any([scope.signal, AbortSignal.timeout(8000)]);
+      const next = await observe(target, signal);
+      isChecking = false;
+      if (scope.signal.aborted || inFlight.current) return;
+      setObservation(next);
+      const pending = next.connection === "online" ? next.status.pending : null;
+      if (target || !pending) return;
+      setTarget(pending);
+      remember(storageKey, pending);
     }
-    void check();
-    const timer = setInterval(() => void check(), target ? 3000 : 3_600_000);
-    const visible = () => {
+    const whenVisible = () => {
       if (document.visibilityState === "visible") void check();
     };
-    document.addEventListener("visibilitychange", visible);
+    checkNow.current = () => void check();
+    void check();
+    const timer = setInterval(() => void check(), target ? 3000 : 3_600_000);
+    document.addEventListener("visibilitychange", whenVisible, {
+      signal: scope.signal,
+    });
+    addEventListener("online", whenVisible, { signal: scope.signal });
     return () => {
       scope.abort();
       clearInterval(timer);
-      document.removeEventListener("visibilitychange", visible);
+      checkNow.current = undefined;
     };
-  }, [target, endpoint]);
+  }, [target, storageKey, isSending, isSettled]);
+
   function later(version: string) {
     setDismissed(version);
-    setConfirming(false);
-    setTarget("");
-    setMessage("");
-    try {
-      sessionStorage.removeItem(storageKey);
-      sessionStorage.setItem(storageKey + ":later", version);
-    } catch {
-      // The dismissal still applies in this tab.
-    }
+    remember(dismissedKey, version);
   }
+
+  function close() {
+    if (phase === "complete") later(target);
+    setTarget("");
+    remember(storageKey, "");
+    setConfirmation("");
+    setMessage("");
+    setReviewingApprovals(false);
+  }
+
   async function update(version: string) {
-    if (inFlight.current) return;
+    if (hasUnsavedChanges || inFlight.current) return;
     inFlight.current = true;
     setSending(true);
     setMessage("");
+    setTarget(version);
+    remember(storageKey, version);
     try {
-      await trpc.system.requestUpdate.mutate({ version });
-      setStatus((current) => current && { ...current, pending: version });
-      setTarget(version);
-      setConfirming(false);
-      try {
-        sessionStorage.setItem(storageKey, version);
-      } catch {
-        // The current tab can still follow progress.
-      }
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "Could not confirm the update. Check the installation before retrying.",
+      await trpc.system.requestUpdate.mutate(
+        { version },
+        { signal: AbortSignal.timeout(8000) },
       );
+      setObservation(undefined);
+      setConfirmation("");
+    } catch (error) {
+      if (isTRPCClientError<AppRouter>(error) && error.data) {
+        setTarget("");
+        remember(storageKey, "");
+        setMessage(error.message);
+      } else {
+        // The launcher may have received the request before the connection dropped.
+        setObservation(undefined);
+        setConfirmation("");
+      }
     } finally {
       inFlight.current = false;
       setSending(false);
     }
   }
-  if (target) {
-    const isComplete =
-      status?.installed === target && status.executorReady && !isDisconnected;
-    const hasStopped =
-      !!status &&
-      !isDisconnected &&
-      !status.pending &&
-      status.installed !== target;
-    return (
-      <aside className="panel" role="status">
-        <p>{progress(target, status, isDisconnected)}</p>
-        {(isComplete || hasStopped) && (
-          <Button
-            onClick={() => {
-              later(isComplete ? target : "");
-            }}
-          >
-            Dismiss
-          </Button>
-        )}
-        {isDisconnected && (
-          <Button
-            onClick={() => {
-              location.reload();
-            }}
-          >
-            Reconnect to installation
-          </Button>
-        )}
-      </aside>
-    );
-  }
-  const version = status?.available ?? (legacy ? "legacy" : "");
-  if (!version || version === dismissed) return null;
+
+  const version = status?.available ?? (isLegacy ? "legacy" : "");
+  const canShowOffer =
+    !target && !confirmation && version !== "" && version !== dismissed;
   return (
-    <aside className="panel" aria-label="Installation update">
-      <p>
-        {legacy
-          ? "This installation needs a manual upgrade to enable update checks in Studio."
-          : "OrgSDK " +
-            version +
-            " is available. This installation is running " +
-            (status?.installed ?? "") +
-            "."}
-      </p>
-      {confirming && (
-        <p>
-          Save your work. OrgSDK will finish active runs, back up your database,
-          key and project files, and briefly disconnect while restarting.
-        </p>
-      )}
-      {message && <p role="alert">{message}</p>}
-      {!legacy && status?.automatic ? (
-        <Button
-          disabled={sending || (confirming && hasUnsavedChanges)}
-          onClick={() => {
-            if (confirming) void update(version);
-            else setConfirming(true);
-          }}
+    <>
+      {(canShowOffer || isReviewing) && (
+        <aside
+          className="panel flex flex-wrap items-center gap-x-4 gap-y-2"
+          aria-label="Installation update"
         >
-          {confirming ? "Confirm update and restart" : "Update and restart"}
-        </Button>
-      ) : (
-        <>
-          <a href={guide} target="_blank" rel="noreferrer">
-            View installation upgrade steps
-          </a>
-          {legacy && isLocalAddress(endpoint) && (
-            <p>
-              For an npm installation, stop OrgSDK and back up its data, run{" "}
-              <code>npm install -g @orgsdk/cli@latest</code>, then start it
-              again with the same settings.
-            </p>
+          {isReviewing ? (
+            <>
+              <p>OrgSDK {target} will update after the active runs finish.</p>
+              <Button
+                ref={noticeButton}
+                variant="outline"
+                onClick={() => {
+                  setReviewingApprovals(false);
+                }}
+              >
+                View update progress
+              </Button>
+            </>
+          ) : (
+            <>
+              <p>
+                {isLegacy
+                  ? "This installation needs a manual upgrade to enable update checks in Studio."
+                  : `OrgSDK ${version} is available. You’re running ${status?.installed ?? ""}.`}
+              </p>
+              {!isLegacy && status?.automatic ? (
+                <Button
+                  ref={noticeButton}
+                  onClick={() => {
+                    setConfirmation(version);
+                  }}
+                >
+                  Click here to update
+                </Button>
+              ) : (
+                <a href={upgradeGuide} target="_blank" rel="noreferrer">
+                  View installation upgrade steps
+                </a>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  later(version);
+                }}
+              >
+                Later
+              </Button>
+              {isLegacy && isLocalAddress(endpoint) && (
+                <p>
+                  For an npm installation, stop OrgSDK and back up its data, run{" "}
+                  <code>npm install -g @orgsdk/cli@latest</code>, then start it
+                  again with the same settings.
+                </p>
+              )}
+            </>
           )}
-        </>
+        </aside>
       )}
-      <Button
-        disabled={sending}
-        variant="outline"
-        onClick={() => {
-          later(version);
+      <InstallationUpdateDialog
+        open={Boolean(confirmation || target) && !isReviewing}
+        phase={phase}
+        version={target || confirmation}
+        status={status}
+        hasPassedHealthCheck={
+          observation?.connection === "online" && observation.healthReady
+        }
+        hasUnsavedChanges={hasUnsavedChanges}
+        message={message}
+        onUpdate={() => void update(confirmation)}
+        onClose={close}
+        onAfterClose={() => {
+          const fallback = document.querySelector<HTMLElement>(
+            ".workspace-sidebar a[aria-current='page']",
+          );
+          (noticeButton.current ?? fallback)?.focus();
         }}
-      >
-        Later
-      </Button>
-    </aside>
+        onCheck={() => checkNow.current?.()}
+        onReviewApprovals={() => {
+          setReviewingApprovals(true);
+          onReviewApprovals();
+        }}
+      />
+    </>
   );
 }
