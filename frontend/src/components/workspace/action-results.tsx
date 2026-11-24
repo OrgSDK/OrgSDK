@@ -27,12 +27,10 @@ export function ActionRunHistory({
   runs,
   selectedId,
   onSelect,
-  compact = false,
 }: {
   runs: Run[];
   selectedId: string;
   onSelect: (id: string) => void;
-  compact?: boolean;
 }): ReactNode {
   if (runs.length === 0)
     return (
@@ -52,15 +50,17 @@ export function ActionRunHistory({
           </tr>
         </thead>
         <tbody>
-          {(compact ? runs.slice(0, 5) : runs).map((run) => (
+          {runs.map((run) => (
             <tr
               key={run.id}
               className={selectedId === run.id ? "is-selected" : ""}
             >
               <td>
-                <button
+                <Button
                   type="button"
-                  className="action-run-link"
+                  variant="link"
+                  size="sm"
+                  className="action-run-link px-0"
                   aria-label={`Inspect run ${run.id.slice(0, 8)}`}
                   aria-pressed={selectedId === run.id}
                   onClick={() => {
@@ -68,7 +68,7 @@ export function ActionRunHistory({
                   }}
                 >
                   #{run.id.slice(0, 8)}
-                </button>
+                </Button>
               </td>
               <td>
                 <RunStatus status={run.status} />

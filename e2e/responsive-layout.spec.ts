@@ -121,6 +121,18 @@ test("action header controls do not overlap at tablet widths", async ({
     "href",
     `/webhooks/?project=${project.id}&action=${saved.action}`,
   );
+  const enabled = page.getByRole("checkbox", { name: "Enabled for new runs" });
+  await enabled.uncheck();
+  await page.getByRole("button", { name: "Save action settings" }).click();
+  await expect(
+    page.getByRole("navigation", { name: "Action navigation" }),
+  ).toContainText("Disabled");
+  await expect
+    .poll(
+      async () =>
+        (await client.actions.get.query({ id: saved.action })).enabled,
+    )
+    .toBe(false);
   await tabs.getByRole("tab", { name: "Input schema" }).click();
   await expect(schema.getByRole("textbox")).toHaveValue(
     '{"type":"object","title":"Draft"}',

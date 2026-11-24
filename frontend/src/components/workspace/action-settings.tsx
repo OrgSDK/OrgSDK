@@ -1,6 +1,7 @@
 import type { Action } from "../../api/types";
 import { formText } from "../../lib/form-fields";
 import type { ReactNode } from "react";
+import { Checkbox } from "../ui/checkbox";
 import { Button } from "../ui/button";
 import { WorkspaceLink } from "./workspace-link";
 import { Input } from "../ui/input";
@@ -51,9 +52,8 @@ export function ActionSettings({
           />
         </label>
         <label className="check">
-          <input
+          <Checkbox
             name="enabled"
-            type="checkbox"
             defaultChecked={action.enabled}
             disabled={isBusy}
           />
