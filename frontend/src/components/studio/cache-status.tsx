@@ -7,7 +7,7 @@ const statusText: Record<OfflineStatus, string> = {
   ready: "Studio is available offline",
   unavailable: "Offline copy unavailable",
   update:
-    "A Studio update is ready. Save your work and close all Studio tabs to use it next time.",
+    "A Studio update is ready. Save your work before refreshing this tab.",
 };
 
 export function StudioCacheStatus({
@@ -16,6 +16,8 @@ export function StudioCacheStatus({
   showOfflineStatus?: boolean;
 }): ReactNode {
   const [status, setStatus] = useState<OfflineStatus>();
+  const [refreshHint, setRefreshHint] = useState("");
+  const refresh = useRef<() => void>(undefined);
   const retry = useRef<() => void>(undefined);
   useEffect(() => {
     if (!("serviceWorker" in navigator)) {
@@ -81,6 +83,40 @@ export function StudioCacheStatus({
         isChecking = false;
       }
     }
+    let requested: ServiceWorker | null = null;
+    refresh.current = () => {
+      requested = observed?.waiting ?? null;
+      if (!requested) {
+        return;
+      }
+
+      setRefreshHint("");
+      requested.postMessage("refresh-studio");
+    };
+    serviceWorker.addEventListener(
+      "message",
+      (event) => {
+        if (!(
+          event.source === requested && event.data === "close-other-studio-tabs"
+        )) {
+          return;
+        }
+
+        requested = null;
+        setRefreshHint(
+          "Save your work and close the other Studio tabs, then refresh here.",
+        );
+      },
+      options,
+    );
+    serviceWorker.addEventListener(
+      "controllerchange",
+      () => {
+        if (requested && serviceWorker.controller === requested)
+          location.reload();
+      },
+      options,
+    );
     const whenVisible = () => {
       if (document.visibilityState === "visible") void check();
     };
@@ -95,6 +131,7 @@ export function StudioCacheStatus({
     return () => {
       scope.abort();
       retry.current = undefined;
+      refresh.current = undefined;
       clearTimeout(retryTimer);
       clearInterval(timer);
     };
@@ -105,6 +142,14 @@ export function StudioCacheStatus({
   return (
     <aside role="status" className={showOfflineStatus ? undefined : "panel"}>
       {statusText[status]}
+      {status === "update" && (
+        <>
+          <button type="button" onClick={() => refresh.current?.()}>
+            Refresh Studio
+          </button>
+          {refreshHint && <span>{refreshHint}</span>}
+        </>
+      )}
       {status === "unavailable" && (
         <button type="button" onClick={() => retry.current?.()}>
           Retry offline download

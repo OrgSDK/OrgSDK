@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   bootstrapToken,
   requireDockerConfiguration,
@@ -17,10 +18,27 @@ async function main() {
     console.log(help);
     return 0;
   }
-  if (options.command === "version") {
-    const manifest = JSON.parse(
-      await readFile(new URL("../package.json", import.meta.url), "utf8"),
+  const manifest = JSON.parse(
+    await readFile(new URL("../package.json", import.meta.url), "utf8"),
+  );
+  const data =
+    options.data ??
+    resolve(
+      process.env.ORGSDK_DATA_DIR || join(homedir(), ".local/share/orgsdk"),
     );
+  const launcher = new URL("../dist/launcher/updates.js", import.meta.url);
+  const updates = existsSync(launcher)
+    ? await import(launcher.href)
+    : undefined;
+  const cli = fileURLToPath(import.meta.url);
+  if (updates && cli.endsWith("/node_modules/@orgsdk/cli/bin/orgsdk.mjs")) {
+    const selected = await updates.selectedCli(data, manifest.version);
+    if (selected) {
+      await import(pathToFileURL(selected).href);
+      return process.exitCode ?? 0;
+    }
+  }
+  if (options.command === "version") {
     console.log(manifest.version);
     return 0;
   }
@@ -77,12 +95,54 @@ async function main() {
     );
   }
   console.log(`Installation data: ${options.data}`);
-  return supervise({
-    server,
-    executor,
-    executorArgs: ["manage", "--mode", options.mode],
-    env,
-  });
+  const manager = await updates?.updateManager(
+    data,
+    options.host,
+    env.EXECUTOR_DATA_DIR,
+    options.mode,
+    cli,
+  );
+  env.ORGSDK_MANAGED_UPDATES = manager ? "1" : "";
+  for (;;) {
+    let target;
+    const status = await supervise({
+      server,
+      executor,
+      executorArgs: ["manage", "--mode", options.mode],
+      env,
+      onUpdate: manager
+        ? (version, port) => {
+            target = version;
+            env.PORT = String(port);
+          }
+        : undefined,
+    });
+    if (!target || status !== 0) {
+      return status;
+    }
+    let selected;
+    try {
+      selected = await updates.installSelectedRelease(
+        manager,
+        data,
+        server,
+        manifest.version,
+        target,
+      );
+    } catch (error) {
+      console.error(
+        "Update failed. Restarting the current release.",
+        error.message,
+      );
+      env.ORGSDK_FAILED_UPDATE = target;
+      continue;
+    }
+    process.env.PORT = env.PORT;
+    delete process.env.ORGSDK_FAILED_UPDATE;
+    console.log("Starting OrgSDK " + target);
+    await import(pathToFileURL(selected).href);
+    return process.exitCode ?? 0;
+  }
 }
 
 try {

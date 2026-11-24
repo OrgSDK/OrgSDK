@@ -12,6 +12,8 @@ import { Button } from "../ui/button";
 import { StudioWelcome } from "./welcome";
 import { StudioCacheStatus } from "./cache-status";
 
+import { InstallationUpdate } from "./installation-update";
+
 export function StudioConnection({
   children,
 }: {
@@ -86,6 +88,7 @@ export function StudioConnection({
   return (
     <>
       <StudioCacheStatus />
+      <InstallationUpdate />
       {expired && (
         <aside role="alert" className="panel">
           <p>

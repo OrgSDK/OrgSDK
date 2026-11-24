@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 
-test("Studio keeps a complete release offline and switches only after the last tab closes", async ({
+test("Studio keeps a complete release offline and refreshes a verified build on request after other tabs close", async ({
   page,
   context,
 }) => {
@@ -128,7 +128,12 @@ test("Studio keeps a complete release offline and switches only after the last t
     await expect(
       page.getByRole("status").filter({ hasText: "A Studio update is ready" }),
     ).toBeVisible({ timeout: 30_000 });
-    await page.close();
+    await page.getByRole("button", { name: "Refresh Studio" }).click();
+    await expect(
+      page.getByText(
+        "Save your work and close the other Studio tabs, then refresh here.",
+      ),
+    ).toBeVisible();
     expect(
       await secondTab.evaluate(async () =>
         (await (await fetch("/")).text()).includes("next-studio-release"),
@@ -136,8 +141,11 @@ test("Studio keeps a complete release offline and switches only after the last t
     ).toBe(false);
     await secondTab.close();
     offline = true;
-    const reopened = await context.newPage();
-    await reopened.goto(origin);
+    await Promise.all([
+      page.waitForEvent("load"),
+      page.getByRole("button", { name: "Refresh Studio" }).click(),
+    ]);
+    const reopened = page;
     await expect
       .poll(() =>
         reopened.evaluate(async () =>

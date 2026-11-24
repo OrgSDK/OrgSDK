@@ -1,3 +1,4 @@
+import { pendingUpdate } from "../platform/installation-update";
 import { inTransaction } from "../db/transaction";
 import type { AppContext } from "../http/context";
 import { HttpError, input, json } from "../http/responses";
@@ -25,6 +26,10 @@ export async function handleExecution(
   const credentialRoute = route.match(/^credentials\/([^/]+)\/$/);
   if (credentialRoute && method === "GET") {
     return serveCredential(ctx, credentialRoute[1]!);
+  }
+  if (route === "claim/" && method === "POST" && pendingUpdate(ctx.db)) {
+    executor(ctx);
+    return new Response(null, { status: 204 });
   }
   return inTransaction(ctx, (ctx) => {
     if (route === "bootstrap/" && method === "POST") {
