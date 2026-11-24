@@ -1,31 +1,22 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   bootstrapToken,
   requireDockerConfiguration,
 } from "./configuration.mjs";
-import { help, parseArguments } from "./options.mjs";
+import { help, installationDirectory, parseArguments } from "./options.mjs";
 import { supervise } from "./supervision.mjs";
 
 async function main() {
-  const options = parseArguments(process.argv.slice(2));
-  if (options.command === "help") {
-    console.log(help);
-    return 0;
-  }
+  const args = process.argv.slice(2);
   const manifest = JSON.parse(
     await readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
-  const data =
-    options.data ??
-    resolve(
-      process.env.ORGSDK_DATA_DIR || join(homedir(), ".local/share/orgsdk"),
-    );
+  const data = installationDirectory(args);
   const launcher = new URL("../dist/launcher/updates.js", import.meta.url);
   const updates = existsSync(launcher)
     ? await import(launcher.href)
@@ -37,6 +28,11 @@ async function main() {
       await import(pathToFileURL(selected).href);
       return process.exitCode ?? 0;
     }
+  }
+  const options = parseArguments(args);
+  if (options.command === "help") {
+    console.log(help);
+    return 0;
   }
   if (options.command === "version") {
     console.log(manifest.version);
