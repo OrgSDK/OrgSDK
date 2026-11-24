@@ -26,7 +26,9 @@ export function BrowserCdpSettings({
           value={typeof cdpEndpoint === "string" ? cdpEndpoint : ""}
           placeholder="http://localhost:9222"
           aria-describedby="browser-endpoint-help"
-          onChange={(event) => onChange("cdpEndpoint", event.target.value || undefined)}
+          onChange={(event) =>
+            onChange("cdpEndpoint", event.target.value || undefined)
+          }
         />
       </label>
       <p className="small" id="browser-endpoint-help">
@@ -49,7 +51,9 @@ export function BrowserCdpSettings({
           Existing Steel session ID
           <Input
             value={typeof sessionId === "string" ? sessionId : ""}
-            onChange={(event) => onChange("sessionId", event.target.value || undefined)}
+            onChange={(event) =>
+              onChange("sessionId", event.target.value || undefined)
+            }
           />
         </label>
       ) : null}
@@ -67,7 +71,10 @@ export function BrowserCdpSettings({
                 value={typeof value === "number" ? value : ""}
                 placeholder={String(defaultValue)}
                 onChange={(event) =>
-                  onChange(key, event.target.value ? event.target.valueAsNumber : undefined)
+                  onChange(
+                    key,
+                    event.target.value ? event.target.valueAsNumber : undefined,
+                  )
                 }
               />
             </label>

@@ -38,7 +38,13 @@ export function PluginSettingsDialog({
               <h2 className="m-0 break-all">{title}</h2>
             </Dialog.Title>
             <Dialog.Close asChild>
-              <Button type="button" variant="ghost" size="icon" aria-label="Close plugin settings" disabled={isBusy}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Close plugin settings"
+                disabled={isBusy}
+              >
                 <X size={18} aria-hidden="true" />
               </Button>
             </Dialog.Close>

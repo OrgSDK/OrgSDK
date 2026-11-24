@@ -45,7 +45,9 @@ function parseConfig(value: string): z.output<typeof pluginConfigSchema> {
   return pluginConfigSchema.parse(JSON.parse(value));
 }
 function pluginName(plugin: Plugin): string {
-  return typeof plugin.display_name === "string" ? plugin.display_name : plugin.slug;
+  return typeof plugin.display_name === "string"
+    ? plugin.display_name
+    : plugin.slug;
 }
 async function loadPluginData(signal: AbortSignal): Promise<{
   plugins: Awaited<ReturnType<typeof loadPlugins>>;
@@ -295,7 +297,9 @@ export function Plugins({
                     variant="outline"
                     disabled={isBusy}
                     aria-haspopup="dialog"
-                    onClick={(event) => openSettings(existing, event.currentTarget)}
+                    onClick={(event) =>
+                      openSettings(existing, event.currentTarget)
+                    }
                   >
                     Configure
                   </Button>
@@ -412,8 +416,16 @@ export function Plugins({
           onClose={() => void closeSettings()}
           restoreFocus={restoreSettingsFocus}
         >
-          {error ? <p className="error" role="alert">{error}</p> : null}
-          {notice ? <p className="notice" role="status">{notice}</p> : null}
+          {error ? (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {notice ? (
+            <p className="notice" role="status">
+              {notice}
+            </p>
+          ) : null}
           {installed.shell_policy && (
             <ShellPolicy
               key={installed.id}
@@ -446,7 +458,10 @@ export function Plugins({
                     : { source }),
                   credential: credential || null,
                 };
-                const updated = await trpc.plugins.update.mutate({ id: selected, ...body });
+                const updated = await trpc.plugins.update.mutate({
+                  id: selected,
+                  ...body,
+                });
                 applyPlugin(updated);
                 setNotice("Plugin saved for its project.");
               });
@@ -522,7 +537,13 @@ export function Plugins({
                     configuration={parseConfig(config)}
                     disabled={isBusy || !canManage}
                     onChange={(key, value) => {
-                      setConfig(JSON.stringify({ ...parseConfig(config), [key]: value }, null, 2));
+                      setConfig(
+                        JSON.stringify(
+                          { ...parseConfig(config), [key]: value },
+                          null,
+                          2,
+                        ),
+                      );
                     }}
                   />
                 ) : !installed.shell_policy ? (
