@@ -1,3 +1,4 @@
+import { managerHeartbeat } from "../platform/installation-update";
 import { eq } from "drizzle-orm";
 import { createHmac, randomUUID } from "node:crypto";
 import * as t from "../db/schema";
@@ -58,5 +59,6 @@ export function bootstrap(ctx: AppContext): Response {
       token,
     });
   }
+  managerHeartbeat.set(ctx.secrets, Date.now());
   return json({ registrations });
 }

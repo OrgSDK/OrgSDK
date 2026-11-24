@@ -44,6 +44,14 @@ Before upgrading, stop OrgSDK and preserve the database, matching encryption key
 
 `orgsdk backup DESTINATION` creates a verified database snapshot. Preserve the encryption key and executor data separately. Stop the installation before restoring into a separate empty data directory, restore the matching encryption key, and test recovery before changing an existing installation. A database backup does not contain project files or recover encrypted credentials without the original key.
 
+### Installation updates from Studio
+
+The owner of a single-workspace, loopback Linux npm installation started with `orgsdk start` in host mode can confirm an update in Studio. The server checks the stable release on npm at most hourly after a successful check. An unavailable registry leaves the installation running. An update pauses new claims, waits for running jobs and pending approvals to finish, and stops the server and bundled executor. Queued work resumes on restart.
+
+The launcher takes a verified SQLite snapshot and copies the remaining stopped installation data, including the matching encryption key and executor files. It prints the private backup directory under `~/.local/share/orgsdk-updates/`. Each installation has its own downloaded CLI and executor. Activation selects the exact requested release atomically. Subsequent launches and maintenance commands for that data directory use the selected version. A newer globally installed CLI takes precedence. Keep the backup until you have verified the new installation. If startup or a migration fails, inspect the launcher output and restore the stopped backup into a separate empty installation using the matching older package. An older binary alone cannot reverse migrations.
+
+An existing installation needs one manual upgrade to the first release with this feature. Separately managed executors, Docker, root, source builds, remote listeners and installations with externally managed executor storage use the manual upgrade path. Set `ORGSDK_DISABLE_UPDATES=1` on the launcher to require manual upgrades. Updating Studio itself only activates browser assets.
+
 ## Verification
 
 `npm run test:distribution -- ./orgsdk-cli-VERSION.tgz` installs the real tarball into an empty temporary directory. Use `npm run test:distribution -- @orgsdk/cli@VERSION` to install from the public registry instead. The application and runner are launched with a path containing only Node.js. `npm run test:distribution:bun -- ./orgsdk-cli-VERSION.tgz` runs the same acceptance assertions with Bun. These tests exercise installation pages and Studio redirects, setup, login, automatic executor registration, code, validation, reusable action tests/execution, persistent files across restart, migration, backup, cancellation and graceful shutdown. They use disposable account and installation data.

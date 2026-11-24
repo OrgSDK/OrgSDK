@@ -41,6 +41,15 @@ const commands = new Set([
 ]);
 const withArgument = new Set(["backup", "restore", "reset-password"]);
 
+// The npm bootstrap must hand future commands and flags to the selected release.
+export function installationDirectory(args, env = process.env) {
+  const flag = args[0] === "executor" ? -1 : args.indexOf("--data");
+  const override = flag < 0 ? undefined : args[flag + 1];
+  return resolve(
+    override || env.ORGSDK_DATA_DIR || join(homedir(), ".local/share/orgsdk"),
+  );
+}
+
 export function parseArguments(args, env = process.env) {
   if (args.length === 1 && ["--help", "-h"].includes(args[0])) {
     return { command: "help" };
@@ -53,9 +62,7 @@ export function parseArguments(args, env = process.env) {
     throw new Error(`Unknown command: ${command}. Use orgsdk --help.`);
   }
   const rest = command === args[0] ? args.slice(1) : [...args];
-  const data = resolve(
-    env.ORGSDK_DATA_DIR || join(homedir(), ".local/share/orgsdk"),
-  );
+  const data = installationDirectory(args, env);
   if (command === "executor") {
     return { command, data, args: rest };
   }

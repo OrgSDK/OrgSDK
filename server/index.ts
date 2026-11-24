@@ -5,13 +5,8 @@ import {
   rememberPort,
 } from "./platform/listen";
 import { studioAudience } from "./auth/studio";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  unlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync } from "node:fs";
+import { serverLock } from "./platform/server-lock";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { createApp } from "./app";
@@ -28,43 +23,6 @@ const dataDir = resolve(
 const command = process.argv[2] ?? "server";
 
 const hostname = process.env.HOST ?? "127.0.0.1";
-
-function serverLock(): () => void {
-  mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-  const file = join(dataDir, "server.pid");
-  if (existsSync(file)) {
-    const pid = Number(readFileSync(file, "utf8"));
-    if (!Number.isInteger(pid) || pid < 1) {
-      throw new Error("Invalid server lock; inspect the data directory.");
-    }
-    let alive = false;
-    try {
-      process.kill(pid, 0);
-      alive = true;
-    } catch (error) {
-      if (
-        !(error instanceof Error) ||
-        !("code" in error) ||
-        error.code !== "ESRCH"
-      ) {
-        throw error;
-      }
-    }
-    if (alive) {
-      throw new Error("An OrgSDK server already owns this data directory.");
-    }
-    unlinkSync(file);
-  }
-  writeFileSync(file, String(process.pid), { flag: "wx", mode: 0o600 });
-  return () => {
-    if (
-      existsSync(file) &&
-      readFileSync(file, "utf8") === String(process.pid)
-    ) {
-      unlinkSync(file);
-    }
-  };
-}
 
 async function main() {
   if (command === "reset-password") {
@@ -101,7 +59,7 @@ async function main() {
     if (!process.argv[3]) {
       throw new Error("Usage: orgsdk restore SOURCE");
     }
-    const unlock = serverLock();
+    const unlock = serverLock(dataDir);
     try {
       restoreDatabase(dataDir, resolve(process.argv[3]));
       console.log("Database restored.");
@@ -111,7 +69,7 @@ async function main() {
     return;
   }
   if (command === "migrate") {
-    const unlock = serverLock();
+    const unlock = serverLock(dataDir);
     try {
       const store = openStore(dataDir);
       store.close();
@@ -127,7 +85,7 @@ async function main() {
     );
   }
   const ports = installationPorts(dataDir, hostname);
-  const unlock = serverLock();
+  const unlock = serverLock(dataDir);
   try {
     let handle: ReturnType<typeof createApp> | undefined;
     const server = await listenOnInstallationPort(ports, {
