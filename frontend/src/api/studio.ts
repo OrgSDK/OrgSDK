@@ -111,6 +111,9 @@ export function suggestedInstallation(): string {
   const explicit = new URLSearchParams(location.search).get("server");
   return explicit ?? preferredEndpoint();
 }
+export function studioServerHref(endpoint: string): string {
+  return "/?" + new URLSearchParams({ server: endpoint }).toString();
+}
 function hex(bytes: Uint8Array) {
   return Array.from(bytes, (n) => n.toString(16).padStart(2, "0")).join("");
 }
