@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { cn } from "../../lib/utilities";
 
 const badgeVariants = cva(
@@ -19,13 +19,13 @@ const badgeVariants = cva(
 export function Badge({
   variant,
   className,
-  ...props
-}: ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
+  ...properties
+}: ComponentProps<"span"> & VariantProps<typeof badgeVariants>): ReactNode {
   return (
     <span
       data-slot="badge"
       className={cn(badgeVariants({ variant, className }))}
-      {...props}
+      {...properties}
     />
   );
 }

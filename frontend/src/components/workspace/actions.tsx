@@ -114,6 +114,7 @@ function ActionWorkspace({
     outputSchema !== savedOutputSchema ||
     (!selected && name !== "");
   const latest = versions[0];
+  const savedBadgeVariant = latest ? "success" : "secondary";
   const savedStatus = latest ? "Saved" : "Draft";
   const editStatus = isDirty ? "Unsaved changes" : savedStatus;
   const isHistorical = !!versionId && versionId !== latest?.id;
@@ -392,7 +393,7 @@ function ActionWorkspace({
               </Select>
               <Badge
                 role="status"
-                variant={isDirty ? "warning" : latest ? "success" : "secondary"}
+                variant={isDirty ? "warning" : savedBadgeVariant}
               >
                 {editStatus}
               </Badge>
