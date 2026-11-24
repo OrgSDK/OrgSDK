@@ -1,5 +1,0 @@
-{
-  "type": "patch",
-  "category": "fixed",
-  "summary": "Studio shows one set of keyboard-accessible action editor tabs and keeps the action name, save status and run controls readable across screen sizes."
-}
