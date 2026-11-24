@@ -32,7 +32,7 @@ A workspace owner or admin can create a client token with the optional `plugins:
 
 `configuration` replaces the full settings object when supplied. For a token-based plugin, pass `credential: { name, secret }` to store and attach a new credential in the same operation. Browser CDP accepts `secret_apiKey` in that object. Use a trusted client for supplying secrets. Tool results report whether a credential is connected and keep stored secret values private.
 
-If a credential is connected and the configuration changes, supply a replacement credential or pass `credential: null` to disconnect it. Studio can change settings while retaining a previously stored credential, and handles OAuth and remote MCP tool review. Replacing a credential does not edit the old entry, so other plugins and existing run snapshots referencing it keep their original credential. If the revision is stale, list the settings again before deciding whether to retry.
+If a credential is connected and the configuration changes, supply a replacement credential or pass `credential: null` to disconnect it. Studio can change settings while retaining a previously stored credential, and handles OAuth and remote MCP tool review. Replacing a credential creates a new entry, so other plugins and existing run snapshots keep their original credential. If the revision is stale, list the settings again before deciding whether to retry.
 
 ## Iterate using MCP
 

@@ -106,6 +106,7 @@ export function Plugins({
   const [config, setConfig] = useState("{}");
   const installed = plugins.find((item) => item.id === selected);
   const isExternal = installed?.distribution === "external";
+  const isBrowserCdp = installed?.slug === "browser-cdp";
   const auth = pluginAuth(installed?.auth);
   const [isBusy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -482,7 +483,7 @@ export function Plugins({
           >
             {isExternal ? (
               <>
-                {installed.slug === "browser-cdp" ? (
+                {isBrowserCdp && (
                   <BrowserCdpSettings
                     configuration={parseConfig(config)}
                     disabled={isBusy || !canManage}
@@ -496,7 +497,8 @@ export function Plugins({
                       );
                     }}
                   />
-                ) : installed.shell_policy ? null : (
+                )}
+                {!isBrowserCdp && !installed.shell_policy && (
                   <label>
                     Configuration (JSON)
                     <Textarea
