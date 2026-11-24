@@ -1,8 +1,12 @@
 import { z } from "zod";
-import { createTypedClient, connectStudio } from "./trpc";
+import { createTypedClient } from "./trpc";
+import { activateConnection, preferredEndpoint } from "./studio-session";
 const pendingKey = "orgsdk:studio-pairing";
-const previousKey = "orgsdk:studio-installation";
-const ports = Array.from({ length: 8 }, (_, index) => 28_940 + index);
+
+const ports = [
+  ...Array.from({ length: 8 }, (_, index) => 28_940 + index),
+  8080,
+];
 function isLoopback(url: URL): boolean {
   return ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
 }
@@ -28,10 +32,14 @@ export function endpointOrigin(input: string): string {
     );
   return url.origin;
 }
-function guest(endpoint: string) {
+export function studioClient(
+  endpoint: string,
+  token?: string,
+): ReturnType<typeof createTypedClient> {
   return createTypedClient({
     url: endpoint + "/trpc",
     csrfToken: () => "",
+    ...(token && { studioToken: token }),
     fetch: (input, init) =>
       fetch(input, { ...init, redirect: "error", credentials: "omit" }),
   });
@@ -39,40 +47,51 @@ function guest(endpoint: string) {
 export async function discover(
   input: string,
   signal: AbortSignal,
-): Promise<string> {
+  timeoutMs = 2500,
+): Promise<Installation> {
   const endpoint = endpointOrigin(input);
   let reply: unknown;
   try {
-    reply = await guest(endpoint).studio.discover.query(undefined, {
-      signal: AbortSignal.any([signal, AbortSignal.timeout(2500)]),
+    reply = await studioClient(endpoint).studio.discover.query(undefined, {
+      signal: AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]),
     });
   } catch {
     throw new Error(
       "Studio couldn’t reach that server. Check the address and that OrgSDK is running.",
     );
   }
-  if (
-    !z
-      .object({
-        product: z.literal("orgsdk"),
-        protocol: z.literal(1),
-        audience: z.literal(location.origin),
-      })
-      .safeParse(reply).success
-  )
+  const parsed = z
+    .object({
+      product: z.literal("orgsdk"),
+      protocol: z.literal(1),
+      audience: z.literal(location.origin),
+      localSignIn: z.boolean().optional(),
+    })
+    .safeParse(reply);
+  if (!parsed.success)
     throw new Error(
       "This installation does not support this version of Studio.",
     );
-  return endpoint;
+  return {
+    endpoint,
+    localSignIn: isLocalAddress(endpoint) && parsed.data.localSignIn === true,
+  };
 }
-export async function localInstallations(
+
+export interface Installation {
+  endpoint: string;
+  localSignIn: boolean;
+}
+export async function findInstallations(
   address: string,
   signal: AbortSignal,
-): Promise<string[]> {
+  timeoutMs = 2500,
+): Promise<Installation[]> {
   if (address) {
     try {
-      return [await discover(address, signal)];
-    } catch {
+      return [await discover(address, signal, timeoutMs)];
+    } catch (error) {
+      if (!isLocalAddress(address)) throw error;
       // Honor an explicit target. A remembered installation may have moved.
       if (signal.aborted || new URLSearchParams(location.search).has("server"))
         return [];
@@ -82,7 +101,7 @@ export async function localInstallations(
     .map((port) => "http://127.0.0.1:" + String(port))
     .filter((endpoint) => endpoint !== address);
   const results = await Promise.allSettled(
-    endpoints.map((endpoint) => discover(endpoint, signal)),
+    endpoints.map((endpoint) => discover(endpoint, signal, timeoutMs)),
   );
   return results
     .filter((result) => result.status === "fulfilled")
@@ -90,12 +109,7 @@ export async function localInstallations(
 }
 export function suggestedInstallation(): string {
   const explicit = new URLSearchParams(location.search).get("server");
-  if (explicit) return explicit;
-  try {
-    return localStorage.getItem(previousKey) ?? "";
-  } catch {
-    return "";
-  }
+  return explicit ?? preferredEndpoint();
 }
 function hex(bytes: Uint8Array) {
   return Array.from(bytes, (n) => n.toString(16).padStart(2, "0")).join("");
@@ -113,6 +127,7 @@ export async function requestApproval(
   signal.throwIfAborted();
   const route = new URL(location.href);
   route.searchParams.delete("server");
+  route.searchParams.delete("connect");
   sessionStorage.setItem(
     pendingKey,
     JSON.stringify({
@@ -147,16 +162,11 @@ export async function finishApproval(): Promise<
   )
     throw new Error("Connection request expired. Connect again.");
   const endpoint = endpointOrigin(pending.endpoint);
-  const grant = await guest(endpoint).studio.exchange.mutate({
+  const grant = await studioClient(endpoint).studio.exchange.mutate({
     code,
     verifier: pending.verifier,
   });
-  connectStudio(endpoint, grant.token);
-  try {
-    localStorage.setItem(previousKey, endpoint);
-  } catch {
-    // Remembering the address is optional when the browser restricts storage.
-  }
+  activateConnection(endpoint, grant);
   const path = new URL(
     "path" in pending && typeof pending.path === "string" ? pending.path : "/",
     location.origin,

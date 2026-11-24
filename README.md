@@ -19,7 +19,7 @@ Use `orgsdk server` to run only the platform, or `orgsdk executor --help` to reg
 
 See [distribution and verification](docs/npm-distribution.md) for pinned installation, upgrades, recovery and release checks.
 
-Open [OrgSDK Studio](https://studio.orgsdk.ai) and choose **Connect to this computer**. Studio discovers your local installation and asks you to approve access. After the first download, the browser can reopen Studio while its host is offline. Your installation must be running. See [Studio connections](docs/studio.md) for browser support and remote installations.
+Open [OrgSDK Studio](https://studio.orgsdk.ai) and choose **Allow local connections**. Studio finds your installation, lets you set up or sign in, and reconnects when you return. After the first download, the browser can reopen Studio while its host is offline. Your installation must be running. See [Studio connections](docs/studio.md) for browser support and remote installations.
 
 ## Browser discovery sessions
 

@@ -51,8 +51,12 @@ test("Studio keeps a complete release offline and switches only after the last t
     }
     const origin = "http://127.0.0.1:" + String(address.port);
     // Keep automatic discovery away from installations on the developer’s computer.
-    await context.route("http://127.0.0.1:2894*/**", (route) => route.abort());
+    await context.route(
+      /^http:\/\/127\.0\.0\.1:(?:2894[0-7]|8080)\//,
+      (route) => route.abort(),
+    );
     await page.goto(origin);
+    await page.getByRole("button", { name: "Allow local connections" }).click();
     await expect(
       page.getByRole("heading", { name: "Get started with Studio" }),
     ).toBeVisible();

@@ -1,6 +1,12 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  type ReactNode,
+} from "react";
 import { finishApproval, suggestedInstallation } from "../../api/studio";
 import { Button } from "../ui/button";
 import { StudioWelcome } from "./welcome";
@@ -12,45 +18,71 @@ export function StudioConnection({
   children: ReactNode;
 }): ReactNode {
   const router = useRouter();
-  const [connected, setConnected] = useState(false);
+  const [expiresAt, setExpiresAt] = useState(0);
   const [expired, setExpired] = useState(false);
-  const [start, setStart] = useState<{ address: string; error: string }>();
+  const [start, setStart] = useState<{
+    address: string;
+    error: string;
+    isSwitchingServer: boolean;
+  }>();
   const resume = useRef<ReturnType<typeof finishApproval> | null>(null);
+  const opened = useCallback(
+    (until: number) => {
+      const route = new URL(location.href);
+      route.searchParams.delete("server");
+      route.searchParams.delete("connect");
+      if (route.href !== location.href)
+        router.replace(route.pathname + route.search + route.hash);
+      setExpiresAt(until);
+    },
+    [router],
+  );
+  useEffect(() => {
+    if (!expiresAt) return;
+    const timer = setTimeout(
+      () => {
+        setExpired(true);
+      },
+      Math.max(0, expiresAt - Date.now()),
+    );
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [expiresAt]);
   useEffect(() => {
     let isActive = true;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    const isSwitchingServer =
+      new URLSearchParams(location.search).get("connect") === "server";
     resume.current ??= finishApproval();
     void resume.current
       .then((grant) => {
         if (!isActive) return;
         if (grant === false) {
-          setStart({ address: suggestedInstallation(), error: "" });
+          setStart({
+            address: isSwitchingServer ? "" : suggestedInstallation(),
+            error: "",
+            isSwitchingServer,
+          });
           return;
         }
         if (grant.path !== "/") router.replace(grant.path);
-        setConnected(true);
-        timer = setTimeout(
-          () => {
-            setExpired(true);
-          },
-          Math.max(0, grant.expiresAt - Date.now()),
-        );
+        setExpiresAt(grant.expiresAt);
       })
       .catch((error_: unknown) => {
         if (isActive)
           setStart({
             address: suggestedInstallation(),
+            isSwitchingServer,
             error:
               error_ instanceof Error ? error_.message : "Connection failed.",
           });
       });
     return () => {
       isActive = false;
-      clearTimeout(timer);
     };
   }, [router]);
 
-  if (!connected) return <StudioWelcome start={start} />;
+  if (!expiresAt) return <StudioWelcome start={start} onConnected={opened} />;
   return (
     <>
       <StudioCacheStatus />

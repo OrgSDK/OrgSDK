@@ -1,4 +1,9 @@
-import { studioAudience, studioSession } from "../auth/studio";
+import {
+  isLoopbackInstallation,
+  studioLoginSessionId,
+  studioAudience,
+  studioSession,
+} from "../auth/studio";
 import type { AppDependencies, ServiceContext } from "../application";
 import { identityRepository } from "../repositories/identity";
 import { digest, randomSecret } from "../shared/security";
@@ -80,13 +85,9 @@ export function createContext(
     origin === studioAudience(url.origin)
       ? origin
       : undefined;
+  const studioToken = request.headers.get("x-orgsdk-studio-session");
   const grant = studioOrigin
-    ? studioSession(
-        store.db,
-        url.origin,
-        studioOrigin,
-        request.headers.get("x-orgsdk-studio-session"),
-      )
+    ? studioSession(store.db, url.origin, studioOrigin, studioToken)
     : undefined;
   if (
     studioOrigin &&
@@ -99,7 +100,12 @@ export function createContext(
   }
   const values = cookies(request);
   const secret = values.get("sessionid");
-  const sessionId = grant?.sessionId ?? (secret ? digest(secret) : undefined);
+  const localStudioId =
+    studioOrigin && studioToken && isLoopbackInstallation(url.origin)
+      ? studioLoginSessionId(url.origin, studioOrigin, studioToken)
+      : undefined;
+  const sessionId =
+    grant?.sessionId ?? localStudioId ?? (secret ? digest(secret) : undefined);
   const session = sessionId ? identities.session(sessionId) : undefined;
   const validSession =
     session && session.expiresAt > Date.now() ? session : undefined;
@@ -133,7 +139,8 @@ export function createContext(
     clientTokenError,
     responseHeaders,
     studioOrigin,
-    studioExpiresAt: grant?.expiresAt,
+    studioExpiresAt:
+      grant?.expiresAt ?? (localStudioId ? validSession?.expiresAt : undefined),
     sessionId: validSession?.id ?? null,
   };
   if (!studioOrigin && !values.get("csrftoken")) {

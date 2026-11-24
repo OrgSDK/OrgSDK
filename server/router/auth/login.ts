@@ -26,15 +26,15 @@ export const loginProcedure = browserProcedure
       throw new ServiceError("BAD_REQUEST", "Invalid email or password.");
     }
     if (user.totpSecret) {
-      rotateSession(ctx, null, user.id, (ctx) =>
+      const studioGrant = rotateSession(ctx, null, user.id, (ctx) =>
         assertCurrentUser(ctx, user, false),
       );
       ctx.user = null;
-      return authState(ctx, ["mfa_authenticate"]);
+      return { ...authState(ctx, ["mfa_authenticate"]), studioGrant };
     }
-    rotateSession(ctx, user.id, null, (ctx) =>
+    const studioGrant = rotateSession(ctx, user.id, null, (ctx) =>
       assertCurrentUser(ctx, user, false),
     );
     ctx.user = user;
-    return authState(ctx);
+    return { ...authState(ctx), studioGrant };
   });

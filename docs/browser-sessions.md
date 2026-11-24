@@ -4,7 +4,7 @@ An external MCP client can keep a TypeScript session on a project runner while i
 
 ## Connect the browser
 
-1. On Linux with Node.js 22.22.0 or newer, install the CLI and start its bundled local executor. Open [Studio](https://studio.orgsdk.ai), choose **Connect to this computer**, create a workspace and select a project. A separately managed runner needs `@orgsdk/executor@1.1.0` for this release.
+1. On Linux with Node.js 22.22.0 or newer, install the CLI and start its bundled local executor. Open [Studio](https://studio.orgsdk.ai), choose **Allow local connections**, create a workspace and select a project. A separately managed runner needs `@orgsdk/executor@1.1.0` for this release.
 
    ```sh
    npm install -g @orgsdk/cli@1.1.0

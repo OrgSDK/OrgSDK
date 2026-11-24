@@ -10,36 +10,44 @@ test("Studio guides an empty computer through installation and discovers it on r
   }
   const responding = new Set<string>();
   const seen = new Set<string>();
-  await context.route("http://127.0.0.1:2894*/**", async (route) => {
-    const url = new URL(route.request().url());
-    if (url.pathname === "/studio/approve/") {
+  await context.route(
+    /^http:\/\/127\.0\.0\.1:(?:2894[0-7]|8080)\//,
+    async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname === "/studio/approve/") {
+        await route.fulfill({
+          contentType: "text/plain",
+          body: "Test installation",
+        });
+        return;
+      }
+      expect(url.pathname).toBe("/trpc/studio.discover");
+      seen.add(url.port);
+      if (!responding.has(url.port)) {
+        await route.abort();
+        return;
+      }
       await route.fulfill({
-        contentType: "text/plain",
-        body: "Test installation",
-      });
-      return;
-    }
-    expect(url.pathname).toBe("/trpc/studio.discover");
-    seen.add(url.port);
-    if (!responding.has(url.port)) {
-      await route.abort();
-      return;
-    }
-    await route.fulfill({
-      json: [
-        {
-          result: {
-            data: { product: "orgsdk", protocol: 1, audience: studio },
+        json: [
+          {
+            result: {
+              data: { product: "orgsdk", protocol: 1, audience: studio },
+            },
           },
-        },
-      ],
-    });
-  });
+        ],
+      });
+    },
+  );
   await page.goto(studio);
+  await expect(
+    page.getByRole("heading", { name: "Connect to this computer" }),
+  ).toBeVisible();
+  expect(seen.size).toBe(0);
+  await page.getByRole("button", { name: "Allow local connections" }).click();
   await expect(
     page.getByRole("heading", { name: "Get started with Studio" }),
   ).toBeVisible();
-  expect(seen.size).toBe(8);
+  expect(seen.size).toBe(9);
   await expect(page.getByRole("img", { name: "OrgSDK" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Back to app" })).toHaveCount(0);
   await expect(page.locator("pre")).toHaveText(
@@ -75,7 +83,9 @@ test("a hosted server link waits for the user and offers local setup after a con
     requests++;
     await route.abort();
   });
-  await context.route("http://127.0.0.1:2894*/**", (route) => route.abort());
+  await context.route(/^http:\/\/127\.0\.0\.1:(?:2894[0-7]|8080)\//, (route) =>
+    route.abort(),
+  );
   await page.goto(studio + "/?server=" + encodeURIComponent(remote));
   await expect(page.getByLabel("Server address")).toHaveValue(remote);
   expect(requests).toBe(0);
@@ -91,5 +101,43 @@ test("a hosted server link waits for the user and offers local setup after a con
     .click();
   await expect(
     page.getByRole("heading", { name: "Get started with Studio" }),
+  ).toBeVisible();
+});
+
+test("Studio automatically opens sign-in for the only discovered local installation", async ({
+  page,
+  context,
+}) => {
+  const studio = process.env.ORGSDK_E2E_STUDIO;
+  if (!studio) {
+    throw new Error("Studio test origin is required.");
+  }
+  await context.route(
+    /^http:\/\/127\.0\.0\.1:(?:2894[0-7]|8080)\//,
+    async (route) => {
+      const url = new URL(route.request().url());
+      if (url.port !== "8080") {
+        await route.abort();
+        return;
+      }
+      const discovery = url.pathname === "/trpc/studio.discover";
+      expect(discovery || url.pathname === "/trpc/auth.setupStatus").toBe(true);
+      const data = discovery
+        ? {
+            product: "orgsdk",
+            protocol: 1,
+            audience: studio,
+            localSignIn: true,
+          }
+        : { setup_required: false, hostname: "127.0.0.1" };
+      await route.fulfill({ json: [{ result: { data } }] });
+    },
+  );
+  await page.goto(studio);
+  await page.getByRole("button", { name: "Allow local connections" }).click();
+  await expect(page.getByLabel("Email address")).toBeVisible();
+  await expect(page).toHaveURL(studio + "/");
+  await expect(
+    page.getByText("http://127.0.0.1:8080", { exact: true }),
   ).toBeVisible();
 });
