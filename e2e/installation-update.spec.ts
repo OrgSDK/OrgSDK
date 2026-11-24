@@ -28,7 +28,15 @@ test("the workspace update buttons are reachable and require an explicit confirm
       await route.continue();
       return;
     }
-    const response = await route.fetch();
+    // Studio sends its grant without cookies. Playwright's request context shares the
+    // installation login cookies, so preserve the browser's original credential boundary.
+    const headers = await request.allHeaders();
+    const response = await fetch(request.url(), {
+      headers: {
+        origin: new URL(page.url()).origin,
+        "x-orgsdk-studio-session": headers["x-orgsdk-studio-session"] ?? "",
+      },
+    });
     const batch = z.array(z.unknown()).parse(await response.json());
     batch[index] = {
       result: {
@@ -43,7 +51,11 @@ test("the workspace update buttons are reachable and require an explicit confirm
         },
       },
     };
-    await route.fulfill({ response, json: batch });
+    await route.fulfill({
+      status: 200,
+      headers: { "access-control-allow-origin": new URL(page.url()).origin },
+      json: batch,
+    });
   });
   await signIn(page);
   const notice = page.getByRole("complementary", {
