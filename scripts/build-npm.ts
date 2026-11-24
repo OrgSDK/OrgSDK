@@ -28,6 +28,15 @@ await build({
   packages: "external",
   external: ["bun:*"],
 });
+await build({
+  entryPoints: ["scripts/installation-updater.ts"],
+  outfile: "dist/launcher/updates.js",
+  bundle: true,
+  platform: "node",
+  target: "node22.22",
+  format: "esm",
+  packages: "external",
+});
 await cp("frontend/dist/installation/out", "dist/server/out", {
   recursive: true,
 });

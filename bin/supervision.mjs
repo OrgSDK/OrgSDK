@@ -45,6 +45,7 @@ export async function supervise({
   executor,
   serverArgs = ["server"],
   executorArgs = ["manage"],
+  onUpdate,
   env,
 }) {
   const children = [];
@@ -107,6 +108,7 @@ export async function supervise({
           }
           return {
             address: localAddress(env.HOST ?? "127.0.0.1", message.port),
+            port: message.port,
           };
         }),
         platform.closed,
@@ -118,6 +120,13 @@ export async function supervise({
         return requestedStatus ?? (exitStatus(readiness) || 1);
       }
       controller.signal.throwIfAborted();
+      platform.child.on("message", (message) => {
+        if (!stopping && onUpdate && typeof message?.update === "string") {
+          onUpdate(message.update, readiness.port);
+          requestedStatus = 0;
+          void stop();
+        }
+      });
       children.push(
         launch(executor, executorArgs, {
           ...env,

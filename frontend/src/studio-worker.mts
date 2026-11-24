@@ -36,8 +36,27 @@ self.addEventListener("install", (event) => {
   );
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data !== "refresh-studio") return;
+  const source = event.source;
+  if (!source || !("id" in source)) return;
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      if (windows.length !== 1 || windows[0]?.id !== source.id) {
+        source.postMessage("close-other-studio-tabs");
+        return;
+      }
+      await self.skipWaiting();
+    })(),
+  );
+});
+
 self.addEventListener("activate", (event) => {
-  // The browser waits until tabs using the previous worker have closed.
+  // A requested refresh also activates after the final open tab consents.
   event.waitUntil(
     (async () => {
       const names = await caches.keys();

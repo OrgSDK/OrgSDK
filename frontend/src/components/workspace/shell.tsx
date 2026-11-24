@@ -1,4 +1,6 @@
 "use client";
+import { StudioCacheStatus } from "../studio/cache-status";
+import { InstallationUpdate } from "../studio/installation-update";
 import { StudioWorkspaceConnections } from "../studio/workspace-connections";
 import { installationHref } from "../../api/trpc";
 import { Button } from "../ui/button";
@@ -24,7 +26,7 @@ export function WorkspaceShell({
   tab: string;
   children: ReactNode;
 }): ReactNode {
-  const { projects, selected, workspace } = useWorkspace();
+  const { projects, selected, workspace, isDirty } = useWorkspace();
   const project = projects.find((item) => item.id === selected);
   const [open, setOpen] = useState(false);
   const [pageHeader, setPageHeader] = useState<HTMLDivElement | null>(null);
@@ -189,6 +191,12 @@ export function WorkspaceShell({
             <span className="badge">{workspace}</span>
           )}
         </header>
+        {process.env.NEXT_PUBLIC_ORGSDK_STUDIO === "1" && (
+          <>
+            <StudioCacheStatus hasUnsavedChanges={isDirty} />
+            <InstallationUpdate hasUnsavedChanges={isDirty} />
+          </>
+        )}
         <main className={tab === "actions" ? "action-page" : undefined}>
           <div className={tab === "actions" ? "sr-only" : "page-heading"}>
             <h1>{title}</h1>

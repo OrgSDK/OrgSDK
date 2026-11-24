@@ -1,5 +1,5 @@
 {
-  "version": "2.2.0",
+  "version": "2.3.0",
   "name": "@orgsdk/cli",
   "publishConfig": {
     "access": "public",
@@ -96,6 +96,7 @@
     "bin/configuration.mjs",
     "bin/supervision.mjs",
     "dist/server/",
+    "dist/launcher/",
     "dist/runtime/",
     "dist/THIRD_PARTY_NOTICES.txt",
     "docs/npm-distribution.md",
