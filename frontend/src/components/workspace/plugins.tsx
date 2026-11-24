@@ -3,6 +3,8 @@ import dynamic from "next/dynamic";
 import { ShellPolicy } from "./shell-policy";
 import { McpConnections } from "./mcp-connections";
 import { PluginMarketplace } from "./plugin-marketplace";
+import { BrowserCdpSettings } from "./browser-cdp-settings";
+import { PluginSettingsDialog } from "./plugin-settings-dialog";
 import { PluginConnection } from "./plugin-connection";
 import { PluginIcon } from "./plugin-icon";
 import { PluginCapabilities } from "./plugin-capabilities";
@@ -13,7 +15,7 @@ import {
 } from "../../lib/plugin-tools";
 import { MarkdownContent } from "../markdown-content";
 import { Package, Power } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { trpc } from "../../api/trpc";
 import { z } from "zod";
 import { errorMessage } from "../../api/result";
@@ -41,6 +43,11 @@ const initialSource =
 const pluginConfigSchema = z.record(z.string(), z.json());
 function parseConfig(value: string): z.output<typeof pluginConfigSchema> {
   return pluginConfigSchema.parse(JSON.parse(value));
+}
+function pluginName(plugin: Plugin): string {
+  return typeof plugin.display_name === "string"
+    ? plugin.display_name
+    : plugin.slug;
 }
 async function loadPluginData(signal: AbortSignal): Promise<{
   plugins: Awaited<ReturnType<typeof loadPlugins>>;
@@ -74,6 +81,8 @@ export function Plugins({
     (item) => item.project === projectId,
   );
   const [selected, setSelected] = useState("");
+  const settingsTrigger = useRef<HTMLButtonElement>(null);
+  const marketplaceSearch = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const matchingReleases = latestReleases.filter((entry) => {
@@ -97,6 +106,7 @@ export function Plugins({
   const [config, setConfig] = useState("{}");
   const installed = plugins.find((item) => item.id === selected);
   const isExternal = installed?.distribution === "external";
+  const isBrowserCdp = installed?.slug === "browser-cdp";
   const auth = pluginAuth(installed?.auth);
   const [isBusy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -149,9 +159,22 @@ export function Plugins({
     setConfig(values.configuration);
     setSavedValues(JSON.stringify(values));
   };
-  const selectPlugin = async (plugin?: Plugin): Promise<void> => {
-    if (isDirty && !(await canDiscard())) return;
+  const openSettings = (plugin: Plugin, trigger: HTMLButtonElement): void => {
+    settingsTrigger.current = trigger;
+    setError("");
+    setNotice("");
     applyPlugin(plugin);
+  };
+  const closeSettings = async (): Promise<void> => {
+    if (isBusy || (isDirty && !(await canDiscard()))) return;
+    setError("");
+    setNotice("");
+    applyPlugin();
+  };
+  const restoreSettingsFocus = (): void => {
+    const trigger = settingsTrigger.current;
+    const target = trigger?.isConnected ? trigger : marketplaceSearch.current;
+    target?.focus({ preventScroll: true });
   };
   const perform = async (task: () => Promise<void>): Promise<void> => {
     setBusy(true);
@@ -166,6 +189,27 @@ export function Plugins({
       setBusy(false);
     }
   };
+  const credentialField = (
+    <label>
+      Plugin credential
+      <select
+        value={credential}
+        disabled={isBusy || !canManage}
+        onChange={(event) => {
+          setCredential(event.target.value);
+        }}
+      >
+        <option value="">No credential</option>
+        {query.data?.credentials
+          .filter((item) => !isExternal || item.provider === auth.provider)
+          .map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ))}
+      </select>
+    </label>
+  );
   return (
     <>
       <McpConnections
@@ -190,6 +234,7 @@ export function Plugins({
           Find plugins or capabilities
           <Input
             type="search"
+            ref={marketplaceSearch}
             value={search}
             onChange={(event) => {
               setSearch(event.target.value);
@@ -243,15 +288,15 @@ export function Plugins({
                   <Button
                     variant="outline"
                     disabled={isBusy}
-                    onClick={() => {
+                    onClick={(event) => {
+                      const trigger = event.currentTarget;
                       void perform(async () => {
-                        if (isDirty && !(await canDiscard())) return;
                         const updated = await trpc.plugins.update.mutate({
                           id: existing.id,
                           version: entry.version,
                           refresh_bundle: true,
                         });
-                        applyPlugin(updated);
+                        openSettings(updated, trigger);
                         setNotice(
                           "Plugin updated for future runs. Older runs still require their original executor image.",
                         );
@@ -264,10 +309,6 @@ export function Plugins({
 
                 <details className="my-3">
                   <summary>Documentation</summary>
-                  <p className="small">
-                    Upstream reference documentation. Use the connection form
-                    below for this installation.
-                  </p>
                   <MarkdownContent
                     className="max-h-80 overflow-auto"
                     content={entry.documentation}
@@ -276,8 +317,10 @@ export function Plugins({
                 {existing ? (
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      void selectPlugin(existing);
+                    disabled={isBusy}
+                    aria-haspopup="dialog"
+                    onClick={(event) => {
+                      openSettings(existing, event.currentTarget);
                     }}
                   >
                     Configure
@@ -286,9 +329,9 @@ export function Plugins({
                 {!existing && canManage ? (
                   <Button
                     disabled={isBusy}
-                    onClick={() => {
+                    onClick={(event) => {
+                      const trigger = event.currentTarget;
                       void perform(async () => {
-                        if (isDirty && !(await canDiscard())) return;
                         const plugin = await trpc.plugins.create.mutate({
                           project: projectId,
                           slug: entry.slug,
@@ -296,7 +339,7 @@ export function Plugins({
                           distribution: "external",
                           enabled: true,
                         });
-                        applyPlugin(plugin);
+                        openSettings(plugin, trigger);
                         setNotice(
                           "Plugin enabled for the selected project. The runner downloads and verifies its package. Connect credentials if required.",
                         );
@@ -344,11 +387,7 @@ export function Plugins({
                 size={24}
               />
               <div>
-                <strong>
-                  {typeof plugin.display_name === "string"
-                    ? plugin.display_name
-                    : plugin.slug}
-                </strong>
+                <strong>{pluginName(plugin)}</strong>
                 <small>
                   {project.name} · v{plugin.version} ·{" "}
                   {plugin.enabled ? "Enabled" : "Disabled"} ·{" "}
@@ -359,8 +398,10 @@ export function Plugins({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    void selectPlugin(plugin);
+                  disabled={isBusy}
+                  aria-haspopup="dialog"
+                  onClick={(event) => {
+                    openSettings(plugin, event.currentTarget);
                   }}
                 >
                   Inspect
@@ -392,25 +433,33 @@ export function Plugins({
             </div>
           ))}
       </section>
-      {selected ? (
-        <section className="panel">
-          <h2>Plugin: {slug}</h2>
-          {installed?.shell_policy && (
+      {installed ? (
+        <PluginSettingsDialog
+          title={pluginName(installed)}
+          isBusy={isBusy}
+          onClose={() => void closeSettings()}
+          restoreFocus={restoreSettingsFocus}
+        >
+          {error ? (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {notice ? (
+            <p className="notice" role="status">
+              {notice}
+            </p>
+          ) : null}
+          {installed.shell_policy && (
             <ShellPolicy
               key={installed.id}
               id={installed.id}
               canManage={canManage}
             />
           )}
-          {installed?.distribution === "external" ? (
-            <PluginCapabilities
-              slug={installed.slug}
-              metadata={installed.tools}
-            />
-          ) : null}
           <p className="small">
             {isExternal
-              ? "This plugin comes from an external release. Select a matching credential and configure it below."
+              ? installed.description
               : "Changed source requires a new version. Existing runs keep their pinned plugin source."}
           </p>
           <form
@@ -418,87 +467,38 @@ export function Plugins({
               event.preventDefault();
               void perform(async () => {
                 const body = {
-                  version,
-                  description,
                   ...(isExternal
-                    ? {
-                        configuration: parseConfig(config),
-                      }
-                    : { source }),
+                    ? { configuration: parseConfig(config) }
+                    : { version, description, source }),
                   credential: credential || null,
                 };
-                await trpc.plugins.update.mutate({ id: selected, ...body });
-                setSavedValues(currentValues);
+                const updated = await trpc.plugins.update.mutate({
+                  id: selected,
+                  ...body,
+                });
+                applyPlugin(updated);
                 setNotice("Plugin saved for its project.");
               });
             }}
           >
-            <div className="row">
-              <label>
-                Plugin slug
-                <Input
-                  required
-                  value={slug}
-                  disabled
-                  onChange={(event) => {
-                    setSlug(event.target.value);
-                  }}
-                />
-              </label>
-              <label>
-                Plugin version
-                <Input
-                  required
-                  value={version}
-                  disabled={isExternal || isBusy || !canManage}
-                  onChange={(event) => {
-                    setVersion(event.target.value);
-                  }}
-                />
-              </label>
-              <label>
-                Plugin credential
-                <select
-                  value={credential}
-                  disabled={isBusy || !canManage}
-                  onChange={(event) => {
-                    setCredential(event.target.value);
-                  }}
-                >
-                  <option value="">No credential</option>
-                  {query.data?.credentials
-                    .filter(
-                      (item) => !isExternal || item.provider === auth.provider,
-                    )
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                </select>
-              </label>
-            </div>
-            <label>
-              Description
-              <Input
-                value={description}
-                disabled={isBusy || !canManage}
-                onChange={(event) => {
-                  setDescription(event.target.value);
-                }}
-              />
-            </label>
             {isExternal ? (
               <>
-                <p className="small">
-                  {auth.hint ?? "No additional setup instructions."}
-                </p>
-                <p>
-                  <WorkspaceLink href="/credentials/">
-                    Manage credentials
-                  </WorkspaceLink>
-                </p>
-                {!installed.shell_policy && (
+                {isBrowserCdp && (
+                  <BrowserCdpSettings
+                    configuration={parseConfig(config)}
+                    disabled={isBusy || !canManage}
+                    onChange={(key, value) => {
+                      setConfig(
+                        JSON.stringify(
+                          { ...parseConfig(config), [key]: value },
+                          null,
+                          2,
+                        ),
+                      );
+                    }}
+                  />
+                )}
+                {!isBrowserCdp && !installed.shell_policy && (
                   <label>
                     Configuration (JSON)
                     <Textarea
@@ -510,36 +510,75 @@ export function Plugins({
                     />
                   </label>
                 )}
+                {credential || auth.provider ? (
+                  <div className="my-3 space-y-2">
+                    {credentialField}
+                    {auth.hint ? <p className="small">{auth.hint}</p> : null}
+                    <WorkspaceLink href="/credentials/">
+                      Manage credentials
+                    </WorkspaceLink>
+                  </div>
+                ) : null}
               </>
             ) : (
-              <div className="source-pane">
-                <div className="source-toolbar">
-                  <span>plugin.ts</span>
-                  <span>TypeScript safe-functions</span>
-                </div>
-                <div className="desktop-editor">
-                  <Editor
-                    actionId={`plugin-${selected || "new"}`}
-                    value={source}
-                    onChange={setSource}
-                    readOnly={isBusy || !canManage}
-                  />
-                </div>
-                <div className="mobile-editor">
+              <>
+                <div className="row">
                   <label>
-                    Plugin source
-                    <Textarea
-                      className="code"
-                      rows={12}
-                      value={source}
-                      readOnly={isBusy || !canManage}
+                    Plugin slug
+                    <Input value={slug} disabled />
+                  </label>
+                  <label>
+                    Plugin version
+                    <Input
+                      required
+                      value={version}
+                      disabled={isBusy || !canManage}
                       onChange={(event) => {
-                        setSource(event.target.value);
+                        setVersion(event.target.value);
                       }}
                     />
                   </label>
+                  {credentialField}
                 </div>
-              </div>
+                <label>
+                  Description
+                  <Input
+                    value={description}
+                    disabled={isBusy || !canManage}
+                    onChange={(event) => {
+                      setDescription(event.target.value);
+                    }}
+                  />
+                </label>
+                <div className="source-pane">
+                  <div className="source-toolbar">
+                    <span>plugin.ts</span>
+                    <span>TypeScript safe-functions</span>
+                  </div>
+                  <div className="desktop-editor">
+                    <Editor
+                      actionId={`plugin-${selected || "new"}`}
+                      value={source}
+                      onChange={setSource}
+                      readOnly={isBusy || !canManage}
+                    />
+                  </div>
+                  <div className="mobile-editor">
+                    <label>
+                      Plugin source
+                      <Textarea
+                        className="code"
+                        rows={12}
+                        value={source}
+                        readOnly={isBusy || !canManage}
+                        onChange={(event) => {
+                          setSource(event.target.value);
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </>
             )}
             {canManage ? (
               <Button
@@ -600,14 +639,23 @@ export function Plugins({
               }}
             />
           ) : null}
-        </section>
+          {isExternal ? (
+            <div className="mt-4">
+              <p className="small">Installed version {installed.version}</p>
+              <PluginCapabilities
+                slug={installed.slug}
+                metadata={installed.tools}
+              />
+            </div>
+          ) : null}
+        </PluginSettingsDialog>
       ) : undefined}
-      {error ? (
+      {!installed && error ? (
         <p className="error" role="alert">
           {error}
         </p>
       ) : undefined}
-      {notice ? (
+      {!installed && notice ? (
         <p className="notice" role="status">
           {notice}
         </p>

@@ -577,6 +577,71 @@
     "mutates": false
   },
   {
+    "name": "list_project_plugins",
+    "description": "List configurable installed package plugins for a granted project. Returns the current configuration, schema, credential status and revision needed to configure a plugin. Credential values are private.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": ["project"],
+      "additionalProperties": false
+    },
+    "mutates": false
+  },
+  {
+    "name": "configure_plugin",
+    "description": "Replace an installed package plugin's configuration, attach a new API credential, or disconnect the credential. Use the ID and revision from list_project_plugins. Supply a replacement credential or null when changing configuration with a credential already attached. Omitted fields stay as saved.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "configuration": {
+          "type": "object",
+          "description": "Complete plugin configuration. Put secret values in credential.secret."
+        },
+        "credential": {
+          "type": ["object", "null"],
+          "description": "New API credential, or null to disconnect.",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "secret": {
+              "type": "object",
+              "minProperties": 1
+            }
+          },
+          "required": ["name", "secret"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["id", "revision"],
+      "anyOf": [
+        {
+          "required": ["configuration"]
+        },
+        {
+          "required": ["credential"]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
     "name": "list_plugins",
     "description": "Read installed plugin capability metadata.",
     "inputSchema": {

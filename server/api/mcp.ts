@@ -2,6 +2,7 @@ import { dispatchTool } from "./mcp-dispatch";
 import { object } from "../shared/contracts";
 import { mcpArgumentsSchema } from "./mcp-schemas";
 import Ajv from "ajv";
+import { ZodError } from "zod";
 import { TRPCError } from "@trpc/server";
 import type { AppContext } from "../http/context";
 import { requireWorkspace } from "../shared/authorization";
@@ -9,6 +10,8 @@ import { HttpError, input, json } from "../http/responses";
 import definitions from "./mcp-tools.json";
 
 const scopes: Record<string, string | string[]> = {
+  list_project_plugins: "plugins:configure",
+  configure_plugin: "plugins:configure",
   list_projects: "catalog:read",
   get_project_sdk: "catalog:read",
   execute_code: "code:execute",
@@ -145,6 +148,12 @@ export async function handleMcp(ctx: AppContext): Promise<Response | null> {
         isError: false,
       };
     } catch (cause) {
+      if (cause instanceof ZodError) {
+        return error(
+          -32602,
+          "Invalid tool arguments. Check fields, types and limits.",
+        );
+      }
       if (!(cause instanceof HttpError) && !(cause instanceof TRPCError)) {
         throw cause;
       }
@@ -159,13 +168,15 @@ export async function handleMcp(ctx: AppContext): Promise<Response | null> {
             )
               ? "Permission denied. Check client scopes and project grants."
               : cause instanceof TRPCError &&
-                  cause.code === "PRECONDITION_FAILED" &&
-                  [
-                    "open_session",
-                    "execute_cell",
-                    "read_session",
-                    "close_session",
-                  ].includes(tool.name)
+                  ((cause.code === "PRECONDITION_FAILED" &&
+                    [
+                      "open_session",
+                      "execute_cell",
+                      "read_session",
+                      "close_session",
+                    ].includes(tool.name)) ||
+                    (tool.name === "configure_plugin" &&
+                      ["BAD_REQUEST", "CONFLICT"].includes(cause.code)))
                 ? cause.message
                 : "Request rejected. Check resource IDs, input fields and execution limits.",
           },

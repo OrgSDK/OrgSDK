@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.5.0
+
+### Added
+
+- Configure installed plugins through project-scoped MCP tools, and open plugin settings in a Studio dialog with dedicated Browser CDP fields.
+
 ## 2.4.1
 
 ### Changed
