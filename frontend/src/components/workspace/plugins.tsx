@@ -498,7 +498,7 @@ export function Plugins({
                     Manage credentials
                   </WorkspaceLink>
                 </p>
-                {!installed?.shell_policy && (
+                {!installed.shell_policy && (
                   <label>
                     Configuration (JSON)
                     <Textarea

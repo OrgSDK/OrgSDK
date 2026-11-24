@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { trpc } from "../../api/trpc";
 import { errorMessage } from "../../api/result";
 import { useWorkspaceQuery } from "../../api/use-workspace-query";
@@ -13,7 +13,7 @@ export function ShellPolicy({
 }: {
   id: string;
   canManage: boolean;
-}) {
+}): ReactNode {
   const load = useCallback(
     (signal: AbortSignal) => trpc.plugins.shellRules.query({ id }, { signal }),
     [id],
@@ -34,8 +34,8 @@ export function ShellPolicy({
       });
       await query.refresh();
       setName("");
-    } catch (problem) {
-      setError(errorMessage(problem));
+    } catch (error_) {
+      setError(errorMessage(error_));
     } finally {
       setBusy(false);
     }
@@ -84,7 +84,9 @@ export function ShellPolicy({
             Executable name
             <Input
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => {
+                setName(event.target.value);
+              }}
               required
               maxLength={128}
               placeholder="uptime"
@@ -95,9 +97,9 @@ export function ShellPolicy({
             Rule
             <select
               value={decision}
-              onChange={(event) =>
-                setDecision(event.target.value === "block" ? "block" : "allow")
-              }
+              onChange={(event) => {
+                setDecision(event.target.value === "block" ? "block" : "allow");
+              }}
               disabled={busy}
             >
               <option value="allow">Always allow</option>

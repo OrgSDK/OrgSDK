@@ -8,6 +8,10 @@ import { loadApprovals } from "../../api/workspace-queries";
 import { Button } from "../ui/button";
 import { useWorkspace } from "./workspace-context";
 import { ResourceState } from "./resource-state";
+function approveLabel(isSaving:boolean,isShell:boolean):string {
+  if (isSaving) return "Saving decision…";
+  return isShell ? "Allow once" : "Approve";
+}
 export function ApprovalQueue({
   runId,
   openRun,
@@ -92,11 +96,7 @@ export function ApprovalQueue({
                 void decide(approval.id, "approved");
               }}
             >
-              {busyId === approval.id
-                ? "Saving decision…"
-                : approval.shell
-                  ? "Allow once"
-                  : "Approve"}
+              {approveLabel(busyId === approval.id, Boolean(approval.shell))}
             </Button>
             {approval.shell && (
               <Button
