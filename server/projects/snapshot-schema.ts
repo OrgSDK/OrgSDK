@@ -14,6 +14,8 @@ const agentsSchema = z.array(
     plugins: z
       .array(
         z.object({
+          shell_policy_id: z.uuid().optional(),
+          digest: z.string().optional(),
           credential_id: z.string().nullable().optional(),
           distribution: z.string().optional(),
           mcp: z.object({ id: z.uuid() }).optional(),

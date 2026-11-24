@@ -1,3 +1,4 @@
+import { shellPolicy } from "./shell-policy";
 import { importPluginModule } from "./plugin-module";
 import { z } from "zod";
 import type { Client } from "./client";
@@ -105,6 +106,7 @@ export async function loadPlugin(
   plugin: Plugin,
   client: Client,
   agentId: string,
+  onApprovalWait?: () => void,
 ): Promise<SandboxFunction[]> {
   const file = await installPlugin(plugin, agentId, undefined, client.signal);
   const secret = plugin.credential_id
@@ -114,7 +116,20 @@ export async function loadPlugin(
     throw new Error(
       "Reconnect this credential using your own OAuth application; the former first-party relay is retired",
     );
-  const context = snapshotContext(plugin, secret);
+  const context = {
+    ...snapshotContext(plugin, secret),
+    ...(plugin.shell_policy_id &&
+    plugin.slug === "shell" &&
+    plugin.distribution === "external"
+      ? {
+          shellPolicy: shellPolicy(
+            client,
+            plugin.shell_policy_id,
+            onApprovalWait,
+          ),
+        }
+      : {}),
+  };
   const exports = await importPluginModule(
     file,
     plugin.distribution !== "external",
@@ -160,9 +175,12 @@ export async function loadPlugins(
   plugins: Plugin[],
   client: Client,
   agentId: string,
+  onApprovalWait?: () => void,
 ): Promise<SandboxFunction[]> {
   const functions: SandboxFunction[] = [];
   for (const plugin of plugins)
-    functions.push(...(await loadPlugin(plugin, client, agentId)));
+    functions.push(
+      ...(await loadPlugin(plugin, client, agentId, onApprovalWait)),
+    );
   return functions;
 }

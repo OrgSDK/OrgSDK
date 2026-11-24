@@ -1,3 +1,4 @@
+import { supportsShellPolicy } from "../plugins/shell-policy";
 import { mcpSnapshot } from "../mcp/connections";
 import type { JsonObject } from "../db/types";
 import { type ServiceContext } from "../application";
@@ -33,6 +34,7 @@ export function projectConfiguration(ctx: ServiceContext, projectId: string) {
     configuration: plugin.configuration,
     package_url: plugin.packageUrl,
     contract_version: 1,
+    ...(supportsShellPolicy(plugin) ? { shell_policy_id: plugin.id } : {}),
     ...(plugin.distribution === "mcp"
       ? { mcp: mcpSnapshot(ctx, plugin.id) }
       : {}),

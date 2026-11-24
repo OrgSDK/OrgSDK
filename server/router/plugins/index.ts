@@ -1,3 +1,5 @@
+import { shellRulesProcedure } from "./shell-rules";
+import { setShellRuleProcedure } from "./set-shell-rule";
 import { mcpRouter } from "./mcp";
 import { router } from "../procedures";
 import { listProcedure } from "./list";
@@ -9,6 +11,8 @@ import { catalogProcedure } from "./catalog";
 import { marketplaceProcedure } from "./marketplace";
 export const pluginsRouter = router({
   mcp: mcpRouter,
+  shellRules: shellRulesProcedure,
+  setShellRule: setShellRuleProcedure,
   list: listProcedure,
   get: getProcedure,
   create: createProcedure,

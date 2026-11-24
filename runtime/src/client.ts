@@ -84,6 +84,26 @@ export class Client {
     );
   }
 
+  shellRules(pluginId: string) {
+    return this.#request(
+      `/internal/execution/v1/product/shell/${identifier(pluginId)}/`,
+      "GET",
+    );
+  }
+  requestShellApproval(pluginId: string, executable: string, args: string[]) {
+    return this.#request(
+      `/internal/execution/v1/product/shell/${identifier(pluginId)}/`,
+      "POST",
+      { executable, args },
+    );
+  }
+  shellApproval(pluginId: string, id: string) {
+    return this.#request(
+      `/internal/execution/v1/product/shell/${identifier(pluginId)}/${identifier(id)}/`,
+      "GET",
+    );
+  }
+
   createApproval(input: { run: string; prompt: string }): Promise<unknown> {
     return this.#request(
       "/internal/execution/v1/product/approvals/",
