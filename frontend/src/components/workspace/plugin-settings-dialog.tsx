@@ -33,9 +33,11 @@ export function PluginSettingsDialog({
             restoreFocus();
           }}
         >
-          <header className="mb-4 flex items-start justify-between gap-3">
+          <header className="mb-3 flex items-center justify-between gap-3">
             <Dialog.Title asChild>
-              <h2 className="m-0 break-all">{title}</h2>
+              <h2 className="m-0 text-lg font-semibold [overflow-wrap:anywhere]">
+                {title}
+              </h2>
             </Dialog.Title>
             <Dialog.Close asChild>
               <Button

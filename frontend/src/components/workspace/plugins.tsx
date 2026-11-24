@@ -188,6 +188,27 @@ export function Plugins({
       setBusy(false);
     }
   };
+  const credentialField = (
+    <label>
+      Plugin credential
+      <select
+        value={credential}
+        disabled={isBusy || !canManage}
+        onChange={(event) => {
+          setCredential(event.target.value);
+        }}
+      >
+        <option value="">No credential</option>
+        {query.data?.credentials
+          .filter((item) => !isExternal || item.provider === auth.provider)
+          .map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ))}
+      </select>
+    </label>
+  );
   return (
     <>
       <McpConnections
@@ -297,9 +318,9 @@ export function Plugins({
                     variant="outline"
                     disabled={isBusy}
                     aria-haspopup="dialog"
-                    onClick={(event) =>
-                      openSettings(existing, event.currentTarget)
-                    }
+                    onClick={(event) => {
+                      openSettings(existing, event.currentTarget);
+                    }}
                   >
                     Configure
                   </Button>
@@ -378,7 +399,9 @@ export function Plugins({
                   size="sm"
                   disabled={isBusy}
                   aria-haspopup="dialog"
-                  onClick={(event) => openSettings(plugin, event.currentTarget)}
+                  onClick={(event) => {
+                    openSettings(plugin, event.currentTarget);
+                  }}
                 >
                   Inspect
                 </Button>
@@ -433,15 +456,9 @@ export function Plugins({
               canManage={canManage}
             />
           )}
-          {isExternal ? (
-            <PluginCapabilities
-              slug={installed.slug}
-              metadata={installed.tools}
-            />
-          ) : null}
           <p className="small">
             {isExternal
-              ? "This plugin comes from an external release. Select a matching credential and configure it below."
+              ? installed.description
               : "Changed source requires a new version. Existing runs keep their pinned plugin source."}
           </p>
           <form
@@ -449,13 +466,9 @@ export function Plugins({
               event.preventDefault();
               void perform(async () => {
                 const body = {
-                  version,
-                  description,
                   ...(isExternal
-                    ? {
-                        configuration: parseConfig(config),
-                      }
-                    : { source }),
+                    ? { configuration: parseConfig(config) }
+                    : { version, description, source }),
                   credential: credential || null,
                 };
                 const updated = await trpc.plugins.update.mutate({
@@ -467,71 +480,8 @@ export function Plugins({
               });
             }}
           >
-            <div className="row">
-              <label>
-                Plugin slug
-                <Input
-                  required
-                  value={slug}
-                  disabled
-                  onChange={(event) => {
-                    setSlug(event.target.value);
-                  }}
-                />
-              </label>
-              <label>
-                Plugin version
-                <Input
-                  required
-                  value={version}
-                  disabled={isExternal || isBusy || !canManage}
-                  onChange={(event) => {
-                    setVersion(event.target.value);
-                  }}
-                />
-              </label>
-              <label>
-                Plugin credential
-                <select
-                  value={credential}
-                  disabled={isBusy || !canManage}
-                  onChange={(event) => {
-                    setCredential(event.target.value);
-                  }}
-                >
-                  <option value="">No credential</option>
-                  {query.data?.credentials
-                    .filter(
-                      (item) => !isExternal || item.provider === auth.provider,
-                    )
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                </select>
-              </label>
-            </div>
-            <label>
-              Description
-              <Input
-                value={description}
-                disabled={isBusy || !canManage}
-                onChange={(event) => {
-                  setDescription(event.target.value);
-                }}
-              />
-            </label>
             {isExternal ? (
               <>
-                <p className="small">
-                  {auth.hint ?? "No additional setup instructions."}
-                </p>
-                <p>
-                  <WorkspaceLink href="/credentials/">
-                    Manage credentials
-                  </WorkspaceLink>
-                </p>
                 {installed.slug === "browser-cdp" ? (
                   <BrowserCdpSettings
                     configuration={parseConfig(config)}
@@ -546,7 +496,7 @@ export function Plugins({
                       );
                     }}
                   />
-                ) : !installed.shell_policy ? (
+                ) : installed.shell_policy ? null : (
                   <label>
                     Configuration (JSON)
                     <Textarea
@@ -557,37 +507,76 @@ export function Plugins({
                       }}
                     />
                   </label>
+                )}
+                {credential || auth.provider ? (
+                  <div className="my-3 space-y-2">
+                    {credentialField}
+                    {auth.hint ? <p className="small">{auth.hint}</p> : null}
+                    <WorkspaceLink href="/credentials/">
+                      Manage credentials
+                    </WorkspaceLink>
+                  </div>
                 ) : null}
               </>
             ) : (
-              <div className="source-pane">
-                <div className="source-toolbar">
-                  <span>plugin.ts</span>
-                  <span>TypeScript safe-functions</span>
-                </div>
-                <div className="desktop-editor">
-                  <Editor
-                    actionId={`plugin-${selected || "new"}`}
-                    value={source}
-                    onChange={setSource}
-                    readOnly={isBusy || !canManage}
-                  />
-                </div>
-                <div className="mobile-editor">
+              <>
+                <div className="row">
                   <label>
-                    Plugin source
-                    <Textarea
-                      className="code"
-                      rows={12}
-                      value={source}
-                      readOnly={isBusy || !canManage}
+                    Plugin slug
+                    <Input value={slug} disabled />
+                  </label>
+                  <label>
+                    Plugin version
+                    <Input
+                      required
+                      value={version}
+                      disabled={isBusy || !canManage}
                       onChange={(event) => {
-                        setSource(event.target.value);
+                        setVersion(event.target.value);
                       }}
                     />
                   </label>
+                  {credentialField}
                 </div>
-              </div>
+                <label>
+                  Description
+                  <Input
+                    value={description}
+                    disabled={isBusy || !canManage}
+                    onChange={(event) => {
+                      setDescription(event.target.value);
+                    }}
+                  />
+                </label>
+                <div className="source-pane">
+                  <div className="source-toolbar">
+                    <span>plugin.ts</span>
+                    <span>TypeScript safe-functions</span>
+                  </div>
+                  <div className="desktop-editor">
+                    <Editor
+                      actionId={`plugin-${selected || "new"}`}
+                      value={source}
+                      onChange={setSource}
+                      readOnly={isBusy || !canManage}
+                    />
+                  </div>
+                  <div className="mobile-editor">
+                    <label>
+                      Plugin source
+                      <Textarea
+                        className="code"
+                        rows={12}
+                        value={source}
+                        readOnly={isBusy || !canManage}
+                        onChange={(event) => {
+                          setSource(event.target.value);
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </>
             )}
             {canManage ? (
               <Button
@@ -647,6 +636,15 @@ export function Plugins({
                 }
               }}
             />
+          ) : null}
+          {isExternal ? (
+            <div className="mt-4">
+              <p className="small">Installed version {installed.version}</p>
+              <PluginCapabilities
+                slug={installed.slug}
+                metadata={installed.tools}
+              />
+            </div>
           ) : null}
         </PluginSettingsDialog>
       ) : undefined}

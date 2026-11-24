@@ -3,8 +3,8 @@ import type { Plugin } from "../../api/types";
 import { Input } from "../ui/input";
 
 const timeouts = [
-  ["connectTimeoutMs", "Connection timeout (ms)", 15000],
-  ["actionTimeoutMs", "Action timeout (ms)", 10000],
+  ["connectTimeoutMs", "Connection timeout (ms)", 15_000],
+  ["actionTimeoutMs", "Action timeout (ms)", 10_000],
 ] as const;
 
 export function BrowserCdpSettings({
@@ -26,9 +26,9 @@ export function BrowserCdpSettings({
           value={typeof cdpEndpoint === "string" ? cdpEndpoint : ""}
           placeholder="http://localhost:9222"
           aria-describedby="browser-endpoint-help"
-          onChange={(event) =>
-            onChange("cdpEndpoint", event.target.value || undefined)
-          }
+          onChange={(event) => {
+            onChange("cdpEndpoint", event.target.value || undefined);
+          }}
         />
       </label>
       <p className="small" id="browser-endpoint-help">
@@ -39,7 +39,9 @@ export function BrowserCdpSettings({
         Authentication
         <select
           value={typeof authMode === "string" ? authMode : "none"}
-          onChange={(event) => onChange("authMode", event.target.value)}
+          onChange={(event) => {
+            onChange("authMode", event.target.value);
+          }}
         >
           <option value="none">None</option>
           <option value="bearer">Bearer token</option>
@@ -51,9 +53,9 @@ export function BrowserCdpSettings({
           Existing Steel session ID
           <Input
             value={typeof sessionId === "string" ? sessionId : ""}
-            onChange={(event) =>
-              onChange("sessionId", event.target.value || undefined)
-            }
+            onChange={(event) => {
+              onChange("sessionId", event.target.value || undefined);
+            }}
           />
         </label>
       ) : null}
@@ -67,15 +69,15 @@ export function BrowserCdpSettings({
               <Input
                 type="number"
                 min={1}
-                max={120000}
+                max={120_000}
                 value={typeof value === "number" ? value : ""}
                 placeholder={String(defaultValue)}
-                onChange={(event) =>
+                onChange={(event) => {
                   onChange(
                     key,
                     event.target.value ? event.target.valueAsNumber : undefined,
-                  )
-                }
+                  );
+                }}
               />
             </label>
           );

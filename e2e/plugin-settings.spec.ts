@@ -52,6 +52,7 @@ test("configure Browser CDP without JSON in a modal opened from the catalogue", 
     const endpoint = dialog.getByRole("textbox", { name: "Browser endpoint" });
     const close = dialog.getByRole("button", { name: "Close plugin settings" });
     await expect(dialog).toBeInViewport();
+    await expect(endpoint).toBeInViewport();
     await expect(dialog.getByText("Configuration (JSON)")).toHaveCount(0);
     await close.click();
     await expect(dialog).toHaveCount(0);
