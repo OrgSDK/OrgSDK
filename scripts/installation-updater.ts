@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
-import { constants } from "node:fs";
+import { constants, existsSync } from "node:fs";
 import {
   access,
   cp,
@@ -36,9 +36,7 @@ async function installationStorage(data: string) {
     storage.startsWith(directory + sep) ||
     directory === sep
   ) {
-    throw new Error(
-      "Choose an installation data directory separate from update storage.",
-    );
+    return;
   }
   return storage;
 }
@@ -50,7 +48,11 @@ export async function selectedCli(
   let storage: string;
   let active: string;
   try {
-    storage = await installationStorage(data);
+    const directory = await installationStorage(data);
+    if (!directory) {
+      return;
+    }
+    storage = directory;
     active = (await readFile(join(storage, versionFile), "utf8")).trim();
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
@@ -74,6 +76,8 @@ export async function updateManager(
   if (
     process.getuid?.() === 0 ||
     process.versions.bun ||
+    existsSync("/.dockerenv") ||
+    existsSync("/run/.containerenv") ||
     !["localhost", "127.0.0.1", "::1"].includes(host) ||
     mode !== "host" ||
     resolve(executorData) !== join(data, "executor") ||
@@ -95,6 +99,9 @@ export async function updateManager(
     }
     try {
       const storage = await installationStorage(data);
+      if (!storage) {
+        return;
+      }
       await mkdir(storage, { recursive: true, mode: 0o700 });
       const info = await lstat(storage);
       if (
@@ -161,8 +168,18 @@ export async function installSelectedRelease(
   try {
     const { storage, npm } = manager;
     for (const name of ["encryption.key", "executor"]) {
-      const info = await lstat(join(data, name));
-      if (info.isSymbolicLink()) {
+      const info = await lstat(join(data, name)).catch((error: unknown) => {
+        if (
+          name === "executor" &&
+          error instanceof Error &&
+          "code" in error &&
+          error.code === "ENOENT"
+        ) {
+          return undefined;
+        }
+        throw error;
+      });
+      if (info?.isSymbolicLink()) {
         throw new Error(
           "Back up externally linked installation data before updating manually.",
         );
@@ -177,6 +194,7 @@ export async function installSelectedRelease(
         npm,
         [
           "install",
+          "--global=false",
           "--prefix",
           staging,
           "--registry=https://registry.npmjs.org/",

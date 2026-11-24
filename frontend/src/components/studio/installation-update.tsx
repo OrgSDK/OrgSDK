@@ -108,9 +108,7 @@ export function InstallationUpdate(): ReactNode {
       sessionStorage.removeItem(storageKey);
       sessionStorage.setItem(storageKey + ":later", version);
     } catch {
-      /*
-      Ignore storage restrictions.
-      */
+      // The dismissal still applies in this tab.
     }
   }
   async function update(version: string) {
@@ -125,9 +123,7 @@ export function InstallationUpdate(): ReactNode {
       try {
         sessionStorage.setItem(storageKey, version);
       } catch {
-        /*
-        Poll in this tab.
-        */
+        // The current tab can still follow progress.
       }
     } catch (error) {
       setMessage(

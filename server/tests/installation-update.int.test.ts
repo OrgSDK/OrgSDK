@@ -39,13 +39,11 @@ test("a server without its launcher and non-owner clients cannot request install
         )
       ).status,
     ).toBe(400);
-    const issued = await fixture
-      .caller()
-      .tokens.create({
-        name: "Update permission test",
-        scopes: ["catalog:read"],
-        projects: [fixture.project.id],
-      });
+    const issued = await fixture.caller().tokens.create({
+      name: "Update permission test",
+      scopes: ["catalog:read"],
+      projects: [fixture.project.id],
+    });
     fixture.store.db.update(memberships).set({ role: "admin" }).run();
     expect(
       (
