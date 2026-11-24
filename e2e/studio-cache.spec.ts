@@ -4,6 +4,29 @@ import { createServer } from "node:http";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
+import { signIn } from "./fixtures";
+
+test("a waiting Studio update is visible only in the connected workspace popup", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    if (!navigator.serviceWorker) {
+      return;
+    }
+    const registration = Object.assign(new EventTarget(), { waiting: {} });
+    Object.defineProperty(navigator.serviceWorker, "getRegistration", {
+      value: () => Promise.resolve(registration),
+    });
+  });
+  await signIn(page, "/documents/");
+  await page.getByLabel("Content").fill("Unsaved Studio update draft");
+  const refresh = page.getByRole("button", { name: "Refresh Studio" });
+  await expect(refresh).toHaveCount(0);
+  await page.getByRole("button", { name: /^Saved servers for / }).click();
+  const saved = page.getByRole("dialog", { name: "Saved servers" });
+  await expect(saved.getByText(/A Studio update is ready/)).toBeVisible();
+  await expect(refresh).toBeDisabled();
+});
 
 test("Studio keeps a complete release offline and refreshes a verified build on request after other tabs close", async ({
   page,

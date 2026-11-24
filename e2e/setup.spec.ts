@@ -30,12 +30,60 @@ test("a fresh local workspace opens in Studio and reconnects on refresh and reop
   const reopened = await context.newPage();
   await reopened.goto(studio);
   await expect(reopened.locator(".workspace-header")).toBeVisible();
+  const connections = reopened.getByRole("button", {
+    name: "Saved servers for Test workspace",
+  });
+  const saved = reopened.getByRole("dialog", { name: "Saved servers" });
+  const connect = reopened.getByRole("link", {
+    name: "Connect to a different server",
+  });
+  await expect(connect).toHaveCount(0);
+
+  const previousServer = "https://previous.example.test";
+  await reopened.evaluate((endpoint) => {
+    localStorage.setItem(
+      "orgsdk:studio-grant:" + endpoint,
+      JSON.stringify({ token: "expired-test-grant", expiresAt: 0 }),
+    );
+  }, previousServer);
+
+  await reopened.setViewportSize({ width: 390, height: 844 });
+  await reopened.getByRole("button", { name: "Open navigation" }).click();
+  await connections.click();
+  await expect(saved.getByText("Connected", { exact: true })).toBeVisible();
+  await expect(saved.getByText(previousServer, { exact: true })).toBeVisible();
+  await reopened.keyboard.press("Escape");
+  await expect(saved).not.toBeVisible();
+  await expect(connections).toBeFocused();
+  await reopened.setViewportSize({ width: 1280, height: 800 });
+  await connections.click();
   const popup = reopened.waitForEvent("popup");
-  await reopened
-    .getByRole("link", { name: "Connect to a different server" })
-    .click();
+  await connect.click();
   await expect((await popup).getByLabel("Server address")).toHaveValue("");
-  await reopened.getByRole("button", { name: "Sign out of Studio" }).click();
+
+  await reopened.goto(studio + "/documents/");
+  await reopened.getByLabel("Content").fill("Unsaved server switch draft");
+  await connections.click();
+  const switchServer = saved.getByRole("button", {
+    name: "Switch to " + previousServer,
+  });
+  await switchServer.click();
+  await reopened.getByRole("button", { name: "Keep editing" }).click();
+  await expect(saved).toBeVisible();
+  await switchServer.click();
+  await reopened.getByRole("button", { name: "Discard changes" }).click();
+  await expect(reopened.getByLabel("Server address")).toHaveValue(
+    previousServer,
+  );
+
+  await reopened.goto(studio);
+  await connections.click();
+  await saved.getByRole("button", { name: "Remove " + previousServer }).click();
+  await expect(saved.getByText(previousServer, { exact: true })).toHaveCount(0);
+  await reopened.reload();
+  await connections.click();
+  await expect(saved.getByText(previousServer, { exact: true })).toHaveCount(0);
+  await saved.getByRole("button", { name: "Sign out of Studio" }).click();
   await expect(reopened.getByLabel("Email address")).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("Email address")).toBeVisible();

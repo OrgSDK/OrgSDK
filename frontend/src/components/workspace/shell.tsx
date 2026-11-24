@@ -1,5 +1,4 @@
 "use client";
-import { StudioCacheStatus } from "../studio/cache-status";
 import { InstallationUpdate } from "../studio/installation-update";
 import { StudioWorkspaceConnections } from "../studio/workspace-connections";
 import { installationHref } from "../../api/trpc";
@@ -143,18 +142,19 @@ export function WorkspaceShell({
             </div>
           ))}
         </nav>
-        {process.env.NEXT_PUBLIC_ORGSDK_STUDIO === "1" && (
+        {process.env.NEXT_PUBLIC_ORGSDK_STUDIO === "1" ? (
           <StudioWorkspaceConnections />
+        ) : (
+          <div className="workspace-label">
+            <span className="workspace-avatar">
+              {workspace.slice(0, 1).toUpperCase()}
+            </span>
+            <span>
+              {workspace}
+              <small>{installationHref("") || "Local workspace"}</small>
+            </span>
+          </div>
         )}
-        <div className="workspace-label">
-          <span className="workspace-avatar">
-            {workspace.slice(0, 1).toUpperCase()}
-          </span>
-          <span>
-            {workspace}
-            <small>{installationHref("") || "Local workspace"}</small>
-          </span>
-        </div>
       </aside>
       <div className="workspace-body" inert={open}>
         <header
@@ -192,10 +192,7 @@ export function WorkspaceShell({
           )}
         </header>
         {process.env.NEXT_PUBLIC_ORGSDK_STUDIO === "1" && (
-          <>
-            <StudioCacheStatus hasUnsavedChanges={isDirty} />
-            <InstallationUpdate hasUnsavedChanges={isDirty} />
-          </>
+          <InstallationUpdate hasUnsavedChanges={isDirty} />
         )}
         <main className={tab === "actions" ? "action-page" : undefined}>
           <div className={tab === "actions" ? "sr-only" : "page-heading"}>

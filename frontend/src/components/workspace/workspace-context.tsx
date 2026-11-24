@@ -1,5 +1,11 @@
 "use client";
-import { installationHref, loadSession, trpc } from "../../api/trpc";
+import {
+  installationHref,
+  installationOrigin,
+  loadSession,
+  trpc,
+} from "../../api/trpc";
+import { rememberStudioServerName } from "../../api/studio-session";
 import {
   createContext,
   Suspense,
@@ -110,6 +116,8 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
       return list[0]?.id ?? "";
     });
     setWorkspace(current.workspace.name);
+    if (process.env.NEXT_PUBLIC_ORGSDK_STUDIO === "1")
+      rememberStudioServerName(installationOrigin(), current.workspace.name);
     setWorkspaceId(current.workspace.id);
     setRole(current.role ?? "member");
   }, []);
