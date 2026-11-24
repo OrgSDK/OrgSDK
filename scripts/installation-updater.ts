@@ -45,6 +45,9 @@ export async function selectedCli(
   data: string,
   installed: string,
 ): Promise<string | undefined> {
+  if (process.getuid?.() === 0) {
+    return;
+  }
   let storage: string;
   let active: string;
   try {

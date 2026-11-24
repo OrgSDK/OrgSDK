@@ -37,6 +37,12 @@ function progress(
           target +
           " is running. Waiting for the local executor manager…";
   }
+  if (status && !status.pending && status.failed !== target)
+    return (
+      "The installation is running OrgSDK " +
+      status.installed +
+      ". The requested update is no longer in progress."
+    );
   return status?.failed === target && !status.pending
     ? "The update failed. OrgSDK " +
         status.installed +
@@ -118,6 +124,7 @@ export function InstallationUpdate(): ReactNode {
     setMessage("");
     try {
       await trpc.system.requestUpdate.mutate({ version });
+      setStatus((current) => current && { ...current, pending: version });
       setTarget(version);
       setConfirming(false);
       try {
@@ -139,15 +146,18 @@ export function InstallationUpdate(): ReactNode {
   if (target) {
     const isComplete =
       status?.installed === target && status.executorReady && !isDisconnected;
-    const hasFailed =
-      status?.failed === target && !status.pending && !isDisconnected;
+    const hasStopped =
+      !!status &&
+      !isDisconnected &&
+      !status.pending &&
+      status.installed !== target;
     return (
       <aside className="panel" role="status">
         <p>{progress(target, status, isDisconnected)}</p>
-        {(isComplete || hasFailed) && (
+        {(isComplete || hasStopped) && (
           <Button
             onClick={() => {
-              later(target);
+              later(isComplete ? target : "");
             }}
           >
             Dismiss
