@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.0
+
+### Added
+
+- Refresh a verified Studio build and request a backed-up local platform and executor update from Studio.
+
+Older npm installations need one manual upgrade to 2.3.0 or later. After that, the local owner can choose **Update and restart** when a newer release is available. **Refresh Studio** activates a verified browser build independently. Save your work and close other Studio tabs before refreshing.
+
 ## 2.2.0
 
 ### Added

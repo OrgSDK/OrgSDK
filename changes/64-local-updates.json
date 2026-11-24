@@ -1,5 +1,0 @@
-{
-  "type": "minor",
-  "category": "added",
-  "summary": "Refresh a verified Studio build and request a backed-up local platform and executor update from Studio."
-}
