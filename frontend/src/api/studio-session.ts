@@ -40,10 +40,10 @@ export function allowLocalAccess(): void {
   }
 }
 
-let activeToken = "";
+const activeConnection = { token: "" };
 
 function bindConnection(endpoint: string, grant: Grant): void {
-  activeToken = grant.token;
+  activeConnection.token = grant.token;
   connectStudio(endpoint, grant.token);
   try {
     sessionStorage.setItem(previousKey, endpoint);
@@ -62,7 +62,10 @@ export function activateConnection(endpoint: string, grant: Grant): void {
   }
 }
 
-export function forgetConnection(endpoint: string, token = activeToken): void {
+export function forgetConnection(
+  endpoint: string,
+  token = activeConnection.token,
+): void {
   try {
     if (rememberedGrant(endpoint)?.token === token)
       localStorage.removeItem(grantKey(endpoint));

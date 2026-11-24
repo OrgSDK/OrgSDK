@@ -103,3 +103,41 @@ test("a hosted server link waits for the user and offers local setup after a con
     page.getByRole("heading", { name: "Get started with Studio" }),
   ).toBeVisible();
 });
+
+test("Studio automatically opens sign-in for the only discovered local installation", async ({
+  page,
+  context,
+}) => {
+  const studio = process.env.ORGSDK_E2E_STUDIO;
+  if (!studio) {
+    throw new Error("Studio test origin is required.");
+  }
+  await context.route(
+    /^http:\/\/127\.0\.0\.1:(?:2894[0-7]|8080)\//,
+    async (route) => {
+      const url = new URL(route.request().url());
+      if (url.port !== "8080") {
+        await route.abort();
+        return;
+      }
+      const discovery = url.pathname === "/trpc/studio.discover";
+      expect(discovery || url.pathname === "/trpc/auth.setupStatus").toBe(true);
+      const data = discovery
+        ? {
+            product: "orgsdk",
+            protocol: 1,
+            audience: studio,
+            localSignIn: true,
+          }
+        : { setup_required: false, hostname: "127.0.0.1" };
+      await route.fulfill({ json: [{ result: { data } }] });
+    },
+  );
+  await page.goto(studio);
+  await page.getByRole("button", { name: "Allow local connections" }).click();
+  await expect(page.getByLabel("Email address")).toBeVisible();
+  await expect(page).toHaveURL(studio + "/");
+  await expect(
+    page.getByText("http://127.0.0.1:8080", { exact: true }),
+  ).toBeVisible();
+});
