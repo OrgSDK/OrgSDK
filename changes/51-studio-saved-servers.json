@@ -1,5 +1,0 @@
-{
-  "type": "minor",
-  "category": "added",
-  "summary": "Open saved servers from the Studio workspace name to switch or remove connections and refresh Studio without a workspace banner."
-}
