@@ -19,6 +19,7 @@ import {
   findInstallations,
   requestApproval,
   studioClient,
+  studioServerHref,
   type Installation,
 } from "../../api/studio";
 import {
@@ -26,6 +27,7 @@ import {
   isLocalAccessAllowed,
   rememberedGrant,
   resumeConnection,
+  savedStudioServers,
 } from "../../api/studio-session";
 import { LocalSignIn } from "./local-sign-in";
 import { OrgSdkWordmark } from "../workspace/brand";
@@ -98,6 +100,7 @@ function ConnectionPanel({
       : undefined,
   );
   const [matches, setMatches] = useState<Installation[]>([]);
+  const [savedServers] = useState(savedStudioServers);
   const [address, setAddress] = useState(start.address);
   const [account, setAccount] = useState<{
     endpoint: string;
@@ -352,6 +355,20 @@ function ConnectionPanel({
                 Connect to server <ArrowRight />
               </button>
             </form>
+            {savedServers.length > 0 && (
+              <div className="studio-choices">
+                <h2>Saved servers</h2>
+                {savedServers.map(({ endpoint, name }) => (
+                  <a key={endpoint} href={studioServerHref(endpoint)}>
+                    <span className="min-w-0">
+                      {name && <span className="block">{name}</span>}
+                      <small>{endpoint}</small>
+                    </span>
+                    <ArrowRight aria-hidden="true" />
+                  </a>
+                ))}
+              </div>
+            )}
           </>
         )}
         {error && (

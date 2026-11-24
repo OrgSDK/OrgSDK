@@ -72,7 +72,7 @@
 .studio-switch,
 .studio-terminal-bar,
 .studio-terminal-bar button,
-.studio-choices button {
+.studio-choices :is(button, a) {
   display: flex;
   align-items: center;
   gap: 0.55rem;
@@ -149,7 +149,7 @@
 .studio-primary,
 .studio-guide,
 .studio-switch,
-.studio-choices button {
+.studio-choices :is(button, a) {
   min-height: 44px;
   cursor: pointer;
   font-size: 0.88rem;
@@ -195,7 +195,7 @@
   margin-top: 0.5rem;
 }
 .studio-switch,
-.studio-choices button {
+.studio-choices :is(button, a) {
   width: 100%;
   text-align: left;
   padding: 0.85rem clamp(1.2rem, 4vw, 2.3rem);
@@ -206,10 +206,17 @@
 .studio-choices svg {
   margin-left: auto;
 }
-.studio-choices button {
+.studio-choices :is(button, a) {
   border: 1px solid var(--studio-line);
   padding: 0.7rem 1rem;
   overflow-wrap: anywhere;
+}
+.studio-choices h2 {
+  margin: 0;
+  font-size: 0.88rem;
+}
+.studio-choices a small {
+  color: var(--studio-slate);
 }
 .studio-window p.studio-error {
   color: #963920;

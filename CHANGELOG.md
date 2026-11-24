@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.4.0
+
+### Added
+
+- Select the workspace name in Studio to switch between saved servers, remove a saved connection, connect to another server, or sign out.
+
+### Changed
+
+- Refresh Studio from the same popup when a verified browser update is ready.
+
 ## 2.3.0
 
 ### Added

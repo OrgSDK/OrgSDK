@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { buttonVariants } from "../ui/button";
 
 type OfflineStatus = "saving" | "ready" | "unavailable" | "update";
 const statusText: Record<OfflineStatus, string> = {
@@ -142,12 +143,28 @@ export function StudioCacheStatus({
   if (status === undefined || (!showOfflineStatus && status !== "update"))
     return null;
   return (
-    <aside role="status" className={showOfflineStatus ? undefined : "panel"}>
+    <aside
+      role="status"
+      className={
+        showOfflineStatus
+          ? undefined
+          : "grid gap-2 rounded-lg bg-muted p-3 text-sm"
+      }
+    >
       {statusText[status]}
       {status === "update" && (
         <>
           <button
             type="button"
+            className={
+              showOfflineStatus
+                ? undefined
+                : buttonVariants({
+                    size: "sm",
+                    variant: "outline",
+                    className: "w-fit",
+                  })
+            }
             disabled={hasUnsavedChanges}
             onClick={() => refresh.current?.()}
           >
