@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.0
+
+### Changed
+
+- Set up and sign in to local installations inside Studio, automatically reopen valid connections and open a hosted server from the workspace.
+
 ## 2.0.1
 
 ### Fixed
