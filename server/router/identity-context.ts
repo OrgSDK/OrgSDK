@@ -4,6 +4,7 @@ import { randomSecret } from "../shared/security";
 export function identityContext(ctx: AppContext): IdentityContext {
   return {
     db: ctx.db,
+    studioOrigin: ctx.studioOrigin,
     secrets: ctx.secrets,
     workspace: ctx.workspace,
     role: ctx.role,

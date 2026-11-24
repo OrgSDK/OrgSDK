@@ -7,6 +7,8 @@ import { requireUser } from "../shared/authorization";
 import { ServiceError } from "../shared/errors";
 import { identityRepository } from "../repositories/identity";
 import { digest, randomSecret } from "../shared/security";
+import { studioLoginSessionId } from "./studio";
+
 export function rotateSession(
   ctx: IdentityContext,
   userId: number | null,
@@ -15,10 +17,24 @@ export function rotateSession(
   mutation?: (context: IdentityContext) => void,
 ) {
   const secret = randomSecret();
-  const id = digest(secret);
+  const id = ctx.studioOrigin
+    ? studioLoginSessionId(ctx.origin, ctx.studioOrigin, secret)
+    : digest(secret);
   const time = Date.now();
+  const expiresAt = time + (pendingUserId ? 5 * 60000 : 14 * 86400000);
   inTransaction(ctx, (ctx) => {
     guard?.(ctx);
+    if (
+      ctx.studioOrigin &&
+      userId &&
+      (!ctx.workspace ||
+        !identityRepository(ctx.db).membership(ctx.workspace.id, userId))
+    ) {
+      throw new ServiceError(
+        "FORBIDDEN",
+        "You are not a member of this workspace.",
+      );
+    }
     mutation?.(ctx);
     if (ctx.sessionId) {
       ctx.db.delete(sessions).where(eq(sessions.id, ctx.sessionId)).run();
@@ -30,13 +46,17 @@ export function rotateSession(
         userId,
         pendingUserId,
         workspaceId: ctx.workspace?.id ?? null,
-        expiresAt: time + (pendingUserId ? 5 * 60000 : 14 * 86400000),
+        expiresAt,
         reauthenticatedAt: userId ? time : null,
       })
       .run();
   });
   ctx.sessionId = id;
   ctx.sessionChanged(secret);
+  if (ctx.studioOrigin) {
+    return { token: secret, expiresAt };
+  }
+  return null;
 }
 
 export function requireFresh(ctx: ServiceContext) {

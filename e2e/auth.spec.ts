@@ -95,6 +95,9 @@ test("wrong passwords stay signed out, local deep links survive sign-in, and log
   await signOut(page);
   await page.goto(next);
   await page
+    .getByRole("button", { name: "Use an existing installation sign-in" })
+    .click();
+  await page
     .getByRole("link", { name: "Sign in to this installation" })
     .click();
   await expect(page).toHaveURL(/\/accounts\/login\/\?next=/);

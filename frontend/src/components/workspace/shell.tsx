@@ -1,4 +1,5 @@
 "use client";
+import { StudioWorkspaceConnections } from "../studio/workspace-connections";
 import { installationHref } from "../../api/trpc";
 import { Button } from "../ui/button";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -140,6 +141,9 @@ export function WorkspaceShell({
             </div>
           ))}
         </nav>
+        {process.env.NEXT_PUBLIC_ORGSDK_STUDIO === "1" && (
+          <StudioWorkspaceConnections />
+        )}
         <div className="workspace-label">
           <span className="workspace-avatar">
             {workspace.slice(0, 1).toUpperCase()}

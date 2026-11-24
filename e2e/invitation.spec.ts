@@ -114,9 +114,7 @@ test("an invited account accepts membership and the owner can update and remove 
       ),
     ).toBe(false);
     await memberPage.reload();
-    await memberPage
-      .getByRole("button", { name: "Approve connection" })
-      .click();
+
     await expect(
       memberPage
         .getByRole("alert")

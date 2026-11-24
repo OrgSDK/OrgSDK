@@ -15,9 +15,24 @@ type Grants = {
 };
 const installations = new WeakMap<AppDatabase, Grants>();
 
+export function isLoopbackInstallation(endpoint: string): boolean {
+  return ["127.0.0.1", "localhost", "[::1]"].includes(
+    new URL(endpoint).hostname,
+  );
+}
+
+// Domain separation keeps a Studio credential unusable as an installation cookie.
+export function studioLoginSessionId(
+  endpoint: string,
+  audience: string,
+  secret: string,
+): string {
+  return "studio:" + digest(JSON.stringify([endpoint, audience, secret]));
+}
+
 export function studioAudience(endpoint: string): string | undefined {
   const url = new URL(endpoint);
-  const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
+  const loopback = isLoopbackInstallation(endpoint);
   const configured =
     process.env.ORGSDK_STUDIO_ORIGIN ??
     (loopback ? "https://studio.orgsdk.ai" : undefined);

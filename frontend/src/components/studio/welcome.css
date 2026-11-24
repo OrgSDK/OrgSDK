@@ -247,3 +247,12 @@
     font-size: 0.6rem;
   }
 }
+
+.studio-window fieldset {
+  display: grid;
+  gap: 0.8rem;
+}
+.studio-window fieldset label {
+  display: grid;
+  gap: 0.2rem;
+}
