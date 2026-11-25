@@ -15,7 +15,6 @@ namespace z {
   type output<T> = import("zod").output<T>;
 }
 function defineParams<T>(schema: import("zod").ZodType<T>): T;
-function handleWebhook<T>(schema: import("zod").ZodType<T>): T;
 const actionParams: Record<string, unknown>;
 const console: {log(...values: unknown[]): void; warn(...values: unknown[]): void; error(...values: unknown[]): void; info(...values: unknown[]): void; debug(...values: unknown[]): void};
 function readFile(path: string): Promise<string>;
@@ -26,6 +25,7 @@ function removeFile(path: string): Promise<void>;
 const builtins =
   sessionBuiltins +
   `
+function handleWebhook<T>(schema: import("zod").ZodType<T>): T;
 function resetTimeout(): void;
 function keepAlive(intervalMs?: number): {stop(): void};
 function reportOutcome(input: unknown): void;
