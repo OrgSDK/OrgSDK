@@ -10,6 +10,7 @@ import { HttpError, input, json } from "../http/responses";
 import definitions from "./mcp-tools.json";
 
 const scopes: Record<string, string | string[]> = {
+  submit_feedback: "feedback:submit",
   list_project_plugins: "plugins:configure",
   configure_plugin: "plugins:configure",
   list_projects: "catalog:read",
@@ -169,14 +170,20 @@ export async function handleMcp(ctx: AppContext): Promise<Response | null> {
             )
               ? "Permission denied. Check client scopes and project grants."
               : cause instanceof TRPCError &&
-                  ((cause.code === "PRECONDITION_FAILED" &&
+                  ((tool.name === "submit_feedback" &&
                     [
-                      "open_session",
-                      "execute_cell",
-                      "run_action_in_session",
-                      "read_session",
-                      "close_session",
-                    ].includes(tool.name)) ||
+                      "PRECONDITION_FAILED",
+                      "CONFLICT",
+                      "TOO_MANY_REQUESTS",
+                    ].includes(cause.code)) ||
+                    (cause.code === "PRECONDITION_FAILED" &&
+                      [
+                        "open_session",
+                        "execute_cell",
+                        "run_action_in_session",
+                        "read_session",
+                        "close_session",
+                      ].includes(tool.name)) ||
                     (tool.name === "configure_plugin" &&
                       ["BAD_REQUEST", "CONFLICT"].includes(cause.code)))
                 ? cause.message

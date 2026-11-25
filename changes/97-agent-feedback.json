@@ -1,0 +1,5 @@
+{
+  "type": "minor",
+  "category": "added",
+  "summary": "Agents with feedback permission can report friction and plugin failures directly to the private OrgSDK maintainer inbox."
+}

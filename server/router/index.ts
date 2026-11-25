@@ -6,6 +6,7 @@ import { auditRouter } from "./audit";
 import { authRouter } from "./auth";
 import { conversationsRouter } from "./conversations";
 import { credentialsRouter } from "./credentials";
+import { feedbackRouter } from "./feedback";
 import { documentsRouter } from "./documents";
 import { pluginsRouter } from "./plugins";
 import { projectsRouter } from "./projects";
@@ -28,6 +29,7 @@ export const appRouter = router({
   conversations: conversationsRouter,
   credentials: credentialsRouter,
   documents: documentsRouter,
+  feedback: feedbackRouter,
   plugins: pluginsRouter,
   projects: projectsRouter,
   runs: runsRouter,

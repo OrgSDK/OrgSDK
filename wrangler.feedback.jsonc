@@ -1,0 +1,20 @@
+{
+  "name": "orgsdk-feedback",
+  "main": "deploy/feedback/worker.ts",
+  "compatibility_date": "2026-10-08",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "feedback.orgsdk.ai", "custom_domain": true }],
+  "observability": { "enabled": false },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "orgsdk-feedback",
+    "database_id": "a5b8d3dc-cc39-464a-8bff-2145a2b3158f",
+    "migrations_dir": "deploy/feedback/migrations"
+  }],
+  "ratelimits": [{
+    "name": "SUBMISSIONS",
+    "namespace_id": "971107",
+    "simple": { "limit": 20, "period": 60 }
+  }]
+}

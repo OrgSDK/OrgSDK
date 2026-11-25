@@ -9,6 +9,7 @@ import {
 import type { AppContext } from "../http/context";
 import { HttpError } from "../http/responses";
 import { configurePluginSchema } from "../plugins/settings";
+import { feedbackInput } from "../feedback/contract";
 import { appRouter } from "../router";
 import {
   createRunSchema,
@@ -39,6 +40,8 @@ export async function dispatchTool(
       }),
     );
   switch (name) {
+    case "submit_feedback":
+      return caller.feedback.submit(feedbackInput.parse(toolInput));
     case "list_projects": {
       const all = (await caller.projects.list()).results;
       const offset = toolInput.offset ?? 0;
