@@ -34,7 +34,9 @@ const clientScopes = [
 ] as const;
 const authorScopes = clientScopes
   .map(([scope]) => scope)
-  .filter((scope) => scope !== "plugins:configure" && scope !== "feedback:submit");
+  .filter(
+    (scope) => scope !== "plugins:configure" && scope !== "feedback:submit",
+  );
 const runnerScopes: ClientScope[] = [
   "catalog:read",
   "actions:run",
