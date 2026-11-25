@@ -1,3 +1,6 @@
+import { SessionBrowser } from "./session-browser";
+import { actionBody } from "./action-execution";
+import { validateCode } from "./validate-code";
 import { join } from "node:path";
 import { z } from "zod";
 import { Client, type RunCompletion } from "./client";
@@ -25,6 +28,7 @@ const agentVolume = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/);
 export class SessionJobs {
   private readonly manager: SessionManager;
   private authority?: { job: Job; check: () => Promise<void> };
+  private browser?: SessionBrowser;
   private activePluginCalls = 0;
 
   constructor(
@@ -49,6 +53,11 @@ export class SessionJobs {
       image: process.env.EXECUTOR_IMAGE,
       sourceDirectory: process.env.EXECUTOR_SOURCE_DIR,
       workspaceVolume: volume,
+      onGenerationEnd: async () => {
+        const browser = this.browser;
+        this.browser = undefined;
+        await browser?.close();
+      },
     });
   }
 
@@ -126,6 +135,20 @@ export class SessionJobs {
     const input = z
       .record(z.string(), z.json())
       .parse(args.length ? args[0] : {});
+    if (
+      plugin.slug === "playwright-local" &&
+      plugin.distribution === "external" &&
+      !plugin.credential_id
+    ) {
+      this.browser ??= new SessionBrowser(
+        {
+          ...this.options,
+          name: `orgsdk-session-browser-${crypto.randomUUID()}`,
+        },
+        plugin,
+      );
+      return this.browser.call(name, input, signal);
+    }
     const { child, kill } = spawnJob(
       { ...this.options, name: `orgsdk-session-tool-${crypto.randomUUID()}` },
       "pipe",
@@ -202,12 +225,35 @@ export class SessionJobs {
         return this.summary(history);
       }
       case "execute": {
+        const source = z.string().parse(job.snapshot.source);
+        const actionVersionId = job.snapshot.action_version_id;
+        const actionSource = actionVersionId
+          ? actionBody(source, job.snapshot.execution)
+          : undefined;
+        if (
+          actionSource !== undefined &&
+          job.snapshot.validation_mode === "semantic"
+        ) {
+          const validation = validateCode(actionSource, job.snapshot.sdk);
+          if (!validation.valid)
+            throw new Error(
+              validation.diagnostics
+                .map((diagnostic) => diagnostic.message)
+                .join("\n"),
+            );
+        }
         const reply = await this.manager.execute(command.id, scope, {
           id: command.cellId,
           generation: command.generation,
           expectedSequence: command.expectedSequence,
           after: command.after,
-          source: z.string().parse(job.snapshot.source),
+          source,
+          ...(actionSource !== undefined && {
+            actionVersionId,
+            runId: job.run_id,
+            executionSource: `return await (async () => {\n${actionSource}\n})();`,
+            outputSchema: job.snapshot.output_schema,
+          }),
           inputs: job.inputs,
           capability: job.capability,
           configurationRevision: revision,
@@ -260,7 +306,23 @@ export class SessionJobs {
         await check();
         const output = await this.execute(job, signal);
         signal.throwIfAborted();
-        completion = { status: "succeeded", output: { result: output } };
+        if (job.snapshot.action_version_id) {
+          const receipt = z
+            .object({
+              cell: z.object({
+                status: z.string(),
+                result: z.unknown(),
+                error: z.string().optional(),
+              }),
+            })
+            .parse(output);
+          completion = {
+            status:
+              receipt.cell.status === "succeeded" ? "succeeded" : "failed",
+            output: { result: receipt.cell.result ?? null, session: output },
+            ...(receipt.cell.error && { error: receipt.cell.error }),
+          };
+        } else completion = { status: "succeeded", output: { result: output } };
       } catch (error) {
         completion = {
           status: signal.aborted ? "cancelled" : "failed",
@@ -270,15 +332,12 @@ export class SessionJobs {
       }
       // The server accepts duplicate completions only when their bodies agree.
       // A transport failure must not turn a locally completed cell into a failure.
-      await withRetry(
-        () => client.complete(job.run_id, completion),
-        {
-          maxRetries: 2,
-          initialDelayMs: 200,
-          shouldRetry: (error) =>
-            !parentSignal.aborted && !/^API 4(?!29)\d\d:/.test(error.message),
-        },
-      );
+      await withRetry(() => client.complete(job.run_id, completion), {
+        maxRetries: 2,
+        initialDelayMs: 200,
+        shouldRetry: (error) =>
+          !parentSignal.aborted && !/^API 4(?!29)\d\d:/.test(error.message),
+      });
     } catch (error) {
       // This capability belongs to one run. A delivery error must leave the
       // project registration available for the next claim.

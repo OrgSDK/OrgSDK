@@ -58,6 +58,12 @@ export function claim(ctx: AppContext, worker: Executor): Response {
     if (!worker.capabilities.includes(run.operation)) {
       continue;
     }
+    if (
+      run.snapshot.needs_execution_contract === true &&
+      !worker.capabilities.includes("session_actions")
+    ) {
+      continue;
+    }
     const protocol =
       run.operation === "session" ||
       run.operation === "mcp_discover" ||

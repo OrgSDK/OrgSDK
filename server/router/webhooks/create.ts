@@ -15,6 +15,12 @@ export const createProcedure = browserManagerProcedure
   .mutation(({ ctx: context, input }) => {
     return inTransaction(context, (context) => {
       const { action, version } = actionVersion(context, input.action);
+      if (version.execution.mode === "session-only") {
+        throw new ServiceError(
+          "BAD_REQUEST",
+          "Choose a version that supports standalone runs.",
+        );
+      }
       if (!action.enabled) {
         throw new ServiceError(
           "BAD_REQUEST",

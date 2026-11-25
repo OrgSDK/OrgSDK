@@ -25,11 +25,13 @@ export function register(
           "test",
           "mcp_discover",
           "session",
+          "session_actions",
         ].includes(String(cap)),
     ) ||
     (version < 4 &&
       (capabilities.includes("mcp_discover") ||
-        capabilities.includes("session"))) ||
+        capabilities.includes("session") ||
+        capabilities.includes("session_actions"))) ||
     (version < 2 && capabilities.includes("code")) ||
     (version < 3 &&
       capabilities.some((cap: string) => ["validate", "test"].includes(cap)))

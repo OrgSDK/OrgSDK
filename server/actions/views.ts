@@ -16,6 +16,7 @@ export function serializeVersion(row: typeof actionVersions.$inferSelect) {
     source: row.source,
     input_schema: row.inputSchema,
     output_schema: row.outputSchema,
+    execution: row.execution,
     validation_mode: row.validationMode,
     sdk_contract: row.sdkContract,
     promoted_from: row.promotedFrom,

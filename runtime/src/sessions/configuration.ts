@@ -9,6 +9,7 @@ export interface SessionManagerOptions {
   sourceDirectory?: string;
   workspaceVolume?: { name: string; subpath: string };
   functions?: SessionFunction[];
+  onGenerationEnd?: () => Promise<void>;
   idleTimeoutMs?: number;
   cellTimeoutMs?: number;
   startTimeoutMs?: number;

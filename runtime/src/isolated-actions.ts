@@ -1,3 +1,4 @@
+import { actionBody } from "./action-execution";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -82,7 +83,9 @@ export async function runIsolatedJob(
     // Explicit allowlist: the full claim and its credentials never cross this boundary.
     const payload = isolatedInputSchema.parse({
       operation: job.operation,
-      source: job.snapshot.source,
+      source:
+        job.snapshot.source &&
+        actionBody(job.snapshot.source, job.snapshot.execution),
       sdk: job.snapshot.sdk,
       test_suite: job.snapshot.test_suite,
       output_schema: job.snapshot.output_schema,

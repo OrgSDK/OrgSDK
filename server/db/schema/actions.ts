@@ -1,3 +1,4 @@
+import type { ActionExecution } from "../../../runtime/src/action-execution";
 import { sql } from "drizzle-orm";
 import {
   integer,
@@ -55,6 +56,10 @@ export const actionVersions = sqliteTable(
     validationMode: text("validation_mode")
       .notNull()
       .default(sql`'legacy'`),
+    execution: text("execution", { mode: "json" })
+      .$type<ActionExecution>()
+      .notNull()
+      .default(sql`'{"mode":"standalone","requires":[],"provides":[]}'`),
     sdkContract: text("sdk_contract", { mode: "json" })
       .notNull()
       .$type<JsonObject>()

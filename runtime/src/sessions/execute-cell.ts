@@ -1,3 +1,4 @@
+import Ajv from "ajv/dist/2020.js";
 import type { SessionLimits } from "./configuration";
 import {
   existingCell,
@@ -28,15 +29,29 @@ function reply(
 async function dispatchCell(
   session: SessionRuntime,
   cell: CellRecord,
+  request: PreparedCell,
 ): Promise<void> {
   if (isTerminal(session.history.status)) return;
   const evaluation = await session.worker!.execute(
     cell.id,
-    cell.source,
+    request.executionSource ?? cell.source,
     cell.inputs,
   );
   if (isTerminal(session.history.status)) return;
-  completeCell(cell, evaluation, session.events);
+  if (
+    evaluation.status === "succeeded" &&
+    request.outputSchema &&
+    !new Ajv({ strict: false }).validate(
+      request.outputSchema,
+      evaluation.result,
+    )
+  ) {
+    completeCell(
+      cell,
+      { status: "failed", error: "Output does not match the action contract." },
+      session.events,
+    );
+  } else completeCell(cell, evaluation, session.events);
   session.history.status = "idle";
 }
 
@@ -88,7 +103,7 @@ export async function executeCell(
     // Persist exact source before dispatching it to the worker.
     await session.save();
     if (request.signal?.aborted) abort();
-    await dispatchCell(session, cell);
+    await dispatchCell(session, cell, request);
   } catch (error) {
     if (!isTerminal(history.status))
       await session.finish("lost", errorText(error));

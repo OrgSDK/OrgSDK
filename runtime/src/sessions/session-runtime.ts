@@ -169,7 +169,10 @@ export class SessionRuntime {
     clearTimeout(this.idle);
     this.active?.controller.abort();
     this.finishing = (async () => {
-      await this.worker?.stop();
+      await Promise.all([
+        this.worker?.stop(),
+        this.services.options.onGenerationEnd?.(),
+      ]);
       this.worker = undefined;
       if (this.active) interruptCell(this.active.record, reason, this.events);
       this.history.closedAt = new Date().toISOString();

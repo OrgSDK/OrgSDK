@@ -19,6 +19,8 @@ export interface SessionEvent {
 }
 
 export interface CellRecord {
+  actionVersionId?: string;
+  runId?: string;
   id: string;
   sequence: number;
   generation: number;
@@ -69,6 +71,10 @@ export interface EventPage {
 }
 
 export interface CellRequest {
+  actionVersionId?: string;
+  runId?: string;
+  executionSource?: string;
+  outputSchema?: Record<string, unknown> | null;
   id: string;
   generation: number;
   expectedSequence: number;
