@@ -36,7 +36,15 @@ export function prepareCell(request: CellRequest): PreparedCell {
     ...request,
     inputs,
     digest: createHash("sha256")
-      .update(canonicalJson({ source: request.source, inputs }))
+      .update(
+        canonicalJson({
+          source: request.source,
+          inputs,
+          ...(request.actionVersionId && {
+            actionVersionId: request.actionVersionId,
+          }),
+        }),
+      )
       .digest("hex"),
     sourceDigest: createHash("sha256").update(request.source).digest("hex"),
   };
@@ -105,6 +113,10 @@ export function newCell(
   return {
     id: request.id,
     sequence: history.cells.length + 1,
+    ...(request.actionVersionId && {
+      actionVersionId: request.actionVersionId,
+      runId: request.runId,
+    }),
     generation: history.generation,
     source: request.source,
     sourceDigest: request.sourceDigest,

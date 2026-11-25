@@ -1,3 +1,4 @@
+import { actionExecutionSchema } from "./action-execution";
 import { z } from "zod";
 import {
   sessionCommandSchema,
@@ -80,6 +81,8 @@ export const jobSchema = z
         .optional(),
       source: z.string().optional(),
       source_digest: z.string().optional(),
+      execution: actionExecutionSchema.optional(),
+      action_version_id: z.uuid().optional(),
       version: z.number().optional(),
       sdk_revision: z.number().int().optional(),
       configuration_revision: z.string().optional(),

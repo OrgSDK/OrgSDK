@@ -20,6 +20,8 @@ export const sessionRunSchema = createRunSchema
   .pick({
     project: true,
     idempotency_key: true,
+    action: true,
+    version: true,
     source: true,
     inputs: true,
   })

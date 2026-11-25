@@ -1,3 +1,4 @@
+import { standaloneExecution } from "../../runtime/src/action-execution";
 import { and, eq } from "drizzle-orm";
 import * as resourceTables from "../db/schema";
 import { type ServiceContext } from "../application";
@@ -76,8 +77,10 @@ export function versionForSave(
   const outputSchema = schema(body.output_schema);
   const sdkContract = jsonValue(body.sdk_contract ?? {}, "SDK contract");
   const latest = findVersion(ctx, action.id);
+  const execution = body.execution ?? latest?.execution ?? standaloneExecution;
   if (
     latest &&
+    JSON.stringify(latest.execution) === JSON.stringify(execution) &&
     latest.source === source &&
     JSON.stringify(latest.inputSchema) === JSON.stringify(inputSchema) &&
     JSON.stringify(latest.outputSchema) === JSON.stringify(outputSchema) &&
@@ -92,6 +95,7 @@ export function versionForSave(
     source,
     inputSchema,
     outputSchema,
+    execution,
     validationMode: "semantic",
     sdkContract,
     promotedFrom,

@@ -26,6 +26,7 @@
         "src/supervisor.ts",
         "src/worker.ts",
         "src/isolated-worker.ts",
+        "src/session-browser-worker.ts",
         "src/sessions/index.ts",
         "src/sessions/worker.ts",
         "src/sessions/worker-guard.ts",

@@ -35,6 +35,7 @@ interface WorkspaceContextValue {
   setSelected: (id: string) => void;
   switchProject: (id: string) => Promise<void>;
   workspace: string;
+  sessionStoragePrefix: string;
   role: string;
   canManage: boolean;
   isDirty: boolean;
@@ -63,6 +64,7 @@ export function useWorkspace(): WorkspaceContextValue {
   return context;
 }
 function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
+  const [ownerId, setOwnerId] = useState<number>();
   const [signedIn, setSignedIn] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelected] = useState("");
@@ -144,6 +146,7 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
         }
         await refresh(controller.signal);
         controller.signal.throwIfAborted();
+        setOwnerId(session.user?.id);
         setSignedIn(true);
       } catch (error_) {
         if (!controller.signal.aborted) setError(errorMessage(error_));
@@ -223,6 +226,9 @@ function WorkspaceSession({ children }: { children: ReactNode }): ReactNode {
       await navigateTo(projectSwitchHref(workspaceView(pathname), id));
     },
     workspace,
+    sessionStoragePrefix: installationHref(
+      `:execution-session:${String(workspaceId)}:${String(ownerId)}:`,
+    ),
     role,
     canManage: role === "owner" || role === "admin",
     isDirty,

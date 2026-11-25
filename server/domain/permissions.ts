@@ -60,7 +60,8 @@ export function authorizeRunRead(
     (run.tokenId !== ctx.token.id ||
       !(
         ctx.token.projects.includes(run.projectId) ||
-        (run.actionVersionId &&
+        (run.operation !== "session" &&
+          run.actionVersionId &&
           ctx.token.actionVersions.includes(run.actionVersionId))
       ))
   ) {

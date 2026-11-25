@@ -26,6 +26,7 @@ export function requireSessionRunner(
   ctx: ServiceContext,
   project: string,
   executionPool?: string,
+  savedAction = false,
 ) {
   const [runner] = executorsRepository(ctx).list(
     eq(executors.projectId, project),
@@ -36,11 +37,14 @@ export function requireSessionRunner(
     !runner.lastSeenAt ||
     Date.parse(runner.lastSeenAt) < Date.now() - 60_000 ||
     runner.protocolVersion < 4 ||
-    !runner.capabilities.includes("session")
+    !runner.capabilities.includes("session") ||
+    (savedAction && !runner.capabilities.includes("session_actions"))
   ) {
     throw new ServiceError(
       "PRECONDITION_FAILED",
-      "Connect a session-capable project runner before using persistent cells.",
+      savedAction
+        ? "Update the project runner to run saved actions in sessions."
+        : "Connect a session-capable project runner before using persistent cells.",
     );
   }
 }

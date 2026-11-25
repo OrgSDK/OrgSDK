@@ -1,8 +1,10 @@
+import { actionExecutionSchema } from "../../runtime/src/action-execution";
 import { z } from "zod";
 const identifier = z.uuid();
 const jsonObject = z.record(z.string(), z.json());
 export const actionIdSchema = z.strictObject({ id: identifier });
 export const versionFields = {
+  execution: actionExecutionSchema.optional(),
   source: z.string(),
   input_schema: jsonObject.optional(),
   output_schema: jsonObject.optional(),
@@ -54,7 +56,7 @@ export const runTestsSchema = z.strictObject({
 });
 export type VersionInput = Pick<
   z.infer<typeof createVersionSchema>,
-  "source" | "input_schema" | "output_schema" | "sdk_contract"
+  "execution" | "source" | "input_schema" | "output_schema" | "sdk_contract"
 >;
 export type SaveActionInput = z.infer<typeof saveActionSchema>;
 export type CreateActionInput = z.infer<typeof createActionSchema>;

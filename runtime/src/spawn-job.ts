@@ -18,13 +18,17 @@ export function spawnJob(
     directory: string;
     mode: "host" | "docker";
     name: string;
+    browserSession?: boolean;
   },
   stdout: "pipe" | "ignore" = "ignore",
 ) {
   const { base, agentId, directory, mode, name } = options;
   const host = mode === "host";
   const command = host
-    ? workerCommand(import.meta.url, "./worker")
+    ? workerCommand(
+        import.meta.url,
+        options.browserSession ? "./session-browser-worker" : "./worker",
+      )
     : [
         "docker",
         "run",
@@ -54,7 +58,11 @@ export function spawnJob(
         `ORGSDK_SERVER_URL=${base}`,
         "-e",
         "EXECUTOR_AGENT_DIR=/agent",
+        ...(options.browserSession ? ["--entrypoint", "bun"] : []),
         z.string().min(1).parse(process.env.EXECUTOR_IMAGE),
+        ...(options.browserSession
+          ? ["--no-env-file", "/executor/src/session-browser-worker.ts"]
+          : []),
       ];
   const child = spawnProcess(command, {
     cwd: join(directory, "workspace"),

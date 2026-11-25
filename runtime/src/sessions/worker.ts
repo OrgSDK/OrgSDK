@@ -15,6 +15,7 @@ const command = z.discriminatedUnion("type", [
     requestId: z.string(),
     cellId: z.string(),
     source: z.string(),
+    declarations: z.string().optional(),
     inputs: z.record(z.string(), z.unknown()),
   }),
   z.object({
@@ -69,20 +70,22 @@ for await (const line of createInterface({
     }
     if (!kernel) throw new Error("Session is not initialized");
     // Keep reading tool replies while an async cell is evaluating.
-    void kernel.execute(data.cellId, data.source, data.inputs).then(
-      (value) =>
-        send({
-          type: "result",
-          requestId: data.requestId,
-          value: jsonValue(value),
-        }),
-      (error) =>
-        send({
-          type: "result",
-          requestId: data.requestId,
-          error: errorText(error),
-        }),
-    );
+    void kernel
+      .execute(data.cellId, data.source, data.inputs, data.declarations)
+      .then(
+        (value) =>
+          send({
+            type: "result",
+            requestId: data.requestId,
+            value: jsonValue(value),
+          }),
+        (error) =>
+          send({
+            type: "result",
+            requestId: data.requestId,
+            error: errorText(error),
+          }),
+      );
   } catch {
     process.exit(1);
   }

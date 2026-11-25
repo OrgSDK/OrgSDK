@@ -48,7 +48,16 @@ function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
   let version: typeof resourceTables.actionVersions.$inferSelect | null = null;
   let action: typeof resourceTables.actions.$inferSelect | null = null;
   let suite: typeof resourceTables.actionTestSuites.$inferSelect | null = null;
-  if (operation === "action" || operation === "test") {
+  const savedCell =
+    session?.operation === "execute" && body.action !== undefined;
+  if (savedCell) {
+    if (!body.version) {
+      throw new ServiceError("BAD_REQUEST", "Choose a saved version.");
+    }
+    scope(ctx, "code:execute");
+    projectGrant(ctx, project.id);
+  }
+  if (savedCell || operation === "action" || operation === "test") {
     ({ action, version } = actionVersion(
       ctx,
       text(body.action, "action"),
@@ -62,7 +71,16 @@ function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
     }
     scope(ctx, operation === "test" ? "actions:test" : "actions:run");
     authorizeVersion(ctx, action, version, body.version !== undefined);
-    if (operation === "action") {
+    if (savedCell && version.execution.mode === "standalone") {
+      throw new ServiceError("BAD_REQUEST", "This version runs standalone.");
+    }
+    if (operation === "action" && version.execution.mode === "session-only") {
+      throw new ServiceError(
+        "BAD_REQUEST",
+        "This version requires an open execution session.",
+      );
+    }
+    if (operation === "action" || savedCell) {
       validateContract(version.inputSchema, inputs);
     }
     if (operation === "test") {
@@ -143,6 +161,12 @@ function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
   });
   if (version) {
     Object.assign(snapshot, {
+      action_version_id: version.id,
+      execution: version.execution,
+      needs_execution_contract:
+        savedCell ||
+        version.execution.requires.length > 0 ||
+        version.execution.provides.length > 0,
       version: version.number,
       validation_mode: version.validationMode,
       input_schema: version.inputSchema,
@@ -199,7 +223,7 @@ function createRunInTransaction(ctx: ServiceContext, body: CreateRunInput) {
       return existing;
     }
     if (session) {
-      requireSessionRunner(ctx, project.id, setting?.executionPool);
+      requireSessionRunner(ctx, project.id, setting?.executionPool, savedCell);
     }
     const run = runsRepository(ctx).create({
       projectId: project.id,

@@ -142,6 +142,67 @@
     "mutates": true
   },
   {
+    "name": "run_action_in_session",
+    "description": "Run the pinned saved version as the next cell in your open session. Poll get_run for its action result and session receipt. Use the accepted cell sequence for the next append.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "cell_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expected_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "after": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inputs": {
+          "type": "object"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "action": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "project",
+        "session_id",
+        "cell_id",
+        "generation",
+        "expected_sequence",
+        "idempotency_key",
+        "action",
+        "version"
+      ],
+      "additionalProperties": false
+    },
+    "mutates": true
+  },
+  {
     "name": "read_session",
     "description": "Read your session status, sequence and events after an exclusive cursor. Poll get_run for output.result. Continue from nextCursor when hasMore is true.",
     "inputSchema": {
@@ -514,6 +575,50 @@
         "action": {
           "type": "string",
           "format": "uuid"
+        },
+        "execution": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "enum": ["standalone", "session-only", "either"]
+            },
+            "requires": {
+              "type": "array",
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "expression": {
+                    "type": "string"
+                  }
+                },
+                "required": ["label", "expression"],
+                "additionalProperties": false
+              }
+            },
+            "provides": {
+              "type": "array",
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "expression": {
+                    "type": "string"
+                  }
+                },
+                "required": ["label", "expression"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["mode"],
+          "additionalProperties": false
         }
       },
       "required": ["project", "name", "source"],

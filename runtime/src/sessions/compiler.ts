@@ -18,11 +18,12 @@ export function compileCell(
   history: string[],
   source: string,
   functions: string[] = [],
+  declarations?: string,
 ): CompiledCell {
   const restrictions = sourceRestrictions(source);
   if (restrictions.length)
     return { javascript: "", definitions: [], diagnostics: restrictions };
-  const analysis = analyzeCell(history, source, functions);
+  const analysis = analyzeCell(history, source, functions, declarations);
   if (analysis.diagnostics.length)
     return {
       javascript: "",

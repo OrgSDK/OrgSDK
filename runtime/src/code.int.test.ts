@@ -219,7 +219,7 @@ test("oversized trace values keep an object envelope and explicit truncation", a
   });
 });
 
-test.each(["session", "previous", "rejected"] as const)(
+test.each(["session", "session-v4", "previous", "rejected"] as const)(
   "CLI registration handles %s protocol response",
   async (mode) => {
     const directory = await mkdtemp(
@@ -230,7 +230,10 @@ test.each(["session", "previous", "rejected"] as const)(
       port: 0,
       async fetch(request) {
         registrations.push(await request.json());
-        if (mode === "previous" && registrations.length === 1) {
+        if (
+          (mode === "previous" && registrations.length <= 2) ||
+          (mode === "session-v4" && registrations.length === 1)
+        ) {
           return Response.json(
             { detail: "Unsupported executor protocol or capability." },
             { status: 400 },
@@ -277,9 +280,17 @@ test.each(["session", "previous", "rejected"] as const)(
         protocol_version: 4,
         capabilities: [...capabilities, "session"],
       };
+      const current = {
+        protocol_version: 4,
+        capabilities: [...capabilities, "session", "session_actions"],
+      };
       const previous = { protocol_version: 4, capabilities };
       expect(registrations).toEqual(
-        mode === "previous" ? [modern, previous] : [modern],
+        mode === "previous"
+          ? [current, modern, previous]
+          : mode === "session-v4"
+            ? [current, modern]
+            : [current],
       );
       if (mode === "rejected") {
         expect(code).not.toBe(0);

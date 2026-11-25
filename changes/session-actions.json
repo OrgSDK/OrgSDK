@@ -1,0 +1,5 @@
+{
+  "type": "minor",
+  "category": "added",
+  "summary": "Choose where each saved action version runs, check live state, and run actions in an open execution session from Studio or MCP."
+}

@@ -9,15 +9,17 @@ export async function registerExecutor(client: Client, agentId?: string) {
     protocol_version: 4,
     agent_id: agentId,
   };
-  try {
-    return await client.register({
-      ...registration,
-      capabilities: [...capabilities, "session"],
-    });
-  } catch (error) {
-    if (!(error instanceof Error) || error.message !== unsupported) {
-      throw error;
+  for (const extra of [["session", "session_actions"], ["session"]]) {
+    try {
+      return await client.register({
+        ...registration,
+        capabilities: [...capabilities, ...extra],
+      });
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== unsupported) {
+        throw error;
+      }
     }
-    return client.register({ ...registration, capabilities });
   }
+  return client.register({ ...registration, capabilities });
 }
