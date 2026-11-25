@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.2
+
+### Fixed
+
+- Validate code and isolated action tests now recognize named plugin arguments, including Playwright Local browser calls.
+
 ## 2.6.1
 
 ### Fixed
