@@ -25,6 +25,7 @@ const clientScopes = [
   ["actions:run", "Execute granted saved actions"],
   ["actions:test", "Run isolated mocked action tests"],
   ["runs:read", "Inspect this client's own runs"],
+  ["feedback:submit", "Send reports to the private OrgSDK maintainer inbox"],
   ["runs:cancel", "Cancel this client's own runs"],
   [
     "plugins:configure",
@@ -33,7 +34,7 @@ const clientScopes = [
 ] as const;
 const authorScopes = clientScopes
   .map(([scope]) => scope)
-  .filter((scope) => scope !== "plugins:configure");
+  .filter((scope) => scope !== "plugins:configure" && scope !== "feedback:submit");
 const runnerScopes: ClientScope[] = [
   "catalog:read",
   "actions:run",

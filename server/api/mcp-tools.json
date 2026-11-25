@@ -767,5 +767,61 @@
       "additionalProperties": false
     },
     "mutates": false
+  },
+  {
+    "name": "submit_feedback",
+    "description": "Report a friction point or plugin failure to the private OrgSDK maintainer inbox. Send a short, sanitized description of what happened and what you expected. Include the plugin, function and version when known. Omit secrets, customer data and raw logs. Use a fresh UUID per report and reuse it for retries. Returns a report ID.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": ["friction", "plugin_failure"]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180
+        },
+        "observed": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "expected": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "plugin": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "plugin_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "plugin_function": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "idempotency_key": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "category",
+        "summary",
+        "observed",
+        "expected",
+        "idempotency_key"
+      ],
+      "additionalProperties": false
+    },
+    "mutates": true
   }
 ]
