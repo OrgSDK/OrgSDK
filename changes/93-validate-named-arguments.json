@@ -1,0 +1,5 @@
+{
+  "type": "patch",
+  "category": "fixed",
+  "summary": "Validate code and isolated action tests now recognize named plugin arguments, including Playwright Local browser calls."
+}

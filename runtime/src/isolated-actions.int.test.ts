@@ -69,6 +69,37 @@ test("isolated payload rejects a full job or credential data", () => {
   ).toEqual({ plugins: [{ namespace: "fixture", available: true }] });
 });
 
+test("isolated validation checks named plugin arguments alongside legacy positional calls", async () => {
+  const projectSdk = {
+    plugins: [
+      ...sdk.plugins,
+      {
+        namespace: "playwrightLocal",
+        available: true,
+        metadata_complete: true,
+        tools: [
+          {
+            name: "navigate",
+            calling: "named",
+            parameters: [{ name: "url", type: "string" }],
+            returnType: "Promise<void>",
+          },
+        ],
+      },
+    ],
+  };
+  const validate = (source: string) =>
+    executeIsolated({ operation: "validate", source, sdk: projectSdk });
+  const valid = await validate(
+    'await playwrightLocal.navigate({url: "about:blank"}); return await fixture.send("done");',
+  );
+  expect(valid).toMatchObject({ valid: true, diagnostics: [] });
+  const invalid = await validate(
+    'await playwrightLocal.navigate("about:blank");',
+  );
+  expect(invalid).toMatchObject({ valid: false });
+});
+
 test("actual isolated VM uses mocks and catches forbidden calls even when source catches errors", async () => {
   const root = await mkdtemp(join(tmpdir(), "orgsdk-isolated-"));
   try {
