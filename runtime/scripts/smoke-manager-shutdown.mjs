@@ -123,6 +123,15 @@ export async function verifyManagerShutdown(packageDirectory, runtimeLabel) {
       `Manager did not reach blocked bootstrap: ${errors}`,
     );
     assert.deepEqual(registeredCapabilities, [
+      [
+        "action",
+        "code",
+        "validate",
+        "test",
+        "mcp_discover",
+        "session",
+        "session_actions",
+      ],
       ["action", "code", "validate", "test", "mcp_discover", "session"],
       ["action", "code", "validate", "test", "mcp_discover"],
     ]);

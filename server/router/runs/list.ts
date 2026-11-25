@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, or } from "drizzle-orm";
 import { runs } from "../../db/schema";
 import { serializeRun } from "../../runs/views";
 import { page } from "../../shared/pagination";
@@ -11,7 +11,10 @@ export const listProcedure = scopedProcedure("runs:read").query(({ ctx }) => {
         eq(runs.tokenId, token.id),
         or(
           inArray(runs.projectId, token.projects),
-          inArray(runs.actionVersionId, token.actionVersions),
+          and(
+            ne(runs.operation, "session"),
+            inArray(runs.actionVersionId, token.actionVersions),
+          ),
         ),
       )
     : undefined;

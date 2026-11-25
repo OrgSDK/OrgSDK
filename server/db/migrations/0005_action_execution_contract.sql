@@ -1,0 +1,1 @@
+ALTER TABLE `action_versions` ADD `execution` text DEFAULT '{"mode":"standalone","requires":[],"provides":[]}' NOT NULL;

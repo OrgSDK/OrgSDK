@@ -144,6 +144,7 @@ export function runCapability(ctx: AppContext, expectedId?: string): Run {
           token.revoked ||
           !token.projects.includes(run.projectId) ||
           !token.scopes.includes("code:execute") ||
+          (run.actionVersionId && !token.scopes.includes("actions:run")) ||
           (operation === "read" && !token.scopes.includes("runs:read")));
       const usesTools = operation === "open" || operation === "execute";
       const configChanged =

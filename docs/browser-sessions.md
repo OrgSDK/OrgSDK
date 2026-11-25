@@ -91,3 +91,27 @@ the same flow through Linux Node.js host mode, set `ORGSDK_BROWSER_AGENT_CLI` to
 the absolute path of the built `bin/orgsdk.mjs` after `npm run build:npm`, or to
 that file inside a locally installed candidate package. The platform and executor
 then run with a Node-only PATH. The smoke driver still uses Bun.
+
+## Run a saved version in an open session
+
+In Studio, open an action and choose **Execution**. The run mode belongs to the version. **Standalone** starts a fresh worker, **Session only** requires an open session, and **Standalone or in session** supports both. Existing versions default to standalone. Save a new version to change its mode or state checks.
+
+Open the **Session** tab and choose **Open session**, or attach using an existing session ID owned by the same identity. Use a TypeScript cell to inspect or prepare the project, then select a saved version, set its **Run inputs**, and choose **Run selected version in session**. Its local variables are scoped to that invocation. The next cell can still access the session's earlier bindings. Close the session when finished.
+
+For example, a Playwright Local sign-in action can declare the following execution contract through MCP `save_action`. The expression checks the current tab before the first sign-in step. A page opened manually in a cell satisfies the requirement. If the page closes during inactivity, the check fails. An action that launches a browser can put this same check in `provides` to verify its result. State expressions run with the action's project permissions. Use read-only checks that resolve to a boolean.
+
+```json
+{
+  "execution": {
+    "mode": "session-only",
+    "requires": [
+      {"label": "an open browser page", "expression": "Boolean(await playwrightLocal.pageInfo({}))"}
+    ],
+    "provides": []
+  }
+}
+```
+
+For MCP, call `open_session` and poll `get_run`. Call `run_action_in_session` with the project, action ID, explicit version, inputs, session ID, generation, expected sequence, new cell UUID and idempotency key. The token needs a project grant and both `code:execute` and `actions:run`. The run links to the immutable action version. Poll with `runs:read` for its status, `output.result` and the accepted sequence at `output.session.cell.sequence`. A failed state check consumes a cell sequence. Reuse the request identifiers for transport retries. On a stale sequence, inspect the session before choosing to submit again.
+
+The session keeps one credential-free Playwright Local instance for its generation. A named browser checkpoint can separately save storage on close. The live page lasts until the plugin or session closes it. Session actions use the session SDK (project files and registered named plugin functions). Validation and test suites run in isolation.

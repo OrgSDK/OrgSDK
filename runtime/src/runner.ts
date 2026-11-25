@@ -1,4 +1,5 @@
 import { setTimeout as sleep } from "node:timers/promises";
+import { actionBody } from "./action-execution";
 import { validateCode } from "./validate-code";
 import { join } from "node:path";
 import { projectDataFunctions } from "./project-data";
@@ -132,6 +133,7 @@ export class Runner {
     inputs: Record<string, unknown>,
   ): Promise<unknown> {
     this.signal.throwIfAborted();
+    source = actionBody(source, this.job.snapshot.execution);
     if (this.job.snapshot.validation_mode === "semantic") {
       const validation = validateCode(source, this.job.snapshot.sdk);
       if (!validation.valid)

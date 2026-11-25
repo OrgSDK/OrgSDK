@@ -31,6 +31,8 @@ export async function dispatchTool(
       sessionRunSchema.parse({
         project: toolInput.project,
         idempotency_key: toolInput.idempotency_key,
+        action: toolInput.action,
+        version: toolInput.version,
         source: toolInput.source,
         inputs: toolInput.inputs,
         session,
@@ -57,6 +59,7 @@ export async function dispatchTool(
       );
     case "open_session":
       return queueSession({ operation: "open" });
+    case "run_action_in_session":
     case "execute_cell":
       return queueSession({
         operation: "execute",

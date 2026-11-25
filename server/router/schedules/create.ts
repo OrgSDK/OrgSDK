@@ -20,6 +20,12 @@ export const createProcedure = browserWorkspaceProcedure
         throw new ServiceError("BAD_REQUEST", "Action is disabled.");
       }
       const version = requireVersion(context, action.id);
+      if (version.execution.mode === "session-only") {
+        throw new ServiceError(
+          "BAD_REQUEST",
+          "Choose a version that supports standalone runs.",
+        );
+      }
       const inputs = jsonValue(input.inputs ?? {}, "Inputs");
       validateContract(version.inputSchema, inputs);
       const nextRunAt = nextCron(input.cron);

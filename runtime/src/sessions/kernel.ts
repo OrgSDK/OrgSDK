@@ -127,12 +127,18 @@ export class SessionKernel {
     id: string,
     source: string,
     inputs: Record<string, unknown>,
+    declarations?: string,
   ): Promise<CellEvaluation> {
     if (this.executing) throw new Error("A cell is already executing");
     this.executing = true;
     let current: Invocation | undefined;
     try {
-      const compiled = compileCell(this.sources, source, this.functions);
+      const compiled = compileCell(
+        this.sources,
+        source,
+        this.functions,
+        declarations,
+      );
       if (compiled.diagnostics.length)
         return {
           status: "rejected",

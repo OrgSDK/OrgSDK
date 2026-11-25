@@ -102,7 +102,8 @@ export function handleRunUpdate(
   bounded(body.output ?? {}, 1000000);
   if (
     body.status === "succeeded" &&
-    run.operation === "action" &&
+    (run.operation === "action" ||
+      (run.operation === "session" && run.actionVersionId)) &&
     Object.keys(run.snapshot.output_schema ?? {}).length
   ) {
     if (!body.output || !Object.hasOwn(body.output, "result")) {

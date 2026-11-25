@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.6.0
+
+### Added
+
+- Run a saved action version in an open execution session from Studio or MCP. Each version can run standalone, in a session, or both. Live checks can require an open browser page before an action starts.
+- Playwright Local keeps the same browser tab across actions in a session. Existing action versions retain standalone execution. Upgrade separately managed executors to 2.6.0 to use session actions.
+
 ## 2.5.1
 
 ### Fixed

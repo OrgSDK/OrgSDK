@@ -29,6 +29,7 @@ const scopes: Record<string, string | string[]> = {
   get_tests: "catalog:read",
   run_tests: "actions:test",
   save_action: "actions:write",
+  run_action_in_session: ["code:execute", "actions:run"],
   run_action: "actions:run",
   get_run: "runs:read",
 };
@@ -172,6 +173,7 @@ export async function handleMcp(ctx: AppContext): Promise<Response | null> {
                     [
                       "open_session",
                       "execute_cell",
+                      "run_action_in_session",
                       "read_session",
                       "close_session",
                     ].includes(tool.name)) ||

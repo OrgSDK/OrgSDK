@@ -227,11 +227,13 @@ export class SessionProcess {
     cellId: string,
     source: string,
     inputs: Record<string, unknown>,
+    declarations?: string,
   ): Promise<CellEvaluation> {
     return (await this.request("execute", {
       cellId,
       source,
       inputs,
+      declarations,
     })) as CellEvaluation;
   }
 

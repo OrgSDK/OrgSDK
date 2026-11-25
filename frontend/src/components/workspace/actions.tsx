@@ -15,6 +15,13 @@ import { useUnsavedChanges } from "./use-unsaved-changes";
 import { defaultSchedule } from "../../lib/schedule-timing";
 import { SchedulePicker } from "./schedule-picker";
 import { useWorkspace } from "./workspace-context";
+import { ActionSessionPanel } from "./action-session-panel";
+import {
+  ActionExecutionContract,
+  conditionsText,
+  savedExecution,
+  parseConditions,
+} from "./action-execution-contract";
 import { ActionChecks } from "./action-checks";
 import { ActionSettings } from "./action-settings";
 import { useDiscardConfirmation } from "./discard-dialog";
@@ -76,6 +83,10 @@ function ActionWorkspace({
   const [versions, setVersions] = useState<ActionVersion[]>([]);
   const [versionId, setVersionId] = useState("");
   const initialSchema = '{"type":"object"}';
+  const [mode, setMode] =
+    useState<ActionVersion["execution"]["mode"]>("standalone");
+  const [conditions, setConditions] = useState(conditionsText());
+  const [savedConditions, setSavedConditions] = useState(conditionsText());
   const [testsDirty, setTestsDirty] = useState(false);
   const [inputSchema, setInputSchema] = useState(initialSchema);
   const [savedSchema, setSavedSchema] = useState(initialSchema);
@@ -108,7 +119,12 @@ function ActionWorkspace({
     .toSorted((a, b) => b.created_at.localeCompare(a.created_at));
   const lastRun = runs[0];
   const selectedRun = runs.find((run) => run.id === selectedRunId) ?? lastRun;
+  const storedExecution = savedExecution(
+    versions.find((version) => version.id === versionId),
+  );
   const isDirty =
+    mode !== storedExecution.mode ||
+    conditions !== savedConditions ||
     source !== savedSource ||
     inputSchema !== savedSchema ||
     outputSchema !== savedOutputSchema ||
@@ -118,8 +134,12 @@ function ActionWorkspace({
   const savedStatus = latest ? "Saved" : "Draft";
   const editStatus = isDirty ? "Unsaved changes" : savedStatus;
   const isHistorical = !!versionId && versionId !== latest?.id;
-  const canRun = !!selected && selected.enabled && !!versionId && !isDirty;
+  const canRunSelected =
+    !!selected && selected.enabled && !!versionId && !isDirty;
+  const canRun = canRunSelected && storedExecution.mode !== "session-only";
   const scheduleUnavailableReason = (): string => {
+    if (storedExecution.mode === "session-only")
+      return "Schedules require a version that supports standalone runs.";
     if (!selected || !latest)
       return "Save this action before creating a schedule.";
     if (!selected.enabled)
@@ -157,6 +177,9 @@ function ActionWorkspace({
           setProject(action.project);
           setName(action.name);
           setVersions(ordered);
+          setMode(savedExecution(version).mode);
+          setConditions(conditionsText(version?.execution));
+          setSavedConditions(conditionsText(version?.execution));
           setVersionId(version?.id ?? "");
           setSource(version?.source ?? initialSource);
           setSavedSource(version?.source ?? initialSource);
@@ -234,6 +257,9 @@ function ActionWorkspace({
     setTestsDirty(false);
     setSelected(undefined);
     setVersions([]);
+    setMode("standalone");
+    setConditions(conditionsText());
+    setSavedConditions(conditionsText());
     setVersionId("");
     setName("");
     setSource(initialSource);
@@ -260,6 +286,9 @@ function ActionWorkspace({
     const version = versions.find((item) => item.id === selectedVersionId);
     if (!version) return;
     setTestsDirty(false);
+    setMode(savedExecution(version).mode);
+    setConditions(conditionsText(version.execution));
+    setSavedConditions(conditionsText(version.execution));
     setVersionId(version.id);
     setSource(version.source);
     setSavedSource(version.source);
@@ -289,6 +318,13 @@ function ActionWorkspace({
       ...(selected && { action: selected.id }),
       name: name.trim(),
       source,
+      ...((latest?.execution !== undefined ||
+        mode !== "standalone" ||
+        conditions !== conditionsText() ||
+        storedExecution.mode !== mode ||
+        savedConditions !== conditionsText()) && {
+        execution: { mode, ...parseConditions(conditions) },
+      }),
       input_schema: parseActionJSON(inputSchema),
       output_schema: parseActionJSON(outputSchema),
     });
@@ -304,6 +340,7 @@ function ActionWorkspace({
       saved,
       ...previous.filter((version) => version.id !== saved.id),
     ]);
+    setSavedConditions(conditions);
     setVersionId(saved.id);
     setSavedSource(source);
     setSavedSchema(inputSchema);
@@ -512,6 +549,8 @@ function ActionWorkspace({
                     <Braces size={14} />
                     Run inputs
                   </TabsTrigger>
+                  <TabsTrigger value="execution">Execution</TabsTrigger>
+                  <TabsTrigger value="session">Session</TabsTrigger>
                   <TabsTrigger value="schedule">
                     <CalendarClock size={14} />
                     Schedule
@@ -586,6 +625,29 @@ function ActionWorkspace({
                     />
                   </label>
                 </div>
+              </TabsContent>
+              <TabsContent value="execution" className="action-json-editor">
+                <ActionExecutionContract
+                  mode={mode}
+                  conditions={conditions}
+                  setMode={setMode}
+                  setConditions={setConditions}
+                  disabled={busy}
+                />
+              </TabsContent>
+              <TabsContent value="session" className="action-json-editor">
+                <ActionSessionPanel
+                  project={project}
+                  action={selected?.id}
+                  version={
+                    versions.find((version) => version.id === versionId)?.number
+                  }
+                  inputs={inputs}
+                  canRun={
+                    canRunSelected && storedExecution.mode !== "standalone"
+                  }
+                  onRun={setSelectedRunId}
+                />
               </TabsContent>
               <TabsContent value="schedule" className="action-schedule-editor">
                 <h3>Schedule action</h3>
