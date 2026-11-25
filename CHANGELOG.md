@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.1
+
+### Fixed
+
+- Automatically recover an empty or stale server PID file after an interrupted startup while keeping the installation locked to one process.
+
 ## 2.6.0
 
 ### Added

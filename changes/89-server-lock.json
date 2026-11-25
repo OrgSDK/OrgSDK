@@ -1,5 +1,0 @@
-{
-  "type": "patch",
-  "category": "fixed",
-  "summary": "Automatically recover an empty or stale server PID file after an interrupted startup while keeping the installation locked to one process."
-}
