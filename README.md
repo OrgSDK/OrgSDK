@@ -21,6 +21,8 @@ See [distribution and verification](docs/npm-distribution.md) for pinned install
 
 Open [OrgSDK Studio](https://studio.orgsdk.ai) and choose **Allow local connections**. Studio finds your installation, lets you set up or sign in, and reconnects when you return. After the first download, the browser can reopen Studio while its host is offline. Your installation must be running. See [Studio connections](docs/studio.md) for browser support and remote installations.
 
+Agents can [report product friction and plugin failures](docs/agent-feedback.md) to the private OrgSDK maintainer inbox.
+
 ## Browser discovery sessions
 
 OrgSDK workspace access tokens for MCP and tRPC begin with `orgsdk_mcp_`. Send the full value in the `Authorization: Bearer` header. After upgrading the platform, prepend `orgsdk_mcp_` to any unprefixed workspace token saved in a client. Its grants, revocation status and activity history carry over.

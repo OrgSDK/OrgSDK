@@ -8,6 +8,7 @@ const clientScopes = z.enum([
   "runs:read",
   "runs:cancel",
   "plugins:configure",
+  "feedback:submit",
 ]);
 export type ClientScope = z.infer<typeof clientScopes>;
 

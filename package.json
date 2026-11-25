@@ -1,5 +1,5 @@
 {
-  "version": "2.6.2",
+  "version": "2.7.0",
   "name": "@orgsdk/cli",
   "publishConfig": {
     "access": "public",
@@ -103,6 +103,7 @@
     "docs/studio.md",
     "docs/remote-mcp.md",
     "docs/browser-sessions.md",
+    "docs/agent-feedback.md",
     "runtime/README.md",
     "README.md",
     "LICENSE"
