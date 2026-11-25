@@ -51,7 +51,7 @@ const RESERVED_FUNCTION_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 const identifier = /^[a-z][a-zA-Z0-9]*$/;
-const builtins = `
+const sessionBuiltins = `
 const z: typeof import("zod").z;
 namespace z {
   type ZodType<T = unknown> = import("zod").ZodType<T>;
@@ -60,18 +60,22 @@ namespace z {
   type output<T> = import("zod").output<T>;
 }
 function defineParams<T>(schema: import("zod").ZodType<T>): T;
-function handleWebhook<T>(schema: import("zod").ZodType<T>): T;
-function resetTimeout(): void;
-function keepAlive(intervalMs?: number): {stop(): void};
-function reportOutcome(input: unknown): void;
 const actionParams: Record<string, unknown>;
 const console: {log(...values: unknown[]): void; warn(...values: unknown[]): void; error(...values: unknown[]): void; info(...values: unknown[]): void; debug(...values: unknown[]): void};
-function requestApproval(prompt: string): Promise<boolean>;
-function saveArtifact(name: string, content: string): Promise<unknown>;
 function readFile(path: string): Promise<string>;
 function writeFile(path: string, content: string): Promise<{path: string; bytes: number}>;
 function listFiles(path?: string, offset?: number, limit?: number): Promise<{entries: Array<{name: string; type: "file" | "directory"; bytes?: number}>; next_offset: number | null}>;
 function removeFile(path: string): Promise<void>;
+`;
+const builtins =
+  sessionBuiltins +
+  `
+function handleWebhook<T>(schema: import("zod").ZodType<T>): T;
+function resetTimeout(): void;
+function keepAlive(intervalMs?: number): {stop(): void};
+function reportOutcome(input: unknown): void;
+function requestApproval(prompt: string): Promise<boolean>;
+function saveArtifact(name: string, content: string): Promise<unknown>;
 function listTables(offset?: number, limit?: number): Promise<unknown>;
 function getTable(tableId: string): Promise<unknown>;
 function listTableRows(tableId: string, offset?: number, limit?: number): Promise<unknown>;
@@ -279,7 +283,10 @@ function pluginDeclaration(
   return `const ${namespace}: Readonly<{${methods.join("; ")}}>;`;
 }
 
-export function sdkDeclarations(sdk: unknown): string {
+export function sdkDeclarations(
+  sdk: unknown,
+  sessionFunctions?: ReadonlySet<string>,
+): string {
   const plugins = record(sdk)?.plugins;
   const declarations: string[] = [];
   const claimed = new Set<string>();
@@ -287,6 +294,8 @@ export function sdkDeclarations(sdk: unknown): string {
     for (const value of plugins.slice(0, 100)) {
       const plugin = record(value);
       if (!plugin) continue;
+      if (sessionFunctions && !sessionFunctions.has(String(plugin.namespace)))
+        continue;
       const rendered = pluginDeclaration(plugin);
       if (!rendered) continue;
       const name = plugin.namespace as string;
@@ -299,5 +308,5 @@ export function sdkDeclarations(sdk: unknown): string {
         throw new Error("SDK declarations exceed the supported size");
     }
   }
-  return `export {};\ndeclare global {\n${builtins}\n${declarations.join("\n")}\n}\n`;
+  return `export {};\ndeclare global {\n${sessionFunctions ? sessionBuiltins : builtins}\n${declarations.join("\n")}\n}\n`;
 }
