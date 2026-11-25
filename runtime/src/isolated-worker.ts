@@ -50,6 +50,7 @@ export const isolatedInputSchema = z
                           .nullable()
                           .optional(),
                         name: z.string(),
+                        calling: z.enum(["named", "positional"]).optional(),
                         parameters: z
                           .array(
                             z.object({
