@@ -15,7 +15,8 @@ test("only one contender recovers an empty PID file and a killed owner releases 
         "-e",
         `import { serverLock } from "./server/platform/server-lock";
          try {
-           serverLock(process.argv[1]);
+           const unlock = serverLock(process.argv[1]);
+           process.once("exit", unlock);
            console.log("acquired");
            setInterval(() => {}, 60_000);
          } catch (error) {
@@ -46,6 +47,9 @@ test("only one contender recovers an empty PID file and a killed owner releases 
       messages.filter((message) => message.includes("already owns")),
     ).toHaveLength(3);
     const owner = children[messages.indexOf("acquired")];
+    if (!owner) {
+      throw new Error("No lock owner reported acquisition");
+    }
     expect(readFileSync(pidFile, "utf8")).toBe(String(owner.pid));
     // Even an empty owner record cannot allow a second writer while the owner lives.
     writeFileSync(pidFile, "");
