@@ -74,6 +74,7 @@ export interface CellRequest {
   actionVersionId?: string;
   runId?: string;
   executionSource?: string;
+  declarations?: string;
   outputSchema?: Record<string, unknown> | null;
   id: string;
   generation: number;

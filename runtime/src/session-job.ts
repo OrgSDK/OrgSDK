@@ -1,6 +1,6 @@
 import { SessionBrowser } from "./session-browser";
 import { actionBody } from "./action-execution";
-import { validateCode } from "./validate-code";
+import { sdkDeclarations } from "./sdk-declarations";
 import { join } from "node:path";
 import { z } from "zod";
 import { Client, type RunCompletion } from "./client";
@@ -230,18 +230,6 @@ export class SessionJobs {
         const actionSource = actionVersionId
           ? actionBody(source, job.snapshot.execution)
           : undefined;
-        if (
-          actionSource !== undefined &&
-          job.snapshot.validation_mode === "semantic"
-        ) {
-          const validation = validateCode(actionSource, job.snapshot.sdk);
-          if (!validation.valid)
-            throw new Error(
-              validation.diagnostics
-                .map((diagnostic) => diagnostic.message)
-                .join("\n"),
-            );
-        }
         const reply = await this.manager.execute(command.id, scope, {
           id: command.cellId,
           generation: command.generation,
@@ -251,6 +239,10 @@ export class SessionJobs {
           ...(actionSource !== undefined && {
             actionVersionId,
             runId: job.run_id,
+            declarations: sdkDeclarations(
+              job.snapshot.sdk,
+              new Set(this.functions(job).map((fn) => fn.name.split(".")[0])),
+            ),
             executionSource: `return await (async () => {\n${actionSource}\n})();`,
             outputSchema: job.snapshot.output_schema,
           }),

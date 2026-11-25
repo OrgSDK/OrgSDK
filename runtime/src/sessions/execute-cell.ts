@@ -36,6 +36,7 @@ async function dispatchCell(
     cell.id,
     request.executionSource ?? cell.source,
     cell.inputs,
+    request.declarations,
   );
   if (isTerminal(session.history.status)) return;
   if (

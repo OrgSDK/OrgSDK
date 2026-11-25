@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { z } from "zod";
 import { join } from "node:path";
-import { fixture } from "./integration-fixture";
-import { Client } from "../../runtime/src/client";
-import { jobSchema } from "../../runtime/src/contract";
-import { SessionJobs } from "../../runtime/src/session-job";
+import { fixture } from "../../server/tests/integration-fixture";
+import { Client } from "./client";
+import { jobSchema } from "./contract";
+import { SessionJobs } from "./session-job";
 
 test("session action enforces its placement, live checks, version identity and cell order", async () => {
   const app = await fixture();
@@ -53,7 +53,7 @@ test("session action enforces its placement, live checks, version identity and c
           .result,
       );
     const source =
-      "const value = defineParams(z.object({value:z.string()})).value; await writeFile('result',value); return value;";
+      "const value = defineParams(z.object({value:z.string()})).value; await writeFile('result',value); return value + prior;";
     const input = {
       project,
       name: "Finish",
@@ -112,25 +112,28 @@ test("session action enforces its placement, live checks, version identity and c
       cellId: crypto.randomUUID(),
       expectedSequence: sequence,
     });
+    await finish(
+      await enqueue({ source: "const prior = 42;", session: command(0) }),
+    );
     const missed = await finish(
-      await enqueue({ ...selected, session: command(0) }),
+      await enqueue({ ...selected, session: command(1) }),
     );
     expect(missed.status).toBe("failed");
     expect(missed.error).toContain("Action requires a ready workspace");
     await finish(
       await enqueue({
-        source: "const value = 42; await writeFile('ready','yes');",
-        session: command(1),
+        source: "const value = prior; await writeFile('ready','yes');",
+        session: command(2),
       }),
     );
-    const pinned = command(2);
+    const pinned = command(3);
     const result = await finish(
       await enqueue({ ...selected, session: pinned }),
     );
     expect(result).toMatchObject({
       status: "succeeded",
       action_version: first.version.id,
-      output: { result: "complete" },
+      output: { result: "complete42" },
     });
     const receipt = await finish(
       await enqueue({ ...selected, session: pinned }),
@@ -150,7 +153,7 @@ test("session action enforces its placement, live checks, version identity and c
       error: "Cell ID was already used with a different payload",
     });
     const next = await finish(
-      await enqueue({ source: "return value;", session: command(3) }),
+      await enqueue({ source: "return value;", session: command(4) }),
     );
     expect(next.output.result).toMatchObject({
       cell: { status: "succeeded", result: 42 },

@@ -65,6 +65,7 @@ export function analyzeCell(
   history: string[],
   source: string,
   functions: string[],
+  declarations?: string,
 ): CellAnalysis {
   const earlier = history.length ? history.join("\n;\n") + "\n;\n" : "";
   const start = prefix.length + earlier.length;
@@ -74,7 +75,7 @@ export function analyzeCell(
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
     strict: true,
-    noImplicitAny: false,
+    noImplicitAny: declarations !== undefined,
     noEmit: true,
     skipLibCheck: true,
     types: [],
@@ -88,7 +89,7 @@ export function analyzeCell(
     path === sourcePath
       ? wrapped
       : path === globalsPath
-        ? globalDeclarations(functions)
+        ? (declarations ?? globalDeclarations(functions))
         : read(path);
   host.fileExists = (path) =>
     path === sourcePath || path === globalsPath || exists(path);

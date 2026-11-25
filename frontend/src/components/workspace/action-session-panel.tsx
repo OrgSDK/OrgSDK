@@ -56,13 +56,17 @@ export function ActionSessionPanel({
       );
       return value.success ? value.data : undefined;
     } catch {
-      return undefined;
+      return;
     }
   });
   function remember(value?: Handle) {
     setHandle(value);
-    if (value) sessionStorage.setItem(key, JSON.stringify(value));
-    else sessionStorage.removeItem(key);
+    try {
+      if (value) sessionStorage.setItem(key, JSON.stringify(value));
+      else sessionStorage.removeItem(key);
+    } catch {
+      // The open tab can keep its handle when browser storage is unavailable.
+    }
   }
   async function submit(kind: "open" | "read" | "close" | "cell" | "action") {
     setBusy(true);
