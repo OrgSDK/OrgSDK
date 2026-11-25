@@ -318,7 +318,8 @@ function ActionWorkspace({
       ...(selected && { action: selected.id }),
       name: name.trim(),
       source,
-      ...((mode !== "standalone" ||
+      ...((latest?.execution !== undefined ||
+        mode !== "standalone" ||
         conditions !== conditionsText() ||
         storedExecution.mode !== mode ||
         savedConditions !== conditionsText()) && {
