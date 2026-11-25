@@ -58,6 +58,7 @@ test("the updater keeps a recoverable installation and changes the selected vers
     expect(
       await readFile(join(copied, "executor", "project-proof"), "utf8"),
     ).toBe("preserved");
+    expect(await readdir(copied)).not.toContain("server.lock");
     const restored = openStore(copied);
     try {
       expect(

@@ -40,6 +40,8 @@ For a local Linux Docker runner, build the image with `docker build -t orgsdk-ex
 
 Installation data defaults to `~/.local/share/orgsdk`; executor data defaults to its `executor/` subdirectory. Package installation and upgrades do not delete it. SQLite startup applies pending generated migrations; `orgsdk migrate` applies them while stopped. Existing Bun-created password hashes remain usable under Node.js. Do not use an experimental Django-era database.
 
+On restart, OrgSDK automatically reclaims an empty `server.pid` or one whose process has exited. A running owner keeps exclusive access. A malformed nonempty PID file still requires inspection. Leave `server.lock` in the installation directory, including between restarts. The operating system releases its lock when the owning process exits or the computer restarts.
+
 Before upgrading, stop OrgSDK and preserve the database, matching encryption key and executor project folders. Install the selected version with `npm install -g @orgsdk/cli@VERSION`, then run `orgsdk start` with the same data directory. Startup applies pending migrations. Restore into a separate installation for recovery; reinstalling an older package does not reverse database migrations.
 
 `orgsdk backup DESTINATION` creates a verified database snapshot. Preserve the encryption key and executor data separately. Stop the installation before restoring into a separate empty data directory, restore the matching encryption key, and test recovery before changing an existing installation. A database backup does not contain project files or recover encrypted credentials without the original key.

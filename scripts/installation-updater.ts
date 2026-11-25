@@ -20,7 +20,7 @@ import { delimiter, join, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { z } from "zod";
 import { newerStable, stableVersion } from "../server/platform/stable-release";
-import { serverLock } from "../server/platform/server-lock";
+import { serverLock, serverLockGuard } from "../server/platform/server-lock";
 
 const run = promisify(execFile);
 const versionFile = "active-version";
@@ -139,6 +139,7 @@ async function preserveInstallation(
     if (
       [
         "server.pid",
+        serverLockGuard,
         "orgsdk.sqlite3",
         "orgsdk.sqlite3-wal",
         "orgsdk.sqlite3-shm",
