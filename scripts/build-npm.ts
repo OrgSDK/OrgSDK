@@ -14,6 +14,7 @@ execFileSync(npm, ["--prefix", "frontend", "run", "build:installation"], {
 execFileSync(npm, ["--prefix", "runtime", "run", "build"], {
   stdio: "inherit",
 });
+await rm("dist/launcher", { recursive: true, force: true });
 await rm("dist/server", { recursive: true, force: true });
 await rm("dist/runtime", { recursive: true, force: true });
 await mkdir("dist/server", { recursive: true });
@@ -29,8 +30,9 @@ await build({
   external: ["bun:*"],
 });
 await build({
-  entryPoints: ["scripts/installation-updater.ts"],
-  outfile: "dist/launcher/updates.js",
+  entryPoints: { updates: "scripts/installation-updater.ts" },
+  outdir: "dist/launcher",
+  splitting: true,
   bundle: true,
   platform: "node",
   target: "node22.22",
