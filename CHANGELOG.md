@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.7.0
+
+### Added
+
+- Agents with feedback permission can report friction and plugin failures directly to the private OrgSDK maintainer inbox.
+
 ## 2.6.2
 
 ### Fixed
