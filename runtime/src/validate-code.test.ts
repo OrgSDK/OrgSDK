@@ -100,6 +100,44 @@ test("safe plugin signatures enforce types and incomplete metadata stays unknown
   ).toBe(false);
 });
 
+test("keyword properties on one named tool preserve inference across the plugin", () => {
+  const plugins = [
+    {
+      namespace: "github",
+      available: true,
+      metadata_complete: true,
+      tools: [
+        {
+          name: "listRepos",
+          calling: "named",
+          parameters: [{ name: "type", type: "string" }],
+          returnType: "Promise<{private: boolean}[]>",
+        },
+        {
+          name: "getWorkflowRun",
+          calling: "named",
+          parameters: [{ name: "runId", type: "number" }],
+          returnType: "Promise<{conclusion: string}>",
+        },
+      ],
+    },
+  ];
+  const source = [
+    "const repos = await github.listRepos({type: 'owner'});",
+    "const run = await github.getWorkflowRun({runId: 12});",
+    "return repos.filter(repo => repo.private && run.conclusion === 'failure');",
+  ].join("\n");
+  expect(validateCode(source, { plugins }).diagnostics).toEqual([]);
+  expect(
+    validateCode(source.replace("run.conclusion", "run.missing"), { plugins })
+      .valid,
+  ).toBe(false);
+  expect(
+    validateCode(source.replace("type: 'owner'", "type: 42"), { plugins })
+      .valid,
+  ).toBe(false);
+});
+
 test("metadata cannot inject declarations or expose arbitrary environment types", () => {
   const result = validateCode("return process;", {
     plugins: [
