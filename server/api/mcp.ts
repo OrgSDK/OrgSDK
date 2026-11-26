@@ -11,6 +11,7 @@ import definitions from "./mcp-tools.json";
 
 const scopes: Record<string, string | string[]> = {
   submit_feedback: "feedback:submit",
+  search_plugin_library: "catalog:read",
   list_project_plugins: "plugins:configure",
   configure_plugin: "plugins:configure",
   list_projects: "catalog:read",
@@ -178,6 +179,7 @@ export async function handleMcp(ctx: AppContext): Promise<Response | null> {
                     ].includes(cause.code)) ||
                     (cause.code === "PRECONDITION_FAILED" &&
                       [
+                        "search_plugin_library",
                         "open_session",
                         "execute_cell",
                         "run_action_in_session",
