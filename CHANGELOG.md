@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.8.0
+
+### Added
+
+- Search the plugin library by task through MCP to see published versions, setup requirements and documentation before installation.
+
 ## 2.7.1
 
 ### Fixed
