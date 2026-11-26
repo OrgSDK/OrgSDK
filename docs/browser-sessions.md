@@ -28,6 +28,8 @@ A project using the external Browser CDP plugin can use its named operations ins
 
 ### Configure an installed plugin from MCP
 
+A client with `catalog:read` can call `search_plugin_library({ query: "browser smoke test" })` before installing any plugins. Use a task, name, category or tag, up to 200 characters. The tool returns up to five matches by default. Set `limit` from 1 through 10. Each result identifies the matching capability, the version listed first in the configured release feed (as in Studio), authentication mode and setup information. Follow the plugin page, guides and worked examples in the response. Older feeds can omit these links, in which case `documentation.missing_links` identifies the omissions. An unmatched query returns an empty list. A feed failure returns a tool error.
+
 A workspace owner or admin can create a client token with the optional `plugins:configure` scope and a grant for the project. Call `list_project_plugins({ project })` to find the installed plugin's ID, revision, configuration schema, and credential status. For an unauthenticated Browser CDP endpoint, call `configure_plugin` with the returned `id` and `revision` and a configuration such as `{ "cdpEndpoint": "http://localhost:9222" }`. The runner must be able to reach that address.
 
 `configuration` replaces the full settings object when supplied. For a token-based plugin, pass `credential: { name, secret }` to store and attach a new credential in the same operation. Browser CDP accepts `secret_apiKey` in that object. Use a trusted client for supplying secrets. Tool results report whether a credential is connected and keep stored secret values private.

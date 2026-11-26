@@ -1,0 +1,5 @@
+{
+  "type": "minor",
+  "category": "added",
+  "summary": "Search the plugin library by task through MCP to see published versions, setup requirements and documentation before installation."
+}
