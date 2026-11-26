@@ -10,6 +10,7 @@ import { createProcedure } from "./create";
 import { updateProcedure } from "./update";
 import { deleteProcedure } from "./delete";
 import { catalogProcedure } from "./catalog";
+import { searchLibraryProcedure } from "./search-library";
 import { marketplaceProcedure } from "./marketplace";
 export const pluginsRouter = router({
   mcp: mcpRouter,
@@ -24,4 +25,5 @@ export const pluginsRouter = router({
   delete: deleteProcedure,
   catalog: catalogProcedure,
   marketplace: marketplaceProcedure,
+  searchLibrary: searchLibraryProcedure,
 });

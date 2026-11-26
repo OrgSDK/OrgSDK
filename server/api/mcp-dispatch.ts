@@ -8,6 +8,7 @@ import {
 } from "../actions/schemas";
 import type { AppContext } from "../http/context";
 import { HttpError } from "../http/responses";
+import { librarySearchInput } from "../plugins/library-search";
 import { configurePluginSchema } from "../plugins/settings";
 import { feedbackInput } from "../feedback/contract";
 import { appRouter } from "../router";
@@ -152,6 +153,8 @@ export async function dispatchTool(
       return (await caller.approvals.list()).results.filter(
         (entry) => entry.status === "pending",
       );
+    case "search_plugin_library":
+      return caller.plugins.searchLibrary(librarySearchInput.parse(toolInput));
     case "list_project_plugins":
       return caller.plugins.settings({
         project: z.uuid().parse(toolInput.project),

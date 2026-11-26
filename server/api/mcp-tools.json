@@ -682,6 +682,30 @@
     "mutates": false
   },
   {
+    "name": "search_plugin_library",
+    "description": "Find plugins in the configured marketplace before installation. Describe a task or search by name, category or tag. Results include the best matching capability or use case, published release, authentication, setup and documentation links.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "\\S"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 5
+        }
+      },
+      "required": ["query"],
+      "additionalProperties": false
+    },
+    "mutates": false
+  },
+  {
     "name": "list_project_plugins",
     "description": "List configurable installed package plugins for a granted project. Returns the current configuration, schema, credential status and revision needed to configure a plugin. Credential values are private.",
     "inputSchema": {
