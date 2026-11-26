@@ -58,14 +58,13 @@ function record(value: unknown): Record<string, unknown> | undefined {
     ? (value as Record<string, unknown>)
     : undefined;
 }
+function safePropertyName(value: unknown): value is string {
+  return (
+    typeof value === "string" && value.length <= 100 && identifier.test(value)
+  );
+}
 function safeIdentifier(value: unknown): value is string {
-  if (
-    typeof value !== "string" ||
-    value.length > 100 ||
-    !identifier.test(value) ||
-    RESERVED_FUNCTION_KEYS.has(value)
-  )
-    return false;
+  if (!safePropertyName(value)) return false;
   const scanner = ts.createScanner(
     ts.ScriptTarget.Latest,
     false,
@@ -131,7 +130,7 @@ function renderType(node: ts.TypeNode, depth = 0): string {
         !member.type ||
         !member.name ||
         !ts.isIdentifier(member.name) ||
-        !safeIdentifier(member.name.text)
+        !safePropertyName(member.name.text)
       )
         return "unknown";
       fields.push(
@@ -188,7 +187,7 @@ function pluginDeclaration(
     const tool = record(value);
     if (
       !tool ||
-      !safeIdentifier(tool.name) ||
+      !safePropertyName(tool.name) ||
       names.has(tool.name) ||
       !Array.isArray(tool.parameters) ||
       tool.parameters.length > 30
@@ -206,11 +205,12 @@ function pluginDeclaration(
     const parameterNames = new Set<string>();
     let optionalSeen = false;
     let hasRequired = false;
+    const validParameterName = isNamed ? safePropertyName : safeIdentifier;
     for (const value of tool.parameters) {
       const parameter = record(value);
       if (
         !parameter ||
-        !safeIdentifier(parameter.name) ||
+        !validParameterName(parameter.name) ||
         parameterNames.has(parameter.name)
       )
         return fallback;
