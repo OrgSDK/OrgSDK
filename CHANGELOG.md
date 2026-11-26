@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.7.1
+
+### Fixed
+
+- Studio and the executor now preserve plugin return types when named properties use TypeScript keywords, including the GitHub plugin’s type filter.
+
 ## 2.7.0
 
 ### Added
