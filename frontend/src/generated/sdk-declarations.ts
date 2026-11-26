@@ -105,7 +105,10 @@ function record(value: unknown): Record<string, unknown> | undefined {
 }
 function safePropertyName(value: unknown): value is string {
   return (
-    typeof value === "string" && value.length <= 100 && identifier.test(value)
+    typeof value === "string" &&
+    value.length <= 100 &&
+    identifier.test(value) &&
+    !RESERVED_FUNCTION_KEYS.has(value)
   );
 }
 function safeIdentifier(value: unknown): value is string {
