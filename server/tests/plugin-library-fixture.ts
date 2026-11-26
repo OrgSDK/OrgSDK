@@ -1,4 +1,6 @@
-export function listing(slug: string, description: string) {
+import type { MarketplaceListing } from "../plugins/library-search";
+
+export function listing(slug: string, description: string): MarketplaceListing {
   return {
     slug,
     display_name: slug,

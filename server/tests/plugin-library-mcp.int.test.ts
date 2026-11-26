@@ -164,21 +164,21 @@ test("stable ranking, limits, empty searches and compatible Studio listings", as
   const client = fixture.caller(await reader());
   const searchLibrary = (query: string, limit?: number) =>
     client.plugins.searchLibrary({ query, limit });
-  const a = {
+  const alpha = {
     ...listing("alpha", "Data recovery"),
-    release_status: "unreleased",
+    release_status: "unreleased" as const,
   };
-  const b = listing("beta", "Data recovery");
-  listings = { schema_version: 1, plugins: [b, a] };
+  const beta = listing("beta", "Data recovery");
+  listings = { schema_version: 1, plugins: [beta, alpha] };
   expect((await searchLibrary("Developer")).map((item) => item.slug)).toEqual([
     "alpha",
     "beta",
   ]);
-  listings = { schema_version: 1, plugins: [a, b] };
+  listings = { schema_version: 1, plugins: [alpha, beta] };
   expect(await searchLibrary("recovery", 1)).toMatchObject([
     { slug: "alpha", published_version: null, availability: "unreleased" },
   ]);
-  expect(await fixture.caller().plugins.marketplace()).toEqual([a, b]);
+  expect(await fixture.caller().plugins.marketplace()).toEqual([alpha, beta]);
   expect(await searchLibrary("cytology")).toEqual([]);
   process.env.PLUGIN_MARKETPLACE_URL = "";
   expect(await searchLibrary("recovery")).toEqual([]);
